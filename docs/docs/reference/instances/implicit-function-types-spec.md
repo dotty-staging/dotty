@@ -3,7 +3,7 @@ layout: doc-page
 title: "Implicit Function Types - More Details"
 ---
 
-Initial implementation in (#1775)[https://github.com/lampepfl/dotty/pull/1775].
+Initial implementation in [#1775](https://github.com/lampepfl/dotty/pull/1775).
 
 ## Syntax
 
@@ -59,9 +59,9 @@ abbreviated to `x |=> e`.
 A implicit parameter may also be a wildcard represented by an underscore `_`. In
 that case, a fresh name for the parameter is chosen arbitrarily.
 
-Note: The closing paragraph of the [Anonymous Functions section](https://www
-.scala-lang.org/files/archive/spec/2.12/06-expressions.html#anonymous-
-functions) of the Scala 2.12 is subsumed by implicit function types and should
+Note: The closing paragraph of the
+[Anonymous Functions section](https://www.scala-lang.org/files/archive/spec/2.12/06-expressions.html#anonymous-functions)
+of the Scala 2.12 is subsumed by implicit function types and should
 be removed.
 
 Anonymous implicit functions `(x1: T1, ..., xn: Tn) |=> e` are
@@ -78,9 +78,9 @@ documentation](https://dotty.epfl.ch/docs/reference/dropped-features/limit22.htm
 
 See the section on Expressiveness from [Simplicitly: foundations and
 applications of implicit function
-types](https://dl.acm.org/citation.cfm?id=3158130). I've extracted it in [this
-Gist](https://gist.github.com/OlivierBlanvillain/234d3927fe9e9c6fba074b53a7bd9
-592), it might easier to access than the pdf.
+types](https://dl.acm.org/citation.cfm?id=3158130). I've extracted it in
+[this Gist](https://gist.github.com/OlivierBlanvillain/234d3927fe9e9c6fba074b53a7bd9592),
+it might easier to access than the pdf.
 
 ### Type Checking
 

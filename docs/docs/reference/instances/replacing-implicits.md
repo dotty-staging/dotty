@@ -63,7 +63,8 @@ The syntax changes for this page are summarized as follows:
 InstanceBody     ::=  ...
                    |  ‘of’ Type ‘=’ Expr
 ```
-In addition, the `implicit` modifier is removed together with all [productions]((http://dotty.epfl.ch/docs/internals/syntax.html) that reference it.
+In addition, the `implicit` modifier is removed together with all
+[productions](http://dotty.epfl.ch/docs/internals/syntax.html) that reference it.
 
 ## Further Reading
 

@@ -108,4 +108,5 @@ InstanceDef     ::=  ...
                   |  id InstanceParams ‘:’ Type ‘=’ Expr
                   |  id ‘=’ Expr
 ```
-In addition, the `implicit` modifier is removed together with all [productions]((http://dotty.epfl.ch/docs/internals/syntax.html) that reference it.
+In addition, the `implicit` modifier is removed together with all
+[productions](http://dotty.epfl.ch/docs/internals/syntax.html) that reference it.
