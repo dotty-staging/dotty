@@ -119,56 +119,56 @@ class ReifyQuotes extends MacroTransform {
       new QuoteReifier(this, capturers, nestedEmbedded, ctx.owner)(ctx)
     }
 
-    /** Assuming <expr> contains types `${<tag1>}, ..., ${<tagN>}`, the expression
-     *
-     *      { @quoteTypeTag type <Type1> = ${<tag1>}
-     *        ...
-     *        @quoteTypeTag type <TypeN> = ${<tagN>}
-     *        <expr>
-     *      }
-     *
-     *  references to `TypeI` in `expr` are rewired to point to the locally
-     *  defined versions. As a side effect, prepend the expressions `tag1, ..., `tagN`
-     *  as splices.
-     */
-    private def addTags(expr: Tree)(implicit ctx: Context): Tree = {
+    // /** Assuming <expr> contains types `${<tag1>}, ..., ${<tagN>}`, the expression
+    //  *
+    //  *      { @quoteTypeTag type <Type1> = ${<tag1>}
+    //  *        ...
+    //  *        @quoteTypeTag type <TypeN> = ${<tagN>}
+    //  *        <expr>
+    //  *      }
+    //  *
+    //  *  references to `TypeI` in `expr` are rewired to point to the locally
+    //  *  defined versions. As a side effect, prepend the expressions `tag1, ..., `tagN`
+    //  *  as splices.
+    //  */
+    // private def addTags(expr: Tree)(implicit ctx: Context): Tree = {
 
-      def mkTagSymbolAndAssignType(spliced: TermRef): TypeDef = {
-        val splicedTree = tpd.ref(spliced).withSpan(expr.span)
-        val rhs = transform(splicedTree.select(tpnme.splice))
-        val alias = ctx.typeAssigner.assignType(untpd.TypeBoundsTree(rhs, rhs), rhs, rhs, EmptyTree)
-        val local = ctx.newSymbol(
-          owner = ctx.owner,
-          name = UniqueName.fresh((splicedTree.symbol.name.toString + "$_").toTermName).toTypeName,
-          flags = Synthetic,
-          info = TypeAlias(splicedTree.tpe.select(tpnme.splice)),
-          coord = spliced.termSymbol.coord).asType
-        local.addAnnotation(Annotation(defn.InternalQuoted_QuoteTypeTagAnnot))
-        ctx.typeAssigner.assignType(untpd.TypeDef(local.name, alias), local)
-      }
+    //   def mkTagSymbolAndAssignType(spliced: TermRef): TypeDef = {
+    //     val splicedTree = tpd.ref(spliced).withSpan(expr.span)
+    //     val rhs = transform(splicedTree.select(tpnme.splice))
+    //     val alias = ctx.typeAssigner.assignType(untpd.TypeBoundsTree(rhs, rhs), rhs, rhs, EmptyTree)
+    //     val local = ctx.newSymbol(
+    //       owner = ctx.owner,
+    //       name = UniqueName.fresh((splicedTree.symbol.name.toString + "$_").toTermName).toTypeName,
+    //       flags = Synthetic,
+    //       info = TypeAlias(splicedTree.tpe.select(tpnme.splice)),
+    //       coord = spliced.termSymbol.coord).asType
+    //     local.addAnnotation(Annotation(defn.InternalQuoted_QuoteTypeTagAnnot))
+    //     ctx.typeAssigner.assignType(untpd.TypeDef(local.name, alias), local)
+    //   }
 
-      val tagDefCache = new mutable.LinkedHashMap[Symbol, TypeDef]()
+    //   val tagDefCache = new mutable.LinkedHashMap[Symbol, TypeDef]()
 
-      def typeTagMap = new TypeMap() {
-        def apply(tp: Type): Type = tp match {
-          case tp: TypeRef if tp.symbol.isSplice =>
-            tp.prefix match {
-              case prefix: TermRef =>
-                val tagDef = tagDefCache.getOrElseUpdate(prefix.symbol, mkTagSymbolAndAssignType(prefix))
-                tagDef.symbol.typeRef
-            }
-          case AnnotatedType(parent, _) =>
-            apply(parent) // Only keep the Annotated tree
-          case _ =>
-            mapOver(tp)
-        }
-      }
+    //   def typeTagMap = new TypeMap() {
+    //     def apply(tp: Type): Type = tp match {
+    //       case tp: TypeRef if tp.symbol.isSplice =>
+    //         tp.prefix match {
+    //           case prefix: TermRef =>
+    //             val tagDef = tagDefCache.getOrElseUpdate(prefix.symbol, mkTagSymbolAndAssignType(prefix))
+    //             tagDef.symbol.typeRef
+    //         }
+    //       case AnnotatedType(parent, _) =>
+    //         apply(parent) // Only keep the Annotated tree
+    //       case _ =>
+    //         mapOver(tp)
+    //     }
+    //   }
 
-      val tagedTree = new TreeTypeMap(typeMap = typeTagMap).apply(expr)
+    //   val tagedTree = new TreeTypeMap(typeMap = typeTagMap).apply(expr)
 
-      if (tagDefCache.isEmpty) expr
-      else Block(tagDefCache.valuesIterator.toList, tagedTree)
-    }
+    //   if (tagDefCache.isEmpty) expr
+    //   else Block(tagDefCache.valuesIterator.toList, tagedTree)
+    // }
 
     /** Split `body` into a core and a list of embedded splices.
      *  Then if inside a splice, make a hole from these parts.
@@ -365,10 +365,10 @@ class ReifyQuotes extends MacroTransform {
       level == 1 && levelOf(sym).contains(1) && capturers.contains(sym)
 
     /** Transform `tree` and return the resulting tree and all `embedded` quotes
-     *  or splices as a pair, after performing the `addTags` transform.
+     *  or splices as a pair.
      */
     private def splitQuote(tree: Tree)(implicit ctx: Context): (Tree, List[Tree]) = {
-      val tree1 = addTags(transform(tree))
+      val tree1 = transform(tree)
       (tree1, embedded.getTrees)
     }
 

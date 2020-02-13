@@ -21,6 +21,7 @@ import dotty.tools.dotc.transform.TreeMapWithStages._
 import dotty.tools.dotc.typer.Checking
 import dotty.tools.dotc.typer.Implicits.SearchFailureType
 import dotty.tools.dotc.typer.Inliner
+import dotty.tools.dotc.core.Annotations._
 
 import scala.collection.mutable
 import dotty.tools.dotc.util.SourcePosition
@@ -54,10 +55,67 @@ class PCPCheckAndHeal(@constructorOnly ictx: Context) extends TreeMapWithStages(
 
   /** Transform quoted trees while maintaining phase correctness */
   override protected def transformQuotation(body: Tree, quote: Tree)(implicit ctx: Context): Tree = {
+    val taggedTypes = mutable.LinkedHashMap.empty[Symbol, TermRef]
+    given Context =
+      if level(ctx) == 0 then contextTaggedTypes(taggedTypes)(ctx)
+      else ctx
+
     if (ctx.property(InAnnotation).isDefined)
       ctx.error("Cannot have a quote in an annotation", quote.sourcePos)
+
+    def mkTagSymbolAndAssignType(spliced: TermRef): TypeDef = {
+      val splicedTree = tpd.ref(spliced).withSpan(quote.span)
+      val rhs = splicedTree.select(tpnme.splice)
+      val alias = ctx.typeAssigner.assignType(untpd.TypeBoundsTree(rhs, rhs), rhs, rhs, EmptyTree)
+      val local = ctx.newSymbol(
+        owner = ctx.owner,
+        name = UniqueName.fresh((splicedTree.symbol.name.toString + "$_").toTermName).toTypeName,
+        flags = Synthetic,
+        info = TypeAlias(splicedTree.tpe.select(tpnme.splice)),
+        coord = spliced.termSymbol.coord).asType
+      local.addAnnotation(Annotation(defn.InternalQuoted_QuoteTypeTagAnnot))
+      ctx.typeAssigner.assignType(untpd.TypeDef(local.name, alias), local)
+    }
+
     val body1 = transform(body)(quoteContext)
-    super.transformQuotation(body1, quote)
+    val body2 =
+      if level == 0 then
+
+        val tags = taggedTypes.valuesIterator.map(tref => mkTagSymbolAndAssignType(tref)).toList
+
+        val map: Map[Symbol, Symbol] = taggedTypes.keys.lazyZip(tags.map(_.symbol)).toMap
+
+        def typeMap = new TypeMap() {
+          def apply(tp: Type): Type = tp match {
+            // case tp: TypeRef if tp.symbol.isSplice =>
+            //   tp.prefix match {
+            //     case prefix: TermRef =>
+            //       val tagDef = tagDefCache.getOrElseUpdate(prefix.symbol, mkTagSymbolAndAssignType(prefix))
+            //       tagDef.symbol.typeRef
+            //   }
+            case AnnotatedType(parent, _) =>
+              apply(parent) // Only keep the Annotated tree
+            case _ =>
+              mapOver(tp)
+          }
+        }
+
+        def treeMap(t: Tree): Tree = t match {
+          case t: Ident => map.get(t.symbol).map(tpd.ref).getOrElse(t)
+          case _ => t
+        }
+        val tagedTree =
+          new TreeTypeMap(
+            // typeMap = typeMap,
+            treeMap = treeMap,
+            substFrom = taggedTypes.keys.toList,
+            substTo = tags.map(_.symbol)
+          ).apply(body1)
+        tpd.Block(tags, tagedTree)
+
+      else body1
+    super.transformQuotation(body2, quote)
+
   }
 
   /** Transform splice
@@ -212,10 +270,12 @@ class PCPCheckAndHeal(@constructorOnly ictx: Context) extends TreeMapWithStages(
   protected def tryHeal(sym: Symbol, tp: TypeRef, pos: SourcePosition)(implicit ctx: Context): Option[Tree] = {
     val reqType = defn.QuotedTypeClass.typeRef.appliedTo(tp)
     val tag = ctx.typer.inferImplicitArg(reqType, pos.span)
+
     tag.tpe match
       case tp: TermRef =>
         checkStable(tp, pos)
-        Some(tag.select(tpnme.splice))
+        getTaggedTypes.put(sym, tp)
+        None
       case _: SearchFailureType =>
         levelError(sym, tp, pos,
                     i"""

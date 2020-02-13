@@ -48,7 +48,7 @@ class Staging extends MacroTransform {
                 if (sym.is(ModuleClass)) sym.sourceModule.show
                 else i"${sym.name}.this"
               val errMsg = s"\nin ${ctx.owner.fullName}"
-              assert(false,
+              assert(sym.isType && levelOf(sym).getOrElse(0) > 0,
                 em"""access to $symStr from wrong staging level:
                     | - the definition is at level ${levelOf(sym).getOrElse(0)},
                     | - but the access is at level $level.$errMsg""")
