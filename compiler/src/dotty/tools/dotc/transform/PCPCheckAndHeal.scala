@@ -65,19 +65,20 @@ class PCPCheckAndHeal(@constructorOnly ictx: Context) extends TreeMapWithStages(
 
     def mkTagSymbolAndAssignType(spliced: TermRef): TypeDef = {
       val splicedTree = tpd.ref(spliced).withSpan(quote.span)
-      val rhs = splicedTree.select(tpnme.splice)
+      val rhs = splicedTree.select(tpnme.splice).withSpan(body.span)
       val alias = ctx.typeAssigner.assignType(untpd.TypeBoundsTree(rhs, rhs), rhs, rhs, EmptyTree)
       val local = ctx.newSymbol(
         owner = ctx.owner,
         name = UniqueName.fresh((splicedTree.symbol.name.toString + "$_").toTermName).toTypeName,
         flags = Synthetic,
         info = TypeAlias(splicedTree.tpe.select(tpnme.splice)),
-        coord = spliced.termSymbol.coord).asType
+        coord = body.span).asType
       local.addAnnotation(Annotation(defn.InternalQuoted_QuoteTypeTagAnnot))
       ctx.typeAssigner.assignType(untpd.TypeDef(local.name, alias), local)
     }
 
     val body1 = transform(body)(quoteContext)
+
     val body2 =
       if level == 0 then
 
@@ -101,7 +102,7 @@ class PCPCheckAndHeal(@constructorOnly ictx: Context) extends TreeMapWithStages(
         }
 
         def treeMap(t: Tree): Tree = t match {
-          case t: Ident => map.get(t.symbol).map(tpd.ref).getOrElse(t)
+          case t: Ident => map.get(t.symbol).map(x => tpd.ref(x).withSpan(t.span)).getOrElse(t)
           case _ => t
         }
         val tagedTree =
@@ -111,9 +112,10 @@ class PCPCheckAndHeal(@constructorOnly ictx: Context) extends TreeMapWithStages(
             substFrom = taggedTypes.keys.toList,
             substTo = tags.map(_.symbol)
           ).apply(body1)
-        tpd.Block(tags, tagedTree)
+        tpd.Block(tags, tagedTree).withSpan(body.span)
 
       else body1
+
     super.transformQuotation(body2, quote)
 
   }
