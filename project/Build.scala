@@ -680,6 +680,8 @@ object Build {
       "-sourcepath", (sourceDirectories in Compile).value.map(_.getAbsolutePath).distinct.mkString(File.pathSeparator),
      // support declaration of scala.compiletime.erasedValue
       "-Yerased-terms"
+        // TODO: drop after bootstrap with erasure language import
+        // scala.compile now contains the roght language import so no global setting is needed
     ),
   )
 
