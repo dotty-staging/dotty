@@ -37,8 +37,14 @@ object language:
       */
     object genericNumberLiterals
 
-    /** Experimental support for `erased` modifier */
+    /** Experimental support for `erased` modifier
+     *
+     *  @see [[https://dotty.epfl.ch/docs/reference/metaprogramming/erased-terms]]
+     */
     object erasedTerms
+
+    /** Experimental support for typechecked exception capabilities */
+    object saferExceptions
 
   end experimental
 

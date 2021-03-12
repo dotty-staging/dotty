@@ -19,12 +19,13 @@ object Feature:
   private def deprecated(str: String): TermName =
     QualifiedName(nme.deprecated, str.toTermName)
 
-  private val namedTypeArguments = experimental("namedTypeArguments")
-  private val genericNumberLiterals = experimental("genericNumberLiterals")
-  private val macros = experimental("macros")
+  val namedTypeArguments = experimental("namedTypeArguments")
+  val genericNumberLiterals = experimental("genericNumberLiterals")
+  val macros = experimental("macros")
 
   val dependent = experimental("dependent")
   val erasedTerms = experimental("erasedTerms")
+  val saferExceptions = experimental("saferExceptions")
   val symbolLiterals: TermName = deprecated("symbolLiterals")
 
 /** Is `feature` enabled by by a command-line setting? The enabling setting is

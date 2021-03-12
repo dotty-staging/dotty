@@ -9,6 +9,7 @@ title: "Erased Terms And Classes"
 import scala.language.experimental.erased
 ```
 or by setting the command line option `-language:experimental.erased`.
+
 ## Why erased terms?
 
 Let's describe the motivation behind erased terms with an example. In the

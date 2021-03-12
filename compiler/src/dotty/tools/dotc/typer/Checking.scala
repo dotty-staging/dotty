@@ -34,8 +34,10 @@ import NameOps._
 import SymDenotations.{NoCompleter, NoDenotation}
 import Applications.unapplyArgs
 import transform.patmat.SpaceEngine.isIrrefutableUnapply
-import config.Feature._
+import config.Feature
+import config.Feature.sourceVersion
 import config.SourceVersion._
+import transform.TypeUtils.*
 
 import collection.mutable
 import reporting._
@@ -889,7 +891,7 @@ trait Checking {
                    description: => String,
                    featureUseSite: Symbol,
                    pos: SrcPos)(using Context): Unit =
-    if !enabled(name) then
+    if !Feature.enabled(name) then
       report.featureWarning(name.toString, description, featureUseSite, required = false, pos)
 
   /** Check that `tp` is a class type and that any top-level type arguments in this type
@@ -1283,6 +1285,10 @@ trait Checking {
       report.warning(
         em"""${kind} should be an instance of Matchable,
             |but it has unmatchable type $tp instead""", pos)
+
+  def checkCanThrow(tp: Type, span: Span)(using Context): Unit =
+    if Feature.enabled(Feature.saferExceptions) && tp.isCheckedException then
+      ctx.typer.implicitArgTree(defn.CanThrowClass.typeRef.appliedTo(tp), span)
 }
 
 trait ReChecking extends Checking {
@@ -1295,6 +1301,7 @@ trait ReChecking extends Checking {
   override def checkAnnotApplicable(annot: Tree, sym: Symbol)(using Context): Boolean = true
   override def checkMatchable(tp: Type, pos: SrcPos, pattern: Boolean)(using Context): Unit = ()
   override def checkNoModuleClash(sym: Symbol)(using Context) = ()
+  override def checkCanThrow(tp: Type, span: Span)(using Context): Unit = ()
 }
 
 trait NoChecking extends ReChecking {

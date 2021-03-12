@@ -1,0 +1,26 @@
+-- Error: tests/neg/saferExceptions.scala:12:16 ------------------------------------------------------------------------
+12 |      case 4 => throw Exception()             // error
+   |                ^^^^^^^^^^^^^^^^^
+   |                The capability to throw exception Exception is missing.
+   |                The capability can be provided by one of the following:
+   |                 - A using clause `(using CanThrow[Exception])`
+   |                 - A `canThrow` clause in a result type such as `X canThrow Exception`
+   |                 - an enclosing `try` that catches Exception
+   |
+   |                The following import might fix the problem:
+   |
+   |                  import unsafeExceptions.canThrowAny
+   |
+-- Error: tests/neg/saferExceptions.scala:17:48 ------------------------------------------------------------------------
+17 |  def baz(x: Int): Int canThrow Failure = bar(x)  // error
+   |                                                ^
+   |                                The capability to throw exception java.io.IOException is missing.
+   |                                The capability can be provided by one of the following:
+   |                                 - A using clause `(using CanThrow[java.io.IOException])`
+   |                                 - A `canThrow` clause in a result type such as `X canThrow java.io.IOException`
+   |                                 - an enclosing `try` that catches java.io.IOException
+   |
+   |                                The following import might fix the problem:
+   |
+   |                                  import unsafeExceptions.canThrowAny
+   |
