@@ -117,7 +117,7 @@ a function `f` like this:
 val limit = 10e9
 class LimitExceeded extends Exception
 def f(x: Double): Double =
-  if x < limit then f(x) else throw LimitExceeded())
+  if x < limit then x * x else throw LimitExceeded()
 ```
 You'll get this error message:
 ```
@@ -136,7 +136,7 @@ You'll get this error message:
 As the error message implies, you have to declare that `f` needs the ability to throw a `LimitExceeded` exception. The most concise way to do so is to add a `canThrow` clause:
 ```scala
 def f(x: Double): Double canThrow LimitExceeded =
-  if x < limit then f(x) else throw LimitExceeded())
+  if x < limit then x * x else throw LimitExceeded()
 ```
 Now put a call to `f` in a `try` that catches `LimitExceeded`:
 ```scala
@@ -192,7 +192,7 @@ To summarize, the extension for safer exception checking consists of the followi
  - It augments the type checking of `throw` by _demanding_ a `CanThrow` ability or the thrown exception.
  - It augments the type checking of `try` by _providing_ `CanThrow` abilities for every caught exception.
 
-That's all. It's quite noteable that one can do exception checking in this way without any special additions to the type system. We just need regular givens and context functions. Any runtime overhead is eliminated using `erased`.
+That's all. It's quite remarkable that one can do exception checking in this way without any special additions to the type system. We just need regular givens and context functions. Any runtime overhead is eliminated using `erased`.
 
 ## Caveats
 
@@ -218,7 +218,7 @@ With the system presented here, this function typechecks, with expansion
 def escaped(xs: Double*): () => Int =
   try
     given ctl: CanThrow[LimitExceeded] = ???
-    () => xs.map(f(using ctl)).sum
+    () => xs.map(x => f(x)(using ctl)).sum
   catch case ex: LimitExceeded => -1
 ```
 But if you try to call `escaped` like this
@@ -237,5 +237,5 @@ And it would have many other applications besides: Exceptions are a special case
 
 But even without these additional mechanisms, exception checking is already useful as it is. It gives a clear path forward to make code that uses exceptions safer, better documented, and easier to refactor. The only loophole arises for scoped abilities - here we have to verify manually that these abilities do not escape. Specifically, a `try` always has to be placed in the same computation stage as the throws that it enables.
 
-Put another way: If the status quo is 0% static checking since 100% is too painful, then an alternative that gives you to 95% static checking with great ergonomics looks like a win. And we might still get to 100% in the future.
+Put another way: If the status quo is 0% static checking since 100% is too painful, then an alternative that gives you 95% static checking with great ergonomics looks like a win. And we might still get to 100% in the future.
 
