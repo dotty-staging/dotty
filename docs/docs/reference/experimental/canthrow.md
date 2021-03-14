@@ -62,7 +62,7 @@ In the _effects as abilities_ model, an effect is expressed as an (implicit) par
 ```scala
 erased class CanThrow[-E <: Exception]
 ```
-This shows another experimental Scala feature: [erased definitions](../metaprogramming/erased-terms.html). Roughly speaking, values of an erased class do not generate runtime code; they are erased before code generation. This means that all `CanThrow` abilities are compile-time only artifacts; they do not have a runtime footprint.
+This shows another experimental Scala feature: [erased definitions](../metaprogramming/erased-terms). Roughly speaking, values of an erased class do not generate runtime code; they are erased before code generation. This means that all `CanThrow` abilities are compile-time only artifacts; they do not have a runtime footprint.
 
 Now, if the compiler sees a `throw Exc()` construct where `Exc` is a checked exception, it will check that there is an ability of type `CanThrow[Exc]` that can be summoned as a given. It's a compile-time error if that's not the case.
 
@@ -188,7 +188,7 @@ enable more fluid explorations of code without regard for complete exception saf
 
 To summarize, the extension for safer exception checking consists of the following elements:
 
- - It adds to the standard library the class `CanThrow`, the type `canThrow`, and the `unsafeExceptions` object, as they were described above.
+ - It adds to the standard library the class `scala.CanThrow`, the type `scala.canThrow`, and the `scala.unsafeExceptions` object, as they were described above.
  - It augments the type checking of `throw` by _demanding_ a `CanThrow` ability or the thrown exception.
  - It augments the type checking of `try` by _providing_ `CanThrow` abilities for every caught exception.
 
