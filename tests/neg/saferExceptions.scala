@@ -4,7 +4,9 @@ object test:
 
   class Failure extends Exception
 
-  def bar(x: Int): Int canThrow Failure canThrow IOException =
+  def bar(x: Int): Int
+      `canThrow` Failure
+      `canThrow` IOException =
     x match
       case 1 => throw AssertionError()
       case 2 => throw Failure()               // ok

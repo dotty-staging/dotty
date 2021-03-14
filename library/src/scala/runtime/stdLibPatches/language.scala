@@ -43,7 +43,10 @@ object language:
      */
     object erasedTerms
 
-    /** Experimental support for typechecked exception capabilities */
+    /** Experimental support for typechecked exception capabilities
+     *
+     *  @see [[https://dotty.epfl.ch/docs/reference/experimental/canthrow]]
+     */
     object saferExceptions
 
   end experimental

@@ -24,11 +24,11 @@ object TypeUtils {
     def isErasedClass(using Context): Boolean =
       self.underlyingClassRef(refinementOK = true).typeSymbol.is(Flags.Erased)
 
-    /** Is this type a checked exception? This is the case of the type
+    /** Is this type a checked exception? This is the case if the type
      *  derives from Exception but not from RuntimeException. According to
      *  that definition Throwable is unchecked. That makes sense since you should
      *  neither throw nor catch `Throwable` anyway, so we should not define
-     *  a capability to do so.
+     *  an ability to do so.
      */
     def isCheckedException(using Context): Boolean =
       self.derivesFrom(defn.ExceptionClass)
