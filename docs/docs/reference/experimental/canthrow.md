@@ -62,7 +62,7 @@ In the _effects as abilities_ model, an effect is expressed as an (implicit) par
 ```scala
 erased class CanThrow[-E <: Exception]
 ```
-This shows another experimental Scala feature: [erased definitions](../metaprogramming/erased-terms). Roughly speaking, values of an erased class do not generate runtime code; they are erased before code generation. This means that all `CanThrow` abilities are compile-time only artifacts; they do not have a runtime footprint.
+This shows another experimental Scala feature: [erased definitions](../metaprogramming/erased-terms.md). Roughly speaking, values of an erased class do not generate runtime code; they are erased before code generation. This means that all `CanThrow` abilities are compile-time only artifacts; they do not have a runtime footprint.
 
 Now, if the compiler sees a `throw Exc()` construct where `Exc` is a checked exception, it will check that there is an ability of type `CanThrow[Exc]` that can be summoned as a given. It's a compile-time error if that's not the case.
 
