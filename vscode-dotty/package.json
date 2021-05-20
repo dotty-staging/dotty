@@ -11,7 +11,7 @@
   },
   "icon": "images/dotty-logo.png",
   "engines": {
-    "vscode": "^1.30.0"
+    "vscode": "^1.32.0"
   },
   "categories": [
     "Programming Languages"
@@ -110,7 +110,7 @@
     "vscode:prepublish": "npm install && ./node_modules/.bin/tsc -p ./",
     "compile": "./node_modules/.bin/tsc -p ./",
     "test": "node ./node_modules/vscode/bin/test",
-    "postinstall": "node ./node_modules/vscode/bin/install && curl -L -o out/coursier https://github.com/coursier/coursier/raw/v2.0.0-RC3-4/coursier"
+    "postinstall": "curl -L -o out/coursier https://github.com/coursier/coursier/raw/v2.0.0-RC3-4/coursier"
   },
   "extensionDependencies": [
     "scala-lang.scala"
@@ -118,11 +118,13 @@
   "dependencies": {
     "archiver": "^3.1.1",
     "compare-versions": "^3.5.1",
+    "mocha": "^8.4.0",
     "promisify-child-process": "^2.1.2",
     "request": "^2.88.0",
     "vscode-jsonrpc": "4.0.0",
     "vscode-languageclient": "^5.2.1",
     "vscode-languageserver": "^5.2.1",
+    "vscode-test": "^1.5.2",
     "ws": "^6.2.1"
   },
   "devDependencies": {
@@ -131,8 +133,8 @@
     "@types/mocha": "^5.2.7",
     "@types/node": "^10.14.18",
     "@types/request": "^2.48.3",
+    "@types/vscode": "^1.32.0",
     "@types/ws": "^6.0.3",
-    "typescript": "^3.6.3",
-    "vscode": "^1.1.36"
+    "typescript": "^3.6.3"
   }
 }

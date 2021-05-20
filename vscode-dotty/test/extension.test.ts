@@ -15,7 +15,7 @@ import * as dotty from '../src/extension';
 suite("vscode-dotty tests", function () {
 
     // Defines a Mocha unit test
-    test("dummy test", function() {
+    test("dummy test", function () {
         assert.equal(1, 1)
     });
 });
