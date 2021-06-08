@@ -39,7 +39,8 @@ import annotation.tailrec
 import Implicits._
 import util.Stats.record
 import config.Printers.{gadts, typr, debug}
-import config.Feature._
+import config.Feature
+import config.Feature.{sourceVersion, migrateTo3}
 import config.SourceVersion._
 import rewrites.Rewrites.patch
 import NavigateAST._
@@ -709,7 +710,7 @@ class Typer extends Namer
           case Whole(16) => // cant parse hex literal as double
           case _         => return lit(doubleFromDigits(digits))
         }
-      else if genericNumberLiteralsEnabled
+      else if Feature.genericNumberLiteralsEnabled
           && target.isValueType && isFullyDefined(target, ForceDegree.none)
       then
         // If expected type is defined with a FromDigits instance, use that one
@@ -1739,10 +1740,30 @@ class Typer extends Namer
         .withNotNullInfo(body1.notNullInfo.retractedInfo.seq(cond1.notNullInfoIf(false)))
     }
 
+  /** Add givens reflecting `CanThrow` capabilities for all checked exceptions matched
+   *  by `cases`. The givens appear in nested blocks with earlier cases leading to
+   *  more deeply nested givens. This way, given priority will be the same as pattern priority.
+   *  The functionality is enabled if the experimental.saferExceptions language feature is enabled.
+   */
+  def addCanThrowCapabilities(expr: untpd.Tree, cases: List[CaseDef])(using Context): untpd.Tree =
+    def makeCanThrow(tp: Type): untpd.Tree =
+      untpd.ValDef(
+          EvidenceParamName.fresh(),
+          untpd.TypeTree(defn.CanThrowClass.typeRef.appliedTo(tp)),
+          untpd.ref(defn.Predef_undefined))
+        .withFlags(Given | Final | Lazy | Erased)
+        .withSpan(expr.span)
+    val caps =
+      for
+        CaseDef(pat, _, _) <- cases
+        if Feature.enabled(Feature.saferExceptions) && pat.tpe.widen.isCheckedException
+      yield makeCanThrow(pat.tpe.widen)
+    caps.foldLeft(expr)((e, g) => untpd.Block(g :: Nil, e))
+
   def typedTry(tree: untpd.Try, pt: Type)(using Context): Try = {
     val expr2 :: cases2x = harmonic(harmonize, pt) {
-      val expr1 = typed(tree.expr, pt.dropIfProto)
       val cases1 = typedCases(tree.cases, EmptyTree, defn.ThrowableType, pt.dropIfProto)
+      val expr1 = typed(addCanThrowCapabilities(tree.expr, cases1), pt.dropIfProto)
       expr1 :: cases1
     }
     val finalizer1 = typed(tree.finalizer, defn.UnitType)
@@ -1761,6 +1782,7 @@ class Typer extends Namer
 
   def typedThrow(tree: untpd.Throw)(using Context): Tree = {
     val expr1 = typed(tree.expr, defn.ThrowableType)
+    checkCanThrow(expr1.tpe.widen, tree.span)
     Throw(expr1).withSpan(tree.span)
   }
 
@@ -1856,7 +1878,7 @@ class Typer extends Namer
   def typedAppliedTypeTree(tree: untpd.AppliedTypeTree)(using Context): Tree = {
     tree.args match
       case arg :: _ if arg.isTerm =>
-        if dependentEnabled then
+        if Feature.dependentEnabled then
           return errorTree(tree, i"Not yet implemented: T(...)")
         else
           return errorTree(tree, dependentStr)
@@ -1953,7 +1975,7 @@ class Typer extends Namer
     typeIndexedLambdaTypeTree(tree, tparams, body)
 
   def typedTermLambdaTypeTree(tree: untpd.TermLambdaTypeTree)(using Context): Tree =
-    if dependentEnabled then
+    if Feature.dependentEnabled then
       errorTree(tree, i"Not yet implemented: (...) =>> ...")
     else
       errorTree(tree, dependentStr)
@@ -2370,7 +2392,7 @@ class Typer extends Namer
         ctx.phase.isTyper &&
         cdef1.symbol.ne(defn.DynamicClass) &&
         cdef1.tpe.derivesFrom(defn.DynamicClass) &&
-        !dynamicsEnabled
+        !Feature.dynamicsEnabled
       if (reportDynamicInheritance) {
         val isRequired = parents1.exists(_.tpe.isRef(defn.DynamicClass))
         report.featureWarning(nme.dynamics.toString, "extension of type scala.Dynamic", cls, isRequired, cdef.srcPos)
@@ -3437,7 +3459,7 @@ class Typer extends Namer
       def isAutoApplied(sym: Symbol): Boolean =
         sym.isConstructor
         || sym.matchNullaryLoosely
-        || warnOnMigration(MissingEmptyArgumentList(sym.show), tree.srcPos)
+        || Feature.warnOnMigration(MissingEmptyArgumentList(sym.show), tree.srcPos)
            && { patch(tree.span.endPos, "()"); true }
 
       // Reasons NOT to eta expand:
@@ -3787,7 +3809,7 @@ class Typer extends Namer
         case ref: TermRef =>
           pt match {
             case pt: FunProto
-            if needsTupledDual(ref, pt) && autoTuplingEnabled =>
+            if needsTupledDual(ref, pt) && Feature.autoTuplingEnabled =>
               adapt(tree, pt.tupledDual, locked)
             case _ =>
               adaptOverloaded(ref)
