@@ -27,5 +27,14 @@ object MiMaFilters {
     exclude[ReversedMissingMethodProblem]("scala.quoted.Quotes#reflectModule#SymbolMethods.typeMember"),
     exclude[ReversedMissingMethodProblem]("scala.quoted.Quotes#reflectModule#SymbolMethods.typeMembers"),
     exclude[ReversedMissingMethodProblem]("scala.quoted.Quotes#reflectModule#TermParamClauseMethods.isErased"),
+
+    // Experimental API for saferExceptions
+    exclude[MissingClassProblem]("scala.CanThrow"),
+    exclude[MissingClassProblem]("scala.CanThrow$package"),
+    exclude[MissingClassProblem]("scala.CanThrow$package$"),
+    exclude[MissingClassProblem]("scala.unsafeExceptions"),
+    exclude[MissingClassProblem]("scala.unsafeExceptions$"),
+    exclude[MissingFieldProblem]("scala.runtime.stdLibPatches.language#experimental.saferExceptions"),
+    exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$experimental$saferExceptions$"),
   )
 }
