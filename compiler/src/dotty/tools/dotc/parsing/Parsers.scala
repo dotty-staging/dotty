@@ -996,7 +996,13 @@ object Parsers {
 
     private def makeIdent(tok: Token, offset: Offset, name: Name) = {
       val tree = Ident(name)
-      if (tok == BACKQUOTED_IDENT) tree.pushAttachment(Backquoted, ())
+
+      if tok == BACKQUOTED_IDENT then
+        if name == nme.CONSTRUCTOR || name == nme.STATIC_CONSTRUCTOR then
+          report.error(
+            i"""Illegal backquoted identifier: `<init>` and `<clinit>` are forbidden""",
+            in.sourcePos())
+        tree.pushAttachment(Backquoted, ())
 
       // Make sure that even trees with parsing errors have a offset that is within the offset
       val errorOffset = offset min (in.lastOffset - 1)
