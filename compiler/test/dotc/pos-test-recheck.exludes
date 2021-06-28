@@ -6,5 +6,5 @@ i6199b.scala
 i6199c.scala
 
 # Skolemized type fails -Ycheck after recheck (NamedType caching problem?)
-i583.scala
+i583a.scala
 
