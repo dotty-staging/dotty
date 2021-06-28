@@ -24,7 +24,7 @@ abstract class Recheck extends Phase, IdentityDenotTransformer:
 
   def preRecheckPhase = this.prev.asInstanceOf[PreRecheck]
 
-  //override def isTyper = true
+  override def isEnabled(using Context) = ctx.settings.Yrecheck.value
 
   def run(using Context): Unit =
     val unit = ctx.compilationUnit

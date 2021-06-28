@@ -218,6 +218,15 @@ class CompilationTests {
     ).checkCompile()
   }
 
+  @Test def recheck: Unit =
+    given TestGroup = TestGroup("recheck")
+    aggregateTests(
+      compileFilesInDir("tests/new", recheckOptions),
+      compileFilesInDir("tests/pos", recheckOptions, FileFilter.exclude(TestSources.posTestRecheckExcluded)),
+      compileFilesInDir("tests/run", recheckOptions, FileFilter.exclude(TestSources.runTestRecheckExcluded))
+    ).checkCompile()
+
+
   /** The purpose of this test is three-fold, being able to compile dotty
    *  bootstrapped, and making sure that TASTY can link against a compiled
    *  version of Dotty, and compiling the compiler using the SemanticDB generation
