@@ -4,7 +4,3 @@ i6635a.scala
 # Cannot handle closures with skolem types
 i6199b.scala
 i6199c.scala
-
-# Skolemized type fails -Ycheck after recheck (NamedType caching problem?)
-i583a.scala
-
