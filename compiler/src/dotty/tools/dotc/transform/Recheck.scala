@@ -26,7 +26,10 @@ abstract class Recheck extends Phase, IdentityDenotTransformer:
 
   override def isEnabled(using Context) = ctx.settings.Yrecheck.value
   override def changesBaseTypes: Boolean = true
+
   override def isCheckable = false
+    // TODO: investigate what goes wrong we Ycheck directly after rechecking.
+    // One failing test is pos/i583a.scala
 
   def run(using Context): Unit =
     val unit = ctx.compilationUnit
@@ -101,19 +104,6 @@ abstract class Recheck extends Phase, IdentityDenotTransformer:
     def recheckDefDef(tree: DefDef, sym: Symbol)(using Context): Type =
       tree.paramss.foreach(_.foreach(enterDef))
       val rhsCtx = linkConstructorParams(sym)
-      /*if sym.isConstructor && !sym.isPrimaryConstructor then
-        // For secondary constructors we need a context that "knows"
-        // that their type parameters are aliases of the class type parameters.
-        // See pos/i941.scala
-        val tparamSyms = sym.paramSymss.flatten.filter(_.isType)
-        if tparamSyms.nonEmpty then
-          rhsCtx.setFreshGADTBounds
-          rhsCtx.gadt.addToConstraint(tparamSyms)
-          tparamSyms.lazyZip(sym.owner.typeParams).foreach { (psym, tparam) =>
-            val tr = tparam.typeRef
-            rhsCtx.gadt.addBound(psym, tr, isUpper = false)
-            rhsCtx.gadt.addBound(psym, tr, isUpper = true)
-          }*/
       if !tree.rhs.isEmpty && !sym.isInlineMethod && !sym.isEffectivelyErased then
         recheck(tree.rhs, tree.symbol.localReturnType)(using rhsCtx)
       sym.termRef
