@@ -26,6 +26,7 @@ abstract class Recheck extends Phase, IdentityDenotTransformer:
 
   override def isEnabled(using Context) = ctx.settings.Yrecheck.value
   override def changesBaseTypes: Boolean = true
+  override def isCheckable = false
 
   def run(using Context): Unit =
     val unit = ctx.compilationUnit
