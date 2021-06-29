@@ -11,7 +11,7 @@ case class C4/*<-classes::C4#*/(x/*<-classes::C4#x.*/: Int/*->scala::Int#*/)
 object C4/*<-classes::C4.*/
 
 object M/*<-classes::M.*/ {
-  implicit class C5/*<-classes::M.C5#*/(x/*<-classes::M.C5#x.*/: Int/*->scala::Int#*/)
+  /*->classes::M.C5().(x)*/implicit class C5/*<-classes::M.C5#*//*<-classes::M.C5().*/(x/*<-classes::M.C5#x.*//*<-classes::M.C5().(x)*/: Int/*->scala::Int#*/)
 }
 
 case class C6/*<-classes::C6#*/(private val x/*<-classes::C6#x.*/: Int/*->scala::Int#*/)

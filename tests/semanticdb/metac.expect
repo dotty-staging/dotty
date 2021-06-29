@@ -363,7 +363,7 @@ Uri => Classes.scala
 Text => empty
 Language => Scala
 Symbols => 109 entries
-Occurrences => 130 entries
+Occurrences => 134 entries
 
 Symbols:
 classes/C1# => final class C1
@@ -505,9 +505,13 @@ Occurrences:
 [9:17..9:20): Int -> scala/Int#
 [10:7..10:9): C4 <- classes/C4.
 [12:7..12:8): M <- classes/M.
+[13:2..13:2): -> classes/M.C5#`<init>`().
+[13:2..13:2): -> classes/M.C5().(x)
 [13:17..13:19): C5 <- classes/M.C5#
+[13:17..13:19): C5 <- classes/M.C5().
 [13:19..13:19): <- classes/M.C5#`<init>`().
 [13:20..13:21): x <- classes/M.C5#x.
+[13:20..13:21): x <- classes/M.C5().(x)
 [13:23..13:26): Int -> scala/Int#
 [16:11..16:13): C6 <- classes/C6#
 [16:13..16:13): <- classes/C6#`<init>`().
@@ -1547,7 +1551,7 @@ Uri => ImplicitConversion.scala
 Text => empty
 Language => Scala
 Symbols => 23 entries
-Occurrences => 62 entries
+Occurrences => 69 entries
 
 Symbols:
 example/ImplicitConversion# => class ImplicitConversion
@@ -1621,11 +1625,18 @@ Occurrences:
 [29:16..29:16): -> scala/Char.char2long().
 [29:16..29:20): char -> example/ImplicitConversion#char.
 [32:7..32:25): ImplicitConversion <- example/ImplicitConversion.
+[33:2..33:2): -> example/ImplicitConversion.newAny2stringadd().[A]
+[33:2..33:2): -> example/ImplicitConversion.newAny2stringadd#`<init>`().
+[33:2..33:2): -> example/ImplicitConversion.newAny2stringadd().(self)
 [33:23..33:39): newAny2stringadd <- example/ImplicitConversion.newAny2stringadd#
+[33:23..33:39): newAny2stringadd <- example/ImplicitConversion.newAny2stringadd().
 [33:39..33:39): <- example/ImplicitConversion.newAny2stringadd#`<init>`().
 [33:40..33:41): A <- example/ImplicitConversion.newAny2stringadd#[A]
+[33:40..33:41): A <- example/ImplicitConversion.newAny2stringadd().[A]
 [33:55..33:59): self <- example/ImplicitConversion.newAny2stringadd#self.
+[33:55..33:59): self <- example/ImplicitConversion.newAny2stringadd().(self)
 [33:61..33:62): A -> example/ImplicitConversion.newAny2stringadd#[A]
+[33:61..33:62): A -> example/ImplicitConversion.newAny2stringadd().[A]
 [33:72..33:78): AnyVal -> scala/AnyVal#
 [33:78..33:78): -> scala/AnyVal#`<init>`().
 [34:8..34:9): + <- example/ImplicitConversion.newAny2stringadd#`+`().
@@ -1744,7 +1755,7 @@ Uri => InventedNames.scala
 Text => empty
 Language => Scala
 Symbols => 45 entries
-Occurrences => 72 entries
+Occurrences => 80 entries
 
 Symbols:
 givens/InventedNames$package. => final package object givens
@@ -1830,12 +1841,20 @@ Occurrences:
 [21:6..22:0): <- givens/InventedNames$package.given_X.
 [21:6..21:7): X -> givens/X#
 [22:6..22:9): doX <- givens/InventedNames$package.given_X.doX().
+[24:0..24:0): -> givens/InventedNames$package.given_Y#`<init>`().
+[24:0..24:0): -> givens/InventedNames$package.given_Y().(x$1)
+[24:6..24:6): <- givens/InventedNames$package.given_Y().
 [24:13..24:13): <- givens/InventedNames$package.given_Y#`<init>`().
 [24:13..24:14): X -> givens/X#
+[24:13..24:13): <- givens/InventedNames$package.given_Y().(x$1)
 [24:17..24:18): Y -> givens/Y#
 [25:6..25:9): doY <- givens/InventedNames$package.given_Y#doY().
+[27:0..27:0): -> givens/InventedNames$package.given_Z_T().[T]
+[27:0..27:0): -> givens/InventedNames$package.given_Z_T#`<init>`().
+[27:6..27:6): <- givens/InventedNames$package.given_Z_T().
 [27:7..27:7): <- givens/InventedNames$package.given_Z_T#`<init>`().
 [27:7..27:8): T <- givens/InventedNames$package.given_Z_T#[T]
+[27:7..27:8): T <- givens/InventedNames$package.given_Z_T().[T]
 [27:11..27:12): Z -> givens/Z#
 [27:13..27:14): T -> givens/InventedNames$package.given_Z_T#[T]
 [28:6..28:9): doZ <- givens/InventedNames$package.given_Z_T#doZ().

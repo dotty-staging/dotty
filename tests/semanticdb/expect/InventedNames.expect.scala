@@ -22,10 +22,10 @@ given `* */*<-givens::InventedNames$package.`* *`.*/`: Long/*->scala::Long#*/ = 
 given X with
 /*<-givens::InventedNames$package.given_X.*//*->givens::X#*/  def doX/*<-givens::InventedNames$package.given_X.doX().*/ = 7
 
-given (using X/*->givens::X#*/): Y/*->givens::Y#*/ with
+/*->givens::InventedNames$package.given_Y().(x$1)*/given /*<-givens::InventedNames$package.given_Y().*/(using X/*->givens::X#*//*<-givens::InventedNames$package.given_Y().(x$1)*/): Y/*->givens::Y#*/ with
   def doY/*<-givens::InventedNames$package.given_Y#doY().*/ = "7"
 
-given [T/*<-givens::InventedNames$package.given_Z_T#[T]*/]: Z/*->givens::Z#*/[T/*->givens::InventedNames$package.given_Z_T#[T]*/] with
+/*->givens::InventedNames$package.given_Z_T().[T]*/given /*<-givens::InventedNames$package.given_Z_T().*/[T/*<-givens::InventedNames$package.given_Z_T#[T]*//*<-givens::InventedNames$package.given_Z_T().[T]*/]: Z/*->givens::Z#*/[T/*->givens::InventedNames$package.given_Z_T#[T]*/] with
   def doZ/*<-givens::InventedNames$package.given_Z_T#doZ().*/: List/*->scala::package.List#*/[T/*->givens::InventedNames$package.given_Z_T#[T]*/] = Nil/*->scala::package.Nil.*/
 
 
