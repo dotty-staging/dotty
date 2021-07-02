@@ -88,10 +88,14 @@ class CheckCaptures extends Phase:
   def checkWellFormed(whole: Type, pos: SrcPos)(using Context): Unit =
     def checkRelativeVariance(mt: MethodType) = new TypeTraverser:
       def traverse(tp: Type): Unit = tp match
-        case CapturingType(parent, ref @ TermParamRef(`mt`, _)) =>
-          if variance <= 0 then
-            val direction = if variance < 0 then "contra" else "in"
-            report.error(em"captured reference $ref appears ${direction}variantly in type $whole", pos)
+        case CapturingType(parent, refs) =>
+          for ref <- refs.elems do
+            ref match
+              case TermParamRef(`mt`, _) =>
+                if variance <= 0 then
+                  val direction = if variance < 0 then "contra" else "in"
+                  report.error(em"captured reference $ref appears ${direction}variantly in type $whole", pos)
+              case _ =>
           traverse(parent)
         case _ =>
           traverseChildren(tp)
