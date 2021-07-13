@@ -766,6 +766,25 @@ class Definitions {
 
   @tu lazy val ReflectPackageClass: Symbol = requiredPackage("scala.reflect.package").moduleClass
   @tu lazy val ClassTagClass: ClassSymbol = requiredClass("scala.reflect.ClassTag")
+  @tu lazy val TypeTagType: Type = {
+    val optTypeTagsClass = getClassIfDefined("scala.reflect.api.TypeTags") // in scala-reflect module
+    if optTypeTagsClass ne NoSymbol then
+      TypeRef(optTypeTagsClass.typeRef, optTypeTagsClass.requiredClass("TypeTag"))
+    else
+      NoType
+  }
+  @tu lazy val ReflectRuntimePackageObject_universe: Symbol = {
+    val runtimePkg = getModuleIfDefined("scala.reflect.runtime.package")
+    if runtimePkg.exists then
+      runtimePkg.requiredValue("universe")
+    else
+      NoSymbol
+  }
+  @tu lazy val ManifestClass: ClassSymbol = requiredClass("scala.reflect.Manifest")
+  @tu lazy val ManifestFactoryModule: Symbol = requiredModule("scala.reflect.ManifestFactory")
+  @tu lazy val ClassManifestFactoryModule: Symbol = requiredModule("scala.reflect.ClassManifestFactory")
+  @tu lazy val OptManifestClass: ClassSymbol = requiredClass("scala.reflect.OptManifest")
+  @tu lazy val NoManifestModule: Symbol = requiredModule("scala.reflect.NoManifest")
   @tu lazy val ClassTagModule: Symbol = ClassTagClass.companionModule
     @tu lazy val ClassTagModule_apply: Symbol = ClassTagModule.requiredMethod(nme.apply)
 
@@ -1199,6 +1218,8 @@ class Definitions {
   @tu lazy val topClasses: Set[Symbol] = Set(AnyClass, MatchableClass, ObjectClass, AnyValClass)
 
   @tu lazy val untestableClasses: Set[Symbol] = Set(NothingClass, NullClass, SingletonClass)
+
+  @tu lazy val isPhantomClass = Set[Symbol](AnyClass, AnyValClass, NullClass, NothingClass)
 
   @tu lazy val AbstractFunctionType: Array[TypeRef] = mkArityArray("scala.runtime.AbstractFunction", MaxImplementedFunctionArity, 0)
   val AbstractFunctionClassPerRun: PerRun[Array[Symbol]] = new PerRun(AbstractFunctionType.map(_.symbol.asClass))
