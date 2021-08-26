@@ -736,8 +736,8 @@ object Checking {
       languageImport(qual) match
         case Some(nme.experimental)
         if !ctx.owner.isInExperimentalScope && !onlyExperimentalDefs
-            && selectors.exists(sel => experimental(sel.name) != scala2macros) =>
-          checkExperimentalFeature("features", imp.srcPos)
+            && selectors.exists(sel => Feature.experimental(sel.name) != Feature.scala2macros) =>
+          Feature.checkExperimentalFeature("features", imp.srcPos)
         case _ =>
 }
 
