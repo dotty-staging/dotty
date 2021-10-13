@@ -187,6 +187,8 @@ object Semantic {
       def union(other: Env): Env = env ++ other
 
       def isHot: Boolean = env.values.forall(_ == Hot)
+
+      def toMap: Map[Symbol, Value] = env
   }
 
   type Env = Env.Env
@@ -668,6 +670,12 @@ object Semantic {
               val tpl = cls.defTree.asInstanceOf[TypeDef].rhs.asInstanceOf[Template]
               init(tpl, ref, cls)
             else
+              // init "fake" param fields for the secondary constructor
+              env.toMap.keys.map { acc =>
+                val value = env.lookup(acc)
+                ref.updateField(acc, value)
+                printer.println(acc.show + " initialized with " + value)
+              }
               val initCall = ddef.rhs match
                 case Block(call :: _, _) => call
                 case call => call
@@ -682,12 +690,18 @@ object Semantic {
             given Trace = trace1
             val cls = ctor.owner.enclosingClass.asClass
             val ddef = ctor.defTree.asInstanceOf[DefDef]
-            given Env= Env(ddef, args.map(_.value).widenArgs)
+            given Env = Env(ddef, args.map(_.value).widenArgs)
             if ctor.isPrimaryConstructor then
               val tpl = cls.defTree.asInstanceOf[TypeDef].rhs.asInstanceOf[Template]
               val res = withTrace(trace.add(cls.defTree)) { eval(tpl, ref, cls, cacheResult = true) }
               Result(ref, res.errors)
             else
+              // init "fake" param fields for the secondary constructor
+              env.toMap.keys.map { acc =>
+                val value = env.lookup(acc)
+                ref.updateField(acc, value)
+                printer.println(acc.show + " initialized with " + value)
+              }
               eval(ddef.rhs, ref, cls, cacheResult = true)
           else if ref.canIgnoreMethodCall(ctor) then
             Result(Hot, Nil)
@@ -1238,6 +1252,11 @@ object Semantic {
         Result(Hot, Errors.empty)
 
       case tmref: TermRef if tmref.prefix == NoPrefix =>
+        // if we can get the field from the Ref, then do it
+        val sym = tmref.symbol
+        if (cache.containsObject(thisV) && cache.getObject(thisV).hasField(sym))
+          Result(cache.getObject(thisV).field(sym), Errors.empty)
+        else
         thisV.accessLocal(tmref, klass, source)
 
       case tmref: TermRef =>
