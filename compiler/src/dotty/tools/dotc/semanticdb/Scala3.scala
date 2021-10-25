@@ -13,6 +13,7 @@ import SymbolInformation.{Kind => k}
 import dotty.tools.dotc.util.SourceFile
 import dotty.tools.dotc.util.Spans.Span
 import dotty.tools.dotc.ast.tpd
+import dotty.tools.dotc.ast.untpd
 import dotty.tools.dotc.{semanticdb => s}
 
 import java.lang.Character.{isJavaIdentifierPart, isJavaIdentifierStart}
@@ -89,7 +90,7 @@ object Scala3:
               sname
             }
 
-      def symbolInfo(symkinds: Set[SymbolKind])(using LinkMode, TypeOps, SemanticSymbolBuilder, Context): SymbolInformation =
+      def symbolInfo(symkinds: Set[SymbolKind], annotations: List[untpd.Tree])(using LinkMode, TypeOps, SemanticSymbolBuilder, Context): SymbolInformation =
         sym match
           case s: Symbol =>
             val kind = s.symbolKind(symkinds)
@@ -104,6 +105,7 @@ object Scala3:
               signature = signature,
               access = s.symbolAccess(kind),
               overriddenSymbols = s.overriddenSymbols,
+              annotations = annotations.map(annot => Annotation(annot.typeOpt.toSemanticType(annot.symbol)))
             )
           case s: WildcardTypeSymbol =>
             SymbolInformation(

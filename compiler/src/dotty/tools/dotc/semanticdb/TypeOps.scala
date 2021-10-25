@@ -438,7 +438,7 @@ object SymbolScopeOps:
         case LinkMode.SymlinkChildren =>
           s.Scope(symlinks = syms.map(_.symbolName))
         case LinkMode.HardlinkChildren =>
-          s.Scope(hardlinks = syms.map(_.symbolInfo(Set.empty)))
+          s.Scope(hardlinks = syms.map(_.symbolInfo(Set.empty, List.empty)))
 
     def sscopeOpt(using LinkMode, SemanticSymbolBuilder, TypeOps, Context): Option[s.Scope] =
       if syms.nonEmpty then Some(syms.sscope) else None
