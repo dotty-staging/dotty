@@ -173,6 +173,9 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
   def Quote(body: Tree)(using Context): Quote =
     untpd.Quote(body).withBodyType(body.tpe)
 
+  def QuotePattern(bindings: List[Tree], body: Tree, quotes: Tree, proto: Type)(using Context): QuotePattern =
+    ta.assignType(untpd.QuotePattern(bindings, body, quotes), proto)
+
   def Splice(expr: Tree, tpe: Type)(using Context): Splice =
     untpd.Splice(expr).withType(tpe)
 

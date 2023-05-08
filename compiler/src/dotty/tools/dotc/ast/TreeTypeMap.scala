@@ -151,6 +151,9 @@ class TreeTypeMap(
           val content1 = transform(content)
           val tpt1 = transform(tpt)
           cpy.Hole(tree)(args = args1, content = content1, tpt = tpt1)
+        case tree1: Bind =>
+          tree.symbol.info = mapType(tree1.symbol.info) // FIXME: is this a workaround or the fix?
+          super.transform(tree1)
         case tree1 =>
           super.transform(tree1)
       }

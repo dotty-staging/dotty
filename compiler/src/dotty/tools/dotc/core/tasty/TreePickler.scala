@@ -19,6 +19,7 @@ import config.Config
 import collection.mutable
 import reporting.{Profile, NoProfile}
 import dotty.tools.tasty.TastyFormat.ASTsSection
+import dotty.tools.dotc.quoted.QuotePatterns
 
 object TreePickler:
   class StackSizeExceeded(val mdef: tpd.MemberDef) extends Exception
@@ -685,6 +686,8 @@ class TreePickler(pickler: TastyPickler) {
               .appliedTo(expr)
               .withSpan(tree.span)
           )
+        case tree: QuotePattern =>
+          pickleTree(QuotePatterns.encode(tree))
         case Hole(_, idx, args, _, tpt) =>
           writeByte(HOLE)
           withLength {

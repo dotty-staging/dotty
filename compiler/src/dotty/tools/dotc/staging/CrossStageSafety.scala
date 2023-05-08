@@ -12,6 +12,7 @@ import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Types._
 import dotty.tools.dotc.staging.StagingLevel.*
 import dotty.tools.dotc.staging.QuoteTypeTags.*
+import dotty.tools.dotc.quoted.QuotePatterns
 import dotty.tools.dotc.util.Property
 import dotty.tools.dotc.util.Spans._
 import dotty.tools.dotc.util.SrcPos
@@ -89,6 +90,9 @@ class CrossStageSafety extends TreeMapWithStages {
                 val TypeApply(fun, _) = tree.fun: @unchecked
                 if level != 0 then cpy.Apply(tree)(cpy.TypeApply(tree.fun)(fun, transformedBody :: Nil), quotes :: Nil)
                 else tpd.Quote(transformedBody).select(nme.apply).appliedTo(quotes).withSpan(tree.span)
+
+      case tree: QuotePattern if level == 0 =>
+        transform(QuotePatterns.encode(tree))
 
       case _ if !inQuoteOrSpliceScope =>
         checkAnnotations(tree) // Check quotes in annotations

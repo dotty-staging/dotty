@@ -102,6 +102,8 @@ class PickleQuotes extends MacroTransform {
           val (contents, quote1) = makeHoles(quote)
           val pickled = PickleQuotes.pickle(quote1, quotes, contents)
           transform(pickled) // pickle quotes that are in the contents
+        case tree: QuotePattern =>
+          transform(QuotePatterns.encode(tree))
         case tree: DefDef if !tree.rhs.isEmpty && tree.symbol.isInlineMethod =>
           // Shrink size of the tree. The methods have already been inlined.
           // TODO move to FirstTransform to trigger even without quotes

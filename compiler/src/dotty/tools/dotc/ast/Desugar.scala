@@ -380,11 +380,11 @@ object desugar {
     tree match
       case untpd.Block(stats, expr) =>
         val untpdTypeVariables = stats.takeWhile {
-          case tdef @ untpd.TypeDef(name, _) => name.isVarPattern
+          case tdef @ untpd.TypeDef(name, _) => name.isVarPattern && !tdef.isBackquoted
           case _ => false
         }.asInstanceOf[List[untpd.TypeDef]]
         val otherStats = stats.dropWhile {
-          case tdef @ untpd.TypeDef(name, _) => name.isVarPattern
+          case tdef @ untpd.TypeDef(name, _) => name.isVarPattern  && !tdef.isBackquoted
           case _ => false
         }
         val pattern = if otherStats.isEmpty then expr else untpd.cpy.Block(tree)(otherStats, expr)

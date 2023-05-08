@@ -485,7 +485,7 @@ class PostTyper extends MacroTransform with IdentityDenotTransformer { thisPhase
           )
         case Block(_, Closure(_, _, tpt)) if ExpandSAMs.needsWrapperClass(tpt.tpe) =>
           superAcc.withInvalidCurrentClass(super.transform(tree))
-        case _: Quote =>
+        case _: Quote | _: QuotePattern =>
           ctx.compilationUnit.needsStaging = true
           super.transform(tree)
         case tree =>

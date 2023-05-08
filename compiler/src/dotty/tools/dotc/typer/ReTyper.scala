@@ -110,6 +110,11 @@ class ReTyper(nestingLevel: Int = 0) extends Typer(nestingLevel) with ReChecking
     val expr1 = typed(tree.expr, quoteType)(using spliceContext)
     untpd.cpy.Splice(tree)(expr1).withType(tree.typeOpt)
 
+  override def typedQuotePattern(tree: untpd.QuotePattern, pt: Type)(using Context): Tree =
+    tree.withType(tree.typeOpt) // TODO
+
+  override def typedSplicePattern(tree: untpd.SplicePattern, pt: Type)(using Context): Tree = ???
+
   override def localDummy(cls: ClassSymbol, impl: untpd.Template)(using Context): Symbol = impl.symbol
 
   override def retrieveSym(tree: untpd.Tree)(using Context): Symbol = tree.symbol

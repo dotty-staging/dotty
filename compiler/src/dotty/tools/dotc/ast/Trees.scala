@@ -732,6 +732,11 @@ object Trees {
     type ThisTree[+T <: Untyped] = Splice[T]
   }
 
+  case class QuotePattern[+T <: Untyped] private[ast] (bindings: List[Tree[T]], body: Tree[T], quotes: Tree[T])(implicit @constructorOnly src: SourceFile)
+    extends PatternTree[T] {
+    type ThisTree[+T <: Untyped] = QuotePattern[T]
+  }
+
   /** A tree representing a pattern splice `${ pattern }`, `$ident` or `$ident(args*)` in a quote pattern.
    *
    *  Parser will only create `${ pattern }` and `$ident`, hence they will not have args.
@@ -1160,6 +1165,7 @@ object Trees {
     type Inlined = Trees.Inlined[T]
     type Quote = Trees.Quote[T]
     type Splice = Trees.Splice[T]
+    type QuotePattern = Trees.QuotePattern[T]
     type SplicePattern = Trees.SplicePattern[T]
     type TypeTree = Trees.TypeTree[T]
     type InferredTypeTree = Trees.InferredTypeTree[T]
@@ -1338,6 +1344,10 @@ object Trees {
       def Splice(tree: Tree)(expr: Tree)(using Context): Splice = tree match {
         case tree: Splice if (expr eq tree.expr) => tree
         case _ => finalize(tree, untpd.Splice(expr)(sourceFile(tree)))
+      }
+      def QuotePattern(tree: Tree)(bindings: List[Tree], body: Tree, quotes: Tree)(using Context): QuotePattern = tree match {
+        case tree: QuotePattern if (bindings eq tree.bindings) && (body eq tree.body) && (quotes eq tree.quotes) => tree
+        case _ => finalize(tree, untpd.QuotePattern(bindings, body, quotes)(sourceFile(tree)))
       }
       def SplicePattern(tree: Tree)(body: Tree, args: List[Tree])(using Context): SplicePattern = tree match {
         case tree: SplicePattern if (body eq tree.body) && (args eq tree.args) => tree
@@ -1584,6 +1594,8 @@ object Trees {
               cpy.Quote(tree)(transform(body)(using quoteContext))
             case tree @ Splice(expr) =>
               cpy.Splice(tree)(transform(expr)(using spliceContext))
+            case tree @ QuotePattern(bindings, body, quotes) =>
+              cpy.QuotePattern(tree)(transform(bindings), transform(body)(using quoteContext), transform(quotes))
             case tree @ SplicePattern(body, args) =>
               cpy.SplicePattern(tree)(transform(body)(using spliceContext), transform(args))
             case tree @ Hole(_, _, args, content, tpt) =>
@@ -1731,6 +1743,8 @@ object Trees {
               this(x, body)(using quoteContext)
             case Splice(expr) =>
               this(x, expr)(using spliceContext)
+            case QuotePattern(bindings, body, quotes) =>
+              this(this(this(x, bindings), body)(using quoteContext), quotes)
             case SplicePattern(body, args) =>
               this(this(x, body)(using spliceContext), args)
             case Hole(_, _, args, content, tpt) =>

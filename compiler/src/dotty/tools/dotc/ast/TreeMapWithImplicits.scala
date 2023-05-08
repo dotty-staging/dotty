@@ -57,9 +57,10 @@ class TreeMapWithImplicits extends tpd.TreeMapWithPreciseStatContexts {
           transformSelf(self),
           transformStats(impl.body, tree.symbol))
       case tree: CaseDef =>
-        val patCtx = patternScopeCtx(tree.pat)(using ctx)
+        val pat1 = transform(tree.pat)
+        val patCtx = patternScopeCtx(pat1)(using ctx)
         cpy.CaseDef(tree)(
-          transform(tree.pat),
+          pat1,
           transform(tree.guard)(using patCtx),
           transform(tree.body)(using patCtx)
         )

@@ -724,12 +724,20 @@ class RefinedPrinter(_ctx: Context) extends PlainPrinter(_ctx) {
       case Splice(expr) =>
         val spliceTypeText = (keywordStr("[") ~ toTextGlobal(tree.typeOpt) ~ keywordStr("]")).provided(printDebug && tree.typeOpt.exists)
         keywordStr("$") ~ spliceTypeText ~ keywordStr("{") ~ toTextGlobal(expr) ~ keywordStr("}")
+      case tree @ QuotePattern(bindings, body, quotes) =>
+        // TODO print quotes for debugging
+        val bindingsText = bindings.map(binding => {
+          keywordStr("type ") ~ toText(binding.symbol.name) ~ toText(binding.symbol.info) ~ "; "
+        }).reduceLeft(_ ~~ _).provided(bindings.nonEmpty)
+        val open = if (body.isTerm) keywordStr("{") else keywordStr("[")
+        val close = if (body.isTerm) keywordStr("}") else keywordStr("]")
+        keywordStr("'") ~ open ~ bindingsText ~ toTextGlobal(body) ~ close
       case SplicePattern(pattern, args) =>
         val spliceTypeText = (keywordStr("[") ~ toTextGlobal(tree.typeOpt) ~ keywordStr("]")).provided(printDebug && tree.typeOpt.exists)
-        val open = Str(keywordStr("{")).provided(args.isEmpty)
-        val close = Str(keywordStr("}")).provided(args.isEmpty)
-        val argsText = ("(" ~ toTextGlobal(args, ", ") ~ ")").provided(args.nonEmpty)
-        keywordStr("$") ~ spliceTypeText ~ open ~ inPattern(toText(pattern)) ~  close ~ argsText
+        keywordStr("$") ~ spliceTypeText ~ {
+          if args.isEmpty then keywordStr("{") ~ inPattern(toText(pattern)) ~ keywordStr("}")
+          else toText(pattern.symbol.name) ~ "(" ~ toTextGlobal(args, ", ") ~ ")"
+        }
       case Hole(isTermHole, idx, args, content, tpt) =>
         val (prefix, postfix) = if isTermHole then ("{{{", "}}}") else ("[[[", "]]]")
         val argsText = toTextGlobal(args, ", ")
