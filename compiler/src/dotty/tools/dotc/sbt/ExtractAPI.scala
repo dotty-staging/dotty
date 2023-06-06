@@ -54,8 +54,10 @@ class ExtractAPI extends Phase {
 
   override def description: String = ExtractAPI.description
 
+  private def writePickleOnly(using Context): Boolean = ctx.settings.YpickleWrite.value.nonEmpty && ctx.sbtCallback == null
+
   override def isRunnable(using Context): Boolean = {
-    def forceRun = ctx.settings.YdumpSbtInc.value || ctx.settings.YforceSbtPhases.value
+    def forceRun = ctx.settings.YpickleWrite.value.nonEmpty || ctx.settings.YdumpSbtInc.value || ctx.settings.YforceSbtPhases.value
     super.isRunnable && (ctx.sbtCallback != null && ctx.sbtCallback.enabled() || forceRun)
   }
 
@@ -78,21 +80,10 @@ class ExtractAPI extends Phase {
     val sigWriter: Option[Pickler.EarlyFileWriter] = ctx.settings.YpickleWrite.value match
       case dests if dests.size > 0 =>
         import dotty.tools.io.*
-        val paths = dests.map { dest =>
-          val path = Directory(dest)
-          val isJar = path.extension == "jar"
-          if (!isJar && !path.isDirectory)
-            Left(s"'$dest' does not exist or is not a directory or .jar file")
-          else
-            val output = if (isJar) JarArchive.create(path) else new PlainDirectory(path)
-            Right(ClassfileWriterOps(output))
+        val writers = dests.map { output =>
+          ClassfileWriterOps(output)
         }
-        val (errors, writers) = paths.partitionMap(identity)
-        if errors.nonEmpty then
-          errors.foreach(report.error(_))
-          None
-        else
-          Some(Pickler.EarlyFileWriter(writers))
+        Some(Pickler.EarlyFileWriter(writers))
 
       case _ =>
         None
@@ -101,7 +92,7 @@ class ExtractAPI extends Phase {
       .withProperty(NonLocalClassSymbolsInCurrentUnits, Some(nonLocalClassSymbols))
       .withProperty(Pickler.EarlyWriter, sigWriter)
     inContext(ctx0) {
-      val units0 = super.runOn(units)
+      val units0 = if writePickleOnly then units else super.runOn(units)
       writeSigFiles(units0)
       if ctx.sbtCallback != null && ctx.sbtCallback.enabled() then
         val cb = ctx.sbtCallback
@@ -142,8 +133,9 @@ class ExtractAPI extends Phase {
 
         end for
 
-        cb.apiPhaseCompleted()
-        cb.dependencyPhaseCompleted()
+        // cb.apiPhaseCompleted()
+        // cb.dependencyPhaseCompleted()
+        ctx.depsFinishPromiseOpt.foreach(_.success(()))
       end if
       units0.filterNot(_.isJava) // remove java sources
     }

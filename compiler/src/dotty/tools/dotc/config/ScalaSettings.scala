@@ -399,6 +399,9 @@ private sealed trait YSettings:
 
   // Pipeline compilation options
   val YpickleJava: Setting[Boolean] = BooleanSetting("-Ypickle-java", "Pickler phase should compute pickles for .java defined symbols for use by build tools")
-  val YpickleWrite: Setting[IArray[String]] = OutputsSetting("-Ypickle-write", "directory|jar", "destination for generated .sig files containing type signatures.")
+  val YpickleWrite: Setting[IArray[AbstractFile]] = OutputsSetting("-Ypickle-write", "directory|jar", "destination for generated .sig files containing type signatures.")
+  val YvirtualClasspath: Setting[IArray[AbstractFile]] = OutputsSetting("-Yvirtual-classpath", "directory|jar", "destination for generated .sig files containing type signatures.")
+  val YrunSecondPass: Setting[Boolean] = BooleanSetting("-Yrun-second-pass", "destination for generated .sig files containing type signatures.")
+  val YsecondPass: Setting[Boolean] = BooleanSetting("-Ysecond-pass", "destination for generated .sig files containing type signatures.")
 end YSettings
 

@@ -94,9 +94,10 @@ public class CompilerBridgeDriver extends Driver {
 
       if (!delegate.hasErrors()) {
         log.debug(this::prettyPrintCompilationArguments);
-        Compiler compiler = newCompiler(context);
+        // Compiler compiler = newCompiler(context);
 
-        doCompile(compiler, sourcesBuffer.toList(), context);
+        // doCompile(compiler, sourcesBuffer.toList(), context);
+        doCompile0(args, sourcesBuffer.toList(), initialCtx, context);
 
         for (xsbti.Problem problem: delegate.problems()) {
           callback.problem(problem.category(), problem.position(), problem.message(), problem.severity(),

@@ -22,8 +22,8 @@ object Settings:
   val VersionTag: ClassTag[ScalaVersion] = ClassTag(classOf[ScalaVersion])
   val OptionTag: ClassTag[Option[?]]     = ClassTag(classOf[Option[?]])
   val OutputTag: ClassTag[AbstractFile]  = ClassTag(classOf[AbstractFile])
-  val OutputsTag: ClassTag[IArray[String]] =
-    ClassTag(classOf[Array[String]]).asInstanceOf[ClassTag[IArray[String]]]
+  val OutputsTag: ClassTag[IArray[AbstractFile]] =
+    ClassTag(classOf[Array[AbstractFile]]).asInstanceOf[ClassTag[IArray[AbstractFile]]]
 
   class SettingsState(initialValues: Seq[Any]):
     private val values = ArrayBuffer(initialValues: _*)
@@ -107,10 +107,10 @@ object Settings:
             value0.filter(current.contains).foreach(s => dangers :+= s"Setting $name set to $s redundantly")
             current ++ value0
           else if changed && isMultiOutput then
-            val value0  = value.asInstanceOf[IArray[String]]
-            val current = valueIn(sstate).asInstanceOf[IArray[String]]
+            val value0  = value.asInstanceOf[IArray[AbstractFile]]
+            val current = valueIn(sstate).asInstanceOf[IArray[AbstractFile]]
             value0.filter(current.contains).foreach(s => dangers :+= s"Setting $name set to $s redundantly")
-            IArray.from[String](current ++ value0)
+            IArray.from[AbstractFile](current ++ value0)
           else
             if changed then
               dangers :+= s"Flag $name set repeatedly"
@@ -164,9 +164,16 @@ object Settings:
                 case Nil => update(strings, args)
                 case invalid => fail(s"invalid choice(s) for $name: ${invalid.mkString(",")}", args)
               case _ => update(strings, args)
-        case (OutputsTag, arg2 :: args2) =>
-          if (arg2 startsWith "-") missingArg
-          else update(IArray[String](arg2), args2)
+        case (OutputsTag, dest :: args2) =>
+          if (dest startsWith "-") missingArg
+          else
+            val path = Directory(dest)
+            val isJar = path.extension == "jar"
+            if (!isJar && !path.isDirectory)
+              fail(s"'$dest' does not exist or is not a directory or .jar file", args)
+            else
+              val output = if isJar then JarArchive.create(path) else new PlainDirectory(path)
+              update(IArray[AbstractFile](output), args2)
         case (StringTag, _) if argRest.nonEmpty || choices.exists(_.contains("")) =>
           setString(argRest, args)
         case (StringTag, arg2 :: args2) =>
@@ -317,7 +324,7 @@ object Settings:
     def MultiStringSetting(name: String, helpArg: String, descr: String, default: List[String] = Nil, aliases: List[String] = Nil): Setting[List[String]] =
       publish(Setting(name, descr, default, helpArg, aliases = aliases))
 
-    def OutputsSetting(name: String, helpArg: String, descr: String, default: IArray[String] = IArray.empty, aliases: List[String] = Nil): Setting[IArray[String]] =
+    def OutputsSetting(name: String, helpArg: String, descr: String, default: IArray[AbstractFile] = IArray.empty, aliases: List[String] = Nil): Setting[IArray[AbstractFile]] =
       publish(Setting(name, descr, default, helpArg, aliases = aliases))
 
     def OutputSetting(name: String, helpArg: String, descr: String, default: AbstractFile): Setting[AbstractFile] =

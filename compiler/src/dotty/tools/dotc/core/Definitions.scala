@@ -481,6 +481,12 @@ class Definitions {
     @tu lazy val Predef_classOf  : Symbol = ScalaPredefModule.requiredMethod(nme.classOf)
     @tu lazy val Predef_identity : Symbol = ScalaPredefModule.requiredMethod(nme.identity)
     @tu lazy val Predef_undefined: Symbol = ScalaPredefModule.requiredMethod(nme.???)
+  // A cache for the tree `Predef.???`
+  // TODO: Check if this actually matters for performance
+  val Predef_undefinedTree = new PerRun[ast.tpd.Tree]({
+    import dotty.tools.dotc.ast.tpd.TreeOps
+    ast.tpd.ref(defn.Predef_undefined)
+  })
   @tu lazy val ScalaPredefModuleClass: ClassSymbol = ScalaPredefModule.moduleClass.asClass
 
   @tu lazy val SubTypeClass: ClassSymbol = requiredClass("scala.<:<")

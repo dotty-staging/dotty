@@ -208,6 +208,8 @@ class PathResolver(using c: Context) {
       if (!settings.classpath.isDefault) settings.classpath.value
       else sys.env.getOrElse("CLASSPATH", ".")
 
+    def virtualUserClasspath: List[dotty.tools.io.AbstractFile] = ctx.settings.YvirtualClasspath.value.toList
+
     import classPathFactory._
 
     // Assemble the elements!
@@ -216,13 +218,14 @@ class PathResolver(using c: Context) {
 
       List(
         JrtClassPath(release),                        // 1. The Java 9+ classpath (backed by the jrt:/ virtual system, if available)
-        classesInPath(javaBootClassPath),             // 2. The Java bootstrap class path.
-        contentsOfDirsInPath(javaExtDirs),            // 3. The Java extension class path.
-        classesInExpandedPath(javaUserClassPath),     // 4. The Java application class path.
-        classesInPath(scalaBootClassPath),            // 5. The Scala boot class path.
-        contentsOfDirsInPath(scalaExtDirs),           // 6. The Scala extension class path.
-        classesInExpandedPath(userClassPath),         // 7. The Scala application class path.
-        sourcesInPath(sourcePath)                     // 8. The Scala source path.
+        virtualUserClasspath.map(newClassPath),       // 2. The virtual classpath (backed by the -Yvirtual-classpath option)
+        classesInPath(javaBootClassPath),             // 3. The Java bootstrap class path.
+        contentsOfDirsInPath(javaExtDirs),            // 4. The Java extension class path.
+        classesInExpandedPath(javaUserClassPath),     // 5. The Java application class path.
+        classesInPath(scalaBootClassPath),            // 6. The Scala boot class path.
+        contentsOfDirsInPath(scalaExtDirs),           // 7. The Scala extension class path.
+        classesInExpandedPath(userClassPath),         // 8. The Scala application class path.
+        sourcesInPath(sourcePath)                     // 9. The Scala source path.
       )
 
     lazy val containers: List[ClassPath] = basis.flatten.distinct

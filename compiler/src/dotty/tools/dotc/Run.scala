@@ -223,6 +223,7 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
     // If testing pickler, make sure to stop after pickling phase:
     val stopAfter =
       if (ctx.settings.YtestPickler.value) List("pickler")
+      else if (ctx.settings.YpickleWrite.value.nonEmpty && !ctx.settings.YsecondPass.value) List("sbt-api")
       else ctx.settings.YstopAfter.value
 
     val pluginPlan = ctx.base.addPluginPhases(ctx.base.phasePlan)

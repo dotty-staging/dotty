@@ -1884,6 +1884,7 @@ class Namer { typer: Typer =>
     var rhsCtx = ctx.fresh.addMode(Mode.InferringReturnType)
     if sym.isInlineMethod then rhsCtx = rhsCtx.addMode(Mode.InlineableBody)
     if sym.is(ExtensionMethod) then rhsCtx = rhsCtx.addMode(Mode.InExtensionMethod)
+    if sym.is(Inline) then rhsCtx = rhsCtx.addMode(Mode.InlineRHS)
     val typeParams = paramss.collect { case TypeSymbols(tparams) => tparams }.flatten
     if (typeParams.nonEmpty) {
       // we'll be typing an expression from a polymorphic definition's body,

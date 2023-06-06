@@ -2417,6 +2417,37 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     if filters == List(MessageFilter.None) then sup.markUsed()
     ctx.run.nn.suppressions.addSuppression(sup)
 
+  /** Can the body of this method be dropped and replaced by `Predef.???` without
+   *  breaking separate compilation ? This is used to generate tasty outlines. */
+  private def canDropBody(definition: untpd.ValOrDefDef, sym: Symbol)(using Context): Boolean = {
+    def mayNeedSuperAccessor = {
+      val inTrait = sym.enclosingClass.is(Trait)
+      val acc = new untpd.UntypedTreeAccumulator[Boolean] {
+        override def apply(x: Boolean, tree: untpd.Tree)(implicit ctx: Context) = x || (tree match {
+          case Super(qual, mix) =>
+            // Super accessors are needed for all super calls that either
+            // appear in a trait or have as a target a member of some outer class,
+            // this is an approximation since the super call is untyped at this point.
+            inTrait || !mix.name.isEmpty
+          case _ =>
+            foldOver(x, tree)
+        })
+      }
+      acc(false, definition.rhs)
+    }
+    val bodyNeededFlags = definition match {
+      case _: untpd.ValDef => Inline | Final | Erased
+      case _ => Inline | Erased
+    }
+    !(ctx.settings.scalajs.value || definition.rhs.isEmpty ||
+      // Lambdas cannot be skipped, because typechecking them may constrain type variables.
+      definition.name == nme.ANON_FUN ||
+      // The body of inline defs, and inline/final vals are part of the public API.
+      sym.isOneOf(bodyNeededFlags) || ctx.mode.is(Mode.InlineRHS) ||
+      // Super accessors are part of the public API (subclasses need to implement them).
+      mayNeedSuperAccessor)
+  }
+
   def typedValDef(vdef: untpd.ValDef, sym: Symbol)(using Context): Tree = {
     val ValDef(name, tpt, _) = vdef
     completeAnnotations(vdef, sym)
@@ -2425,7 +2456,12 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     val tpt1 = checkSimpleKinded(typedType(tpt))
     val rhs1 = vdef.rhs match {
       case rhs @ Ident(nme.WILDCARD) => rhs withType tpt1.tpe
-      case rhs => typedExpr(rhs, tpt1.tpe.widenExpr)
+      case rhs =>
+        if (ctx.settings.YpickleWrite.value.nonEmpty && canDropBody(vdef, sym))
+          cpy.Ident(vdef.rhs)(nme.WILDCARD).withType(tpt1.tpe)
+          // defn.Predef_undefinedTree()
+        else
+          typedExpr(rhs, tpt1.tpe.widenExpr)
     }
     val vdef1 = assignType(cpy.ValDef(vdef)(name, tpt1, rhs1), sym)
     postProcessInfo(sym)
@@ -2481,7 +2517,16 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     if sym.is(ExtensionMethod) then rhsCtx.addMode(Mode.InExtensionMethod)
     val rhs1 = PrepareInlineable.dropInlineIfError(sym,
       if sym.isScala2Macro then typedScala2MacroBody(ddef.rhs)(using rhsCtx)
-      else typedExpr(ddef.rhs, tpt1.tpe.widenExpr)(using rhsCtx))
+      else {
+        if (ctx.settings.YpickleWrite.value.nonEmpty && canDropBody(ddef, sym))
+          // defn.Predef_undefinedTree()
+          cpy.Ident(ddef.rhs)(nme.WILDCARD).withType(tpt1.tpe.finalResultType)
+        else {
+          val rhsCtx1 = if (sym.is(Inline)) rhsCtx.addMode(Mode.InlineRHS) else rhsCtx
+          typedExpr(ddef.rhs, tpt1.tpe.widenExpr)(using rhsCtx1)
+        }
+      }
+    )
 
     if sym.isInlineMethod then
       if StagingLevel.level > 0 then
@@ -3231,9 +3276,18 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
         val xtree = stat.removeAttachment(ExpandedTree).get
         traverse(xtree :: rest)
       case stat :: rest =>
-        val stat1 = typed(stat)(using ctx.exprContext(stat, exprOwner))
-        if !checkInterestingResultInStatement(stat1) then checkStatementPurity(stat1)(stat, exprOwner)
-        buf += stat1
+        // val stat1 = typed(stat)(using ctx.exprContext(stat, exprOwner))
+        // if !checkInterestingResultInStatement(stat1) then checkStatementPurity(stat1)(stat, exprOwner)
+        // buf += stat1
+
+
+        // With -Ypickle-write, we skip the statements in a class that are not definitions.
+        val stat1 = if (!(ctx.settings.YpickleWrite.value.nonEmpty && exprOwner.isLocalDummy) || ctx.mode.is(Mode.InlineRHS)) {
+          val stat1 = typed(stat)(using ctx.exprContext(stat, exprOwner))
+          if !checkInterestingResultInStatement(stat1) then checkStatementPurity(stat1)(stat, exprOwner)
+          buf += stat1
+          stat1
+        } else EmptyTree
         traverse(rest)(using stat1.nullableContext)
       case nil =>
         (buf.toList, ctx)

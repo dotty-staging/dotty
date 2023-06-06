@@ -28,6 +28,102 @@ class Driver {
 
   protected def emptyReporter: Reporter = new StoreReporter(null)
 
+  protected def doCompile0(args: Array[String], files: List[AbstractFile], rootCtx: Context)(using compileCtx: Context): Reporter =
+    def compile(files: List[AbstractFile], compileCtx: Context) = doCompile(newCompiler(using compileCtx), files)(using compileCtx)
+
+    import dotty.tools.dotc.config.Settings.Setting.value
+    val parallelism = Runtime.getRuntime().nn.availableProcessors
+
+    if parallelism == 1 then
+      compile(files, compileCtx)
+    else
+      import scala.concurrent.*
+      import scala.concurrent.duration.*
+      import scala.util.{Success, Failure}
+      val tastyOutlinePath = new dotty.tools.io.VirtualDirectory("<tasty outline>")
+
+      // First pass: generate .tasty outline files
+      val firstPassCtx = compileCtx.fresh
+        .setSetting(compileCtx.settings.YpickleWrite, IArray(tastyOutlinePath))
+        .setSetting(compileCtx.settings.YpickleJava, true)
+        // .setSetting(compileCtx.settings.outputDir, tastyOutlinePath)
+        // .setSbtCallback(rootCtx.sbtCallback)
+        // .setCompilerCallback(rootCtx.compilerCallback)
+        // .setZincVirtualFiles(rootCtx.zincInitialFiles)
+        .setZincVirtualFiles(null.asInstanceOf[java.util.Map[String, xsbti.VirtualFile]]) // Do not run the sbt-specific phases in this pass
+        .setSbtCallback(null.asInstanceOf[xsbti.AnalysisCallback]) // Do not run the sbt-specific phases in this pass
+        .setCompilerCallback(null.asInstanceOf[dotty.tools.dotc.interfaces.CompilerCallback])
+
+      compile(files, firstPassCtx)
+
+      if true then //compileCtx.settings.YrunSecondPass.value then
+        val scalaFileNames = files.filterNot(_.name.endsWith(".java"))
+        if (!firstPassCtx.reporter.hasErrors && scalaFileNames.nonEmpty) {
+          // Second pass: split the list of files into $parallelism groups,
+          // compile each group independently.
+
+
+          val maxGroupSize = Math.ceil(scalaFileNames.length.toDouble / parallelism).toInt
+          val fileGroups = scalaFileNames.grouped(maxGroupSize).toList
+          val compilers = fileGroups.length
+
+          def secondPassCtx(promise: scala.concurrent.Promise[Unit]) = {
+            // TODO: figure out which parts of rootCtx we can safely reuse exactly.
+            val baseCtx = initCtx.fresh
+              .setSettings(rootCtx.settingsState)
+              .setSetting(rootCtx.settings.YpickleWrite, rootCtx.settings.YpickleWrite.value)
+              .setSetting(rootCtx.settings.YpickleJava, rootCtx.settings.YpickleJava.value)
+              .setReporter(new StoreReporter(rootCtx.reporter))
+              .setSbtCallback(rootCtx.sbtCallback)
+              .setCompilerCallback(rootCtx.compilerCallback)
+              .setZincVirtualFiles(rootCtx.zincInitialFiles)
+              .setDepsFinishPromise(promise)
+              // .setSbtCallback(null.asInstanceOf[xsbti.AnalysisCallback]) // Do not run the sbt-specific phases in this pass
+              // .setCompilerCallback(null.asInstanceOf[dotty.tools.dotc.interfaces.CompilerCallback]) // TODO: Change the CompilerCallback API to handle two-pass compilation?
+              // .setCompilerCallback(null.asInstanceOf[dotty.tools.dotc.interfaces.CompilerCallback])
+
+            setup(args, baseCtx) match
+              case Some((_, ctx)) =>
+                ctx.fresh
+                  .setSetting(ctx.settings.YvirtualClasspath, IArray(tastyOutlinePath))
+                  .setSetting(ctx.settings.YsecondPass, true)
+              case None => baseCtx
+          }
+
+          val executor = java.util.concurrent.Executors.newFixedThreadPool(compilers).nn
+          given ec: ExecutionContext = ExecutionContext.fromExecutor(executor)
+
+          report.echo(s"Compiling $compilers groups of files in parallel up to $parallelism threads")
+
+          val promises = fileGroups.map(_ => scala.concurrent.Promise[Unit]())
+
+          val allDepsFinished = Future.sequence(promises.map(_.future)).andThen {
+            case Success(_) =>
+              rootCtx.sbtCallback.apiPhaseCompleted()
+              rootCtx.sbtCallback.dependencyPhaseCompleted()
+            case Failure(ex) =>
+              ex.printStackTrace()
+              report.error(s"Exception during parallel compilation: ${ex.getMessage}")
+          }
+
+          val futureReporters = Future.sequence(promises.lazyZip(fileGroups).map((promise, fileGroup) => Future {
+            // println("#Compiling: " + fileGroup.mkString(" "))
+            val reporter = compile(fileGroup, secondPassCtx(promise))
+            // println("#Done: " + fileGroup.mkString(" "))
+            reporter
+          })).andThen {
+            case Success(reporters) =>
+              reporters.foreach(_.flush()(using firstPassCtx))
+            case Failure(ex) =>
+              ex.printStackTrace
+              report.error(s"Exception during parallel compilation: ${ex.getMessage}")(using firstPassCtx)
+          }
+          Await.ready(futureReporters, Duration.Inf)
+          executor.shutdown()
+        }
+      firstPassCtx.reporter
+  end doCompile0
+
   protected def doCompile(compiler: Compiler, files: List[AbstractFile])(using Context): Reporter =
     if files.nonEmpty then
       var runOrNull = ctx.run
@@ -193,8 +289,8 @@ class Driver {
    */
   def process(args: Array[String], rootCtx: Context): Reporter = {
     setup(args, rootCtx) match
-      case Some((files, compileCtx)) =>
-        doCompile(newCompiler(using compileCtx), files)(using compileCtx)
+      case Some((files, compileCtx @ given Context)) =>
+        doCompile0(args, files, rootCtx)
       case None =>
         rootCtx.reporter
   }

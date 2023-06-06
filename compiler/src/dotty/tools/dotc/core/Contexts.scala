@@ -54,8 +54,9 @@ object Contexts {
   private val (importInfoLoc,        store9) = store8.newLocation[ImportInfo | Null]()
   private val (typeAssignerLoc,     store10) = store9.newLocation[TypeAssigner](TypeAssigner)
   private val (initialZincFilesLoc, store11) = store10.newLocation[java.util.Map[String, xsbti.VirtualFile]](new java.util.HashMap)
+  private val (depsFinishPromiseLoc, store12) = store10.newLocation[scala.concurrent.Promise[Unit]]()
 
-  private val initialStore = store11
+  private val initialStore = store12
 
   /** The current context */
   inline def ctx(using ctx: Context): Context = ctx
@@ -169,6 +170,8 @@ object Contexts {
     def sbtCallback: AnalysisCallback = store(sbtCallbackLoc)
 
     def zincInitialFiles: java.util.Map[String, xsbti.VirtualFile] = store(initialZincFilesLoc)
+
+    def depsFinishPromiseOpt: Option[scala.concurrent.Promise[Unit]] = Option(store(depsFinishPromiseLoc))
 
     /** The current plain printer */
     def printerFn: Context => Printer = store(printerFnLoc)
@@ -682,6 +685,8 @@ object Contexts {
     def setSbtCallback(callback: AnalysisCallback): this.type = updateStore(sbtCallbackLoc, callback)
     def setZincVirtualFiles(map: java.util.Map[String, xsbti.VirtualFile]): this.type =
       updateStore(initialZincFilesLoc, map)
+    def setDepsFinishPromise(promise: scala.concurrent.Promise[Unit]): this.type =
+      updateStore(depsFinishPromiseLoc, promise)
     def setPrinterFn(printer: Context => Printer): this.type = updateStore(printerFnLoc, printer)
     def setSettings(settingsState: SettingsState): this.type = updateStore(settingsStateLoc, settingsState)
     def setRun(run: Run | Null): this.type = updateStore(runLoc, run)

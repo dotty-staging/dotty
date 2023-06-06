@@ -48,5 +48,5 @@ case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath wi
   private[dotty] def classes(inPackage: PackageName): Seq[ClassFileEntry] = files(inPackage)
 
   protected def createFileEntry(file: AbstractFile): ClassFileEntryImpl = ClassFileEntryImpl(file)
-  protected def isMatchingFile(f: AbstractFile): Boolean = f.isClass
+  protected def isMatchingFile(f: AbstractFile): Boolean = f.isClass || f.isTastySig
 }
