@@ -2230,6 +2230,10 @@ object Parsers {
         }
       case FOR =>
         forExpr()
+      case MDO =>
+        mdoExpr()
+      case MONADICEXPR =>
+        monadicExpr()
       case _ =>
         if isIdent(nme.inline)
            && !in.inModifierPosition()
@@ -2788,6 +2792,19 @@ object Parsers {
           if (!wrappedEnums) syntaxErrorOrIncomplete(YieldOrDoExpectedInForComprehension())
           ForDo(enums, expr())
         }
+      }
+
+    /** Mdo ::= 'mdo' Expr */
+    def mdoExpr(): Tree =
+      atSpan(in.skipToken()) {
+        newLinesOpt()
+        val expr = subExpr()
+        MDo(expr)
+      }
+
+    def monadicExpr(): Tree =
+      atSpan(in.skipToken()) {
+        MonadicExpr(expr1())
       }
 
     /** CaseClauses         ::= CaseClause {CaseClause}

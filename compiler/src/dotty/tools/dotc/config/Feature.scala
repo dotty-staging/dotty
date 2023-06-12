@@ -33,6 +33,7 @@ object Feature:
   val pureFunctions = experimental("pureFunctions")
   val captureChecking = experimental("captureChecking")
   val into = experimental("into")
+  val mdo = experimental("mdo")
 
   val globalOnlyImports: Set[TermName] = Set(pureFunctions, captureChecking)
 
@@ -79,6 +80,8 @@ object Feature:
   def namedTypeArgsEnabled(using Context) = enabled(namedTypeArguments)
 
   def clauseInterleavingEnabled(using Context) = enabled(clauseInterleaving)
+
+  def monadicDoEnabled(using Context) = enabled(mdo)
 
   def genericNumberLiteralsEnabled(using Context) = enabled(genericNumberLiterals)
 

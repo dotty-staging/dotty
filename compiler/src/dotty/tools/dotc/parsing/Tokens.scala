@@ -179,6 +179,8 @@ object Tokens extends TokensCommon {
   inline val EXPORT = 64;           enter(EXPORT, "export")
   inline val MACRO = 65;            enter(MACRO, "macro") // TODO: remove
   inline val END = 66;              enter(END, "end")
+  inline val MDO = 67;              enter(MDO, "mdo")
+  inline val MONADICEXPR = 68;      enter(MONADICEXPR, "⋇")
 
   /** special symbols */
   inline val NEWLINE = 78;          enter(NEWLINE, "end of statement", "new line")
@@ -206,7 +208,7 @@ object Tokens extends TokensCommon {
   /** XML mode */
   inline val XMLSTART = 99;         enter(XMLSTART, "$XMLSTART$<") // TODO: deprecate
 
-  final val alphaKeywords: TokenSet = tokenRange(IF, END)
+  final val alphaKeywords: TokenSet = tokenRange(IF, MONADICEXPR)
   final val symbolicKeywords: TokenSet = tokenRange(USCORE, CTXARROW)
   final val keywords: TokenSet = alphaKeywords | symbolicKeywords
 
@@ -224,7 +226,7 @@ object Tokens extends TokensCommon {
   final val canStartExprTokens3: TokenSet =
       atomicExprTokens
     | openParensTokens
-    | BitSet(INDENT, QUOTE, IF, WHILE, FOR, NEW, TRY, THROW)
+    | BitSet(INDENT, QUOTE, IF, WHILE, FOR, NEW, TRY, THROW, MDO, MONADICEXPR)
 
   final val canStartExprTokens2: TokenSet = canStartExprTokens3 | BitSet(DO)
 
@@ -265,7 +267,7 @@ object Tokens extends TokensCommon {
    *  Used for disambiguating between old and new syntax.
    */
   final val stopScanTokens: BitSet = mustStartStatTokens |
-    BitSet(IF, ELSE, WHILE, DO, FOR, YIELD, NEW, TRY, CATCH, FINALLY, THROW, RETURN, MATCH, SEMI, EOF)
+    BitSet(IF, ELSE, WHILE, DO, FOR, YIELD, NEW, TRY, CATCH, FINALLY, THROW, RETURN, MATCH, SEMI, EOF, MDO)
 
   final val numericLitTokens: TokenSet = BitSet(INTLIT, DECILIT, EXPOLIT, LONGLIT, FLOATLIT, DOUBLELIT)
 
@@ -274,7 +276,7 @@ object Tokens extends TokensCommon {
   final val closingRegionTokens = BitSet(RBRACE, RPAREN, RBRACKET, CASE) | statCtdTokens
 
   final val canStartIndentTokens: BitSet =
-    statCtdTokens | BitSet(COLONeol, WITH, EQUALS, ARROW, CTXARROW, LARROW, WHILE, TRY, FOR, IF, THROW, RETURN)
+    statCtdTokens | BitSet(COLONeol, WITH, EQUALS, ARROW, CTXARROW, LARROW, WHILE, TRY, FOR, IF, THROW, RETURN, MDO)
 
   /** Faced with the choice between a type and a formal parameter, the following
    *  tokens determine it's a formal parameter.

@@ -538,6 +538,7 @@ object StdNames {
     val materializeTypeTag: N   = "materializeTypeTag"
     val mirror : N              = "mirror"
     val moduleClass : N         = "moduleClass"
+    val monadicDo: N            = "monadicDo"
     val name: N                 = "name"
     val nameDollar: N           = "$name"
     val ne: N                   = "ne"

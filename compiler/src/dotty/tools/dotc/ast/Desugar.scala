@@ -1727,6 +1727,68 @@ object desugar {
       }
     }
 
+    def makeMDo(mapName: TermName, flatMapName: TermName, tree: Tree): Tree = trace(i"make mdo ${MDo(tree)}", show = true) {
+      def makeLambda(name: TermName, body: Tree): Tree = {
+        val vdef = makeParameter(name, TypeTree(), Modifiers())
+        Function(valDef(vdef) :: Nil, body)
+      }
+
+      def rhsSelect(expr: Tree, name: TermName) = {
+        Select(expr, name)
+      }
+
+      def withStats(stats: List[Tree], expr: Tree): Tree =
+        if stats.isEmpty then expr
+        else Block(stats, expr)
+
+      def transformStatsRest(mtree: Tree, name: TermName, stats: List[Tree], accStats: List[Tree], expr: Tree): Tree =
+        transformStats(stats, expr, Nil) match {
+          case MonadicExpr(expr) =>
+            val apl = Apply(rhsSelect(mtree, flatMapName), makeLambda(name, expr))
+            withStats(accStats.reverse, apl)
+          case expr =>
+            val apl = Apply(rhsSelect(mtree, mapName), makeLambda(name, expr))
+            withStats(accStats.reverse, apl)
+        }
+
+      def transformStats(stats: List[Tree], expr: Tree, accStats: List[Tree] = Nil): Tree = stats match {
+        case h :: tail =>
+          transformExpr(h) match {
+            case MonadicExpr(vd@ValDef(name, tpt, rhs)) =>
+              MonadicExpr(transformStatsRest(vd.rhs, name, tail, accStats, expr))
+            case MonadicExpr(tree) =>
+              MonadicExpr(transformStatsRest(tree, nme.WILDCARD, tail, accStats, expr))
+            case tree =>
+              transformStats(tail, expr, tree :: accStats)
+          }
+        case Nil =>
+          transformExpr(expr) match {
+            case MonadicExpr(expr) =>
+              MonadicExpr(withStats(accStats.reverse, expr))
+            case expr =>
+              withStats(accStats.reverse, expr)
+          }
+      }
+
+      def transformExpr(tree: Tree): Tree = tree match {
+        case Block(stats, expr) =>
+          transformStats(stats, expr, Nil)
+        case ValDef(name, tpt, MonadicExpr(rhs)) =>
+          transformExpr(rhs) match { // TODO(kπ) check if this is correct
+            case MonadicExpr(rhs) =>
+              MonadicExpr(ValDef(name, tpt, rhs))
+            case rhs =>
+              MonadicExpr(ValDef(name, tpt, rhs))
+          }
+        case expr => expr
+      }
+
+      transformExpr(tree) match {
+        case MonadicExpr(tree) => tree
+        case tree => tree
+      }
+    }
+
     def makePolyFunction(targs: List[Tree], body: Tree, pt: Type): Tree = body match {
       case Parens(body1) =>
         makePolyFunction(targs, body1, pt)
@@ -1834,6 +1896,8 @@ object desugar {
         makeFor(nme.foreach, nme.foreach, enums, body) orElse tree
       case ForYield(enums, body) =>
         makeFor(nme.map, nme.flatMap, enums, body) orElse tree
+      case MDo(expr) =>
+        makeMDo(nme.map, nme.flatMap, expr) orElse expr
       case PatDef(mods, pats, tpt, rhs) =>
         val pats1 = if (tpt.isEmpty) pats else pats map (Typed(_, tpt))
         flatTree(pats1 map (makePatDef(tree, mods, _, rhs)))
