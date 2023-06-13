@@ -1741,6 +1741,12 @@ object desugar {
         if stats.isEmpty then expr
         else Block(stats, expr)
 
+      def liftFunction(args: List[Tree], body: Tree): Tree = {
+        val vdef = makeParameter(termName("a$lift"), TypeTree(), Modifiers()) // TODO(kπ) fresh name (this is essentially `_.flatMap(args => body)`)
+        val apl = Apply(rhsSelect(vdef, flatMapName), Function(args, body))
+        Function(valDef(vdef) :: Nil, apl)
+      }
+
       def transformStatsRest(mtree: Tree, name: TermName, stats: List[Tree], accStats: List[Tree], expr: Tree): Tree =
         transformStats(stats, expr, Nil) match {
           case MonadicExpr(expr) =>
@@ -1773,20 +1779,36 @@ object desugar {
       def transformExpr(tree: Tree): Tree = tree match {
         case Block(stats, expr) =>
           transformStats(stats, expr, Nil)
-        case ValDef(name, tpt, MonadicExpr(rhs)) =>
-          transformExpr(rhs) match { // TODO(kπ) check if this is correct
+        case vd@ValDef(name, tpt, rhs) =>
+          transformExpr(vd.rhs) match { // TODO(kπ) check if this is correct
             case MonadicExpr(rhs) =>
               MonadicExpr(ValDef(name, tpt, rhs))
             case rhs =>
-              MonadicExpr(ValDef(name, tpt, rhs))
+              ValDef(name, tpt, rhs)
+          }
+        case fn@Function(vargs, rhs) =>
+          transformExpr(rhs) match {
+            case MonadicExpr(rhs) =>
+              MonadicExpr(liftFunction(vargs, rhs))
+            case rhs =>
+              Function(vargs, rhs)
+          }
+        case Parens(expr) =>
+          transformExpr(expr) match {
+            case MonadicExpr(expr) =>
+              MonadicExpr(Parens(expr))
+            case expr =>
+              Parens(expr)
           }
         case expr => expr
       }
 
-      transformExpr(tree) match {
+      val res = transformExpr(tree) match {
         case MonadicExpr(tree) => tree
         case tree => tree
       }
+      println(res)
+      res
     }
 
     def makePolyFunction(targs: List[Tree], body: Tree, pt: Type): Tree = body match {

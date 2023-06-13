@@ -16,6 +16,12 @@ def mdo3 = mdo {
   x + y
 }
 
+// def mdo4 = mdo {
+//   val f = ((x: Int) => ⋇Some(x + 1)) // problems with inference
+//   val y = ⋇Some(2)
+//   f(y)
+// }
+
 object Test extends App {
   println(mdo1)
   println(mdo2)
