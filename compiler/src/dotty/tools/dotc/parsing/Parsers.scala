@@ -2232,8 +2232,6 @@ object Parsers {
         forExpr()
       case MDO =>
         mdoExpr()
-      case MONADICEXPR =>
-        monadicExpr()
       case _ =>
         if isIdent(nme.inline)
            && !in.inModifierPosition()
@@ -2420,10 +2418,12 @@ object Parsers {
         isOperator = !(location.inArgs && followingIsVararg()))
 
     /** PrefixExpr       ::= [PrefixOperator'] SimpleExpr
-     *  PrefixOperator   ::=  ‘-’ | ‘+’ | ‘~’ | ‘!’ (if not backquoted)
+     *  PrefixOperator   ::=  ‘-’ | ‘+’ | ‘~’ | ‘!’ | ‘⋇’ (if not backquoted)
      */
     val prefixExpr: Location => Tree = location =>
-      if in.token == IDENTIFIER && nme.raw.isUnary(in.name)
+      if in.token == MONADICEXPR then
+        monadicExpr(location)
+      else if in.token == IDENTIFIER && nme.raw.isUnary(in.name)
          && in.canStartExprTokens.contains(in.lookahead.token)
       then
         val start = in.offset
@@ -2802,9 +2802,9 @@ object Parsers {
         MDo(expr)
       }
 
-    def monadicExpr(): Tree =
+    def monadicExpr(location: Location): Tree =
       atSpan(in.skipToken()) {
-        MonadicExpr(expr1())
+        MonadicExpr(simpleExpr(location))
       }
 
     /** CaseClauses         ::= CaseClause {CaseClause}

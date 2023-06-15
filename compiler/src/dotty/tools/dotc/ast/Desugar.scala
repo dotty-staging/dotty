@@ -1741,12 +1741,6 @@ object desugar {
         if stats.isEmpty then expr
         else Block(stats, expr)
 
-      def liftFunction(args: List[Tree], body: Tree): Tree = {
-        val vdef = makeParameter(termName("a$lift"), TypeTree(), Modifiers()) // TODO(kπ) fresh name (this is essentially `_.flatMap(args => body)`)
-        val apl = Apply(rhsSelect(vdef, flatMapName), Function(args, body))
-        Function(valDef(vdef) :: Nil, apl)
-      }
-
       def transformStatsRest(mtree: Tree, name: TermName, stats: List[Tree], accStats: List[Tree], expr: Tree): Tree =
         transformStats(stats, expr, Nil) match {
           case MonadicExpr(expr) =>
@@ -1776,6 +1770,21 @@ object desugar {
           }
       }
 
+      def transformExprsWithBindings(exprs: List[(String, Tree)], expr: Tree): Tree = exprs match {
+        case Nil =>
+          expr
+        case (name, tree) :: Nil =>
+          Apply(
+            rhsSelect(tree, mapName),
+            makeLambda(termName(name), transformExprsWithBindings(Nil, expr))
+          )
+        case (name, tree) :: tail =>
+          Apply(
+            rhsSelect(tree, flatMapName),
+            makeLambda(termName(name), transformExprsWithBindings(tail, expr))
+          )
+      }
+
       def transformExpr(tree: Tree): Tree = tree match {
         case Block(stats, expr) =>
           transformStats(stats, expr, Nil)
@@ -1789,9 +1798,56 @@ object desugar {
         case fn@Function(vargs, rhs) =>
           transformExpr(rhs) match {
             case MonadicExpr(rhs) =>
-              MonadicExpr(liftFunction(vargs, rhs))
+              report.error("Monadic expressions are not allowed in function bodies", fn.srcPos)
+              EmptyTree
             case rhs =>
               Function(vargs, rhs)
+          }
+        case Apply(fn, args) =>
+          val args1 = args.map(transformExpr)
+          val argsM = args1.zipWithIndex.collect { case (MonadicExpr(tree), idx) => idx -> tree }
+          val nameLookup = argsM.map { (idx, _) => idx -> Ident(termName("arg$" + idx.toString)) }.toMap
+          val newArgs = args1.zipWithIndex.map( (tree, idx) => nameLookup.getOrElse(idx, tree))
+          val argsMNames = argsM.map((i, t) => ("arg$" + i) -> t)
+          transformExpr(fn) match {
+            case MonadicExpr(fn) =>
+              MonadicExpr(
+                transformExprsWithBindings(List("fn$" -> fn) ++ argsMNames, Apply(Ident(termName("fn$")), newArgs))
+              )
+            case fn =>
+              transformExprsWithBindings(argsMNames, Apply(fn, newArgs))
+          }
+        case InfixOp(lhs, op, rhs) =>
+          transformExpr(lhs) match {
+            case MonadicExpr(lhs) =>
+              transformExpr(rhs) match {
+                case MonadicExpr(rhs) =>
+                  MonadicExpr(
+                    transformExprsWithBindings(
+                      List("lhs$" -> lhs, "rhs$" -> rhs),
+                      InfixOp(Ident(termName("lhs$")), op, Ident(termName("rhs$")))
+                    )
+                  )
+                case rhs =>
+                  MonadicExpr(
+                    transformExprsWithBindings(
+                      List("lhs$" -> lhs),
+                      InfixOp(Ident(termName("lhs$")), op, rhs)
+                    )
+                  )
+              }
+            case lhs =>
+              transformExpr(rhs) match {
+                case MonadicExpr(rhs) =>
+                  MonadicExpr(
+                    transformExprsWithBindings(
+                      List("rhs$" -> rhs),
+                      InfixOp(lhs, op, Ident(termName("rhs$")))
+                    )
+                  )
+                case rhs =>
+                  InfixOp(lhs, op, rhs)
+              }
           }
         case Parens(expr) =>
           transformExpr(expr) match {
@@ -1803,12 +1859,10 @@ object desugar {
         case expr => expr
       }
 
-      val res = transformExpr(tree) match {
+      transformExpr(tree) match {
         case MonadicExpr(tree) => tree
         case tree => tree
       }
-      println(res)
-      res
     }
 
     def makePolyFunction(targs: List[Tree], body: Tree, pt: Type): Tree = body match {

@@ -17,13 +17,18 @@ def mdo3 = mdo {
 }
 
 // def mdo4 = mdo {
-//   val f = ((x: Int) => ⋇Some(x + 1)) // problems with inference
+//   val f = ((x: Int) => ⋇Some(x + 1)) // error
 //   val y = ⋇Some(2)
 //   f(y)
 // }
+
+def mdo5 = mdo {
+  ⋇Some(2) + ⋇Some(3)
+}
 
 object Test extends App {
   println(mdo1)
   println(mdo2)
   println(mdo3)
+  println(mdo5)
 }
