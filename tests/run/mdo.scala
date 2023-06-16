@@ -6,24 +6,24 @@ def mdo1 = mdo {
 }
 
 def mdo2 = mdo {
-  val x = ⋇Some(1)
+  val x = 🌯Some(1)
   x
 }
 
 def mdo3 = mdo {
-  val x = ⋇Some(1)
-  val y = ⋇Some(2)
+  val x = 🌯Some(1)
+  val y = 🌯Some(2)
   x + y
 }
 
 // def mdo4 = mdo {
-//   val f = ((x: Int) => ⋇Some(x + 1)) // error
-//   val y = ⋇Some(2)
+//   val f = ((x: Int) => 🌯Some(x + 1)) // error
+//   val y = 🌯Some(2)
 //   f(y)
 // }
 
 def mdo5 = mdo {
-  ⋇Some(2) + ⋇Some(3)
+  🌯Some(2) + 🌯Some(3)
 }
 
 object Test extends App {

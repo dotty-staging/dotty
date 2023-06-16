@@ -2418,7 +2418,7 @@ object Parsers {
         isOperator = !(location.inArgs && followingIsVararg()))
 
     /** PrefixExpr       ::= [PrefixOperator'] SimpleExpr
-     *  PrefixOperator   ::=  ‘-’ | ‘+’ | ‘~’ | ‘!’ | ‘⋇’ (if not backquoted)
+     *  PrefixOperator   ::=  ‘-’ | ‘+’ | ‘~’ | ‘!’ | ‘🌯’ (if not backquoted)
      */
     val prefixExpr: Location => Tree = location =>
       if in.token == MONADICEXPR then
