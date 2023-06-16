@@ -1,9 +1,9 @@
 import scala.language.experimental.monadicDo
 
-def mdo1 = mdo {
-  val x = 1
-  x
-}
+// def mdo1 = mdo {
+//   val x = 1
+//   x
+// }
 
 def mdo2 = mdo {
   val x = 🌯Some(1)
@@ -27,7 +27,7 @@ def mdo5 = mdo {
 }
 
 object Test extends App {
-  println(mdo1)
+  // println(mdo1)
   println(mdo2)
   println(mdo3)
   println(mdo5)

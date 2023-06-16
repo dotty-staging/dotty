@@ -1861,7 +1861,9 @@ object desugar {
 
       transformExpr(tree) match {
         case MonadicExpr(tree) => tree
-        case tree => tree
+        case tree =>
+          report.error("mdo must contain a monadic expression", tree.srcPos) // TODO(kπ) can be fixed with wrapping the contents in `pure` in this case
+          EmptyTree
       }
     }
 
