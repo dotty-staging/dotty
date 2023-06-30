@@ -3422,7 +3422,7 @@ object Types extends TypeUtils {
     override def show(using Context) = "FlexibleType("+tp.show+")"
     def underlying(using Context) : Type = this.tp
     def derivedFlexibleType(under: Type)(using Context): Type =
-      FlexibleType(under)
+      if this.tp eq under then this else FlexibleType(under)
     override def computeHash(bs: Binders): Int = doHash(bs, tp)
     override def toString = "FlexibleType(%s)".format(tp)
     //override def hash = NotCached
