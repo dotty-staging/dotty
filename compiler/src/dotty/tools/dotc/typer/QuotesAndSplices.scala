@@ -181,9 +181,11 @@ trait QuotesAndSplices {
         val typeSym = newSymbol(spliceOwner(ctx), name, EmptyFlags, typeSymInfo, NoSymbol, tree.span)
         typeSym.addAnnotation(Annotation(New(ref(defn.QuotedRuntimePatterns_patternTypeAnnot.typeRef)).withSpan(tree.span)))
         addQuotedPatternTypeVariable(typeSym)
-        val pat = typedPattern(expr, defn.QuotedTypeClass.typeRef.appliedTo(typeSym.typeRef))(
-            using spliceContext.retractMode(Mode.QuotedPattern).withOwner(spliceOwner(ctx)))
-        pat.select(tpnme.Underlying)
+
+        Bind(typeSym, untpd.Ident(nme.WILDCARD).withType(typeSymInfo)).withSpan(tree.span)
+        // val pat = typedPattern(expr, defn.QuotedTypeClass.typeRef.appliedTo(typeSym.typeRef))(
+        //     using spliceContext.retractMode(Mode.QuotedPattern).withOwner(spliceOwner(ctx)))
+        // pat.select(tpnme.Underlying)
 
   private def checkSpliceOutsideQuote(tree: untpd.Tree)(using Context): Unit =
     if (level == 0 && !ctx.owner.ownersIterator.exists(_.isInlineMethod))
@@ -458,17 +460,64 @@ trait QuotesAndSplices {
       if untpdTypeVariables.isEmpty then (Nil, quoteCtx)
       else typedBlockStats(untpdTypeVariables)(using quoteCtx)
 
-    val quoted1 = inContext(patternCtx) {
+    val (quoted1, newQuote) = inContext(patternCtx) {
       for typeVariable <- typeTypeVariables do
         addQuotedPatternTypeVariable(typeVariable.symbol)
 
       val pattern =
         if quoted.isType then typedType(quoted0, WildcardType)(using patternCtx)
         else typedExpr(quoted0, WildcardType)
+      // println("pattern: " + pattern.show)
+      // println("         " + pattern)
+      // println(" ")
 
-      if untpdTypeVariables.isEmpty then pattern
-      else tpd.Block(typeTypeVariables, pattern)
+      val old =
+        if untpdTypeVariables.isEmpty then pattern
+        else tpd.Block(typeTypeVariables, pattern)
+
+      val allTypeBindings = List.newBuilder[Bind]
+      for typeDef <- typeTypeVariables yield
+        val sym = typeDef.symbol
+        sym.setFlag(Case)
+        allTypeBindings += Bind(sym, untpd.Ident(nme.WILDCARD).withType(sym.info)).withSpan(typeDef.span)
+
+      val patternTransformer = new TreeMap {
+        override def transform(tree: Tree)(using Context) = tree match
+          case Typed(splice @ SplicePattern(pat, Nil), tpt) if !tpt.tpe.derivesFrom(defn.RepeatedParamClass) =>
+            transform(tpt) // Collect type bindings
+            transform(splice)
+          // case pat: Bind if pat.isType =>
+          //   allTypeBindings += pat
+
+          //   val sym = tree.tpe.dealias.typeSymbol
+          //   if sym.exists then
+          //     val tdef = TypeDef(sym.asType).withSpan(sym.span)
+          //     val nameOfSyntheticGiven = pat.symbol.name.toTermName
+          //     println("> " + pat.show)
+          //     println("  " + pat)
+          //     println("  " + sym)
+          //     allTypeBindings += Bind(sym, untpd.Ident(nme.WILDCARD).withType(sym.info)).withSpan(pat.span)
+          //     // freshTypeBindingsBuff += transformTypeBindingTypeDef(nameOfSyntheticGiven, tdef, freshTypePatBuf)
+          //     TypeTree(tree.tpe.dealias).withSpan(tree.span)
+          //   else
+          //     tree
+          case _ =>
+            super.transform(tree)
+      }
+      val pattern1 = patternTransformer.transform(pattern)
+
+      val newQuote = QuotePattern(allTypeBindings.result(), pattern1, quotes, pt)
+
+      (old, newQuote)
     }
+
+    // println("typeTypeVariables: " + typeTypeVariables.map(_.show))
+    // println("                   " + typeTypeVariables)
+    // println(" ")
+    // println("newQuote: " + newQuote.show)
+    // println("          " + newQuote)
+    // println(" ")
+
 
     val (typeBindings, shape, splices) = splitQuotePattern(quoted1)
 
@@ -525,8 +574,20 @@ trait QuotesAndSplices {
       patterns = splicePat :: Nil,
       proto = quoteClass.typeRef.appliedTo(replaceBindings(quoted1.tpe)))
 
-    if ctx.reporter.hasErrors then encodedPattern
-    else QuotePatterns.decode(encodedPattern) // TODO type directly into the encoded version
+    if ctx.reporter.hasErrors then errorTree(tree, em"Could not verify pattern")
+    else
+      val a = QuotePatterns.decode(encodedPattern) // TODO type directly into the encoded version
+      // println("encoded: " + a.show)
+      // println(a)
+      // println(" ")
+      println("oldQuote: " + a.show)
+      println("newQuote: " + newQuote.show)
+      println(a)
+      println(newQuote)
+      println(" ")
+      println("------------------------- ")
+      // if untpdTypeVariables.isEmpty then newQuote else a
+      a
   }
 }
 
