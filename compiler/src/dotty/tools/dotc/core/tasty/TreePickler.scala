@@ -528,7 +528,7 @@ class TreePickler(pickler: TastyPickler) {
         case SeqLiteral(elems, elemtpt) =>
           writeByte(REPEATED)
           withLength { pickleTree(elemtpt); elems.foreach(pickleTree) }
-        case tree @ Inlined(call, bindings, expansion) =>
+        case tree @ Inlined(inlineStack, call, bindings, expansion) =>
           writeByte(INLINED)
           bindings.foreach(preRegister)
           withLength {

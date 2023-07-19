@@ -1136,7 +1136,7 @@ object Objects:
       case SeqLiteral(elems, elemtpt) =>
         evalExprs(elems, thisV, klass).join
 
-      case Inlined(call, bindings, expansion) =>
+      case Inlined(_, _, bindings, expansion) =>
         evalExprs(bindings, thisV, klass)
         eval(expansion, thisV, klass)
 

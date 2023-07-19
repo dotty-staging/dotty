@@ -98,7 +98,7 @@ class ReTyper(nestingLevel: Int = 0) extends Typer(nestingLevel) with ReChecking
   override def typedInlined(tree: untpd.Inlined, pt: Type)(using Context): Tree = {
     val (bindings1, exprCtx) = typedBlockStats(tree.bindings)
     val expansion1 = typed(tree.expansion, pt)(using inlineContext(promote(tree))(using exprCtx))
-    untpd.cpy.Inlined(tree)(tree.call, bindings1.asInstanceOf[List[MemberDef]], expansion1)
+    untpd.cpy.Inlined(tree)(tree.inlineStack, tree.call, bindings1.asInstanceOf[List[MemberDef]], expansion1)
       .withType(avoidingType(expansion1, bindings1))
   }
 

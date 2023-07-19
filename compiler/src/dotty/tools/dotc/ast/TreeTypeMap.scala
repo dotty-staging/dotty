@@ -86,10 +86,10 @@ class TreeTypeMap(
     }
 
   def transformInlined(tree: Inlined)(using Context): Tree =
-    val Inlined(call, bindings, expanded) = tree
+    val Inlined(inlineStack, call, bindings, expanded) = tree
     val (tmap1, bindings1) = transformDefs(bindings)
     val expanded1 = tmap1.transform(expanded)
-    cpy.Inlined(tree)(call, bindings1, expanded1)
+    cpy.Inlined(tree)(inlineStack, call, bindings1, expanded1)
 
   override def transform(tree: Tree)(using Context): Tree = treeMap(tree) match {
     case impl @ Template(constr, _, self, _) =>

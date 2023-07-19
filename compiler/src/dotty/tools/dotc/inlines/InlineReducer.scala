@@ -68,7 +68,7 @@ class InlineReducer(inliner: Inliner)(using Context):
           val binding = tree.symbol.defTree
           for ((cls, reduced, prefix, precomputed) <- unapply(binding))
           yield (cls, reduced, prefix, precomputed || binding.isInstanceOf[ValDef])
-        case Inlined(_, bindings, expansion) =>
+        case Inlined(_, _, bindings, expansion) =>
           unapplyLet(bindings, expansion)
         case Block(stats, expr) if isElideableExpr(tree) =>
           unapplyLet(stats, expr)

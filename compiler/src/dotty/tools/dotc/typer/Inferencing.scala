@@ -752,7 +752,7 @@ trait Inferencing { this: Typer =>
               else findArg(fn)
             case TypeApply(fn, _) => findArg(fn)
             case Block(_, expr) => findArg(expr)
-            case Inlined(_, _, expr) => findArg(expr)
+            case Inlined(_, _, _, expr) => findArg(expr)
             case _ => EmptyTree
 
           val arg = findArg(call)

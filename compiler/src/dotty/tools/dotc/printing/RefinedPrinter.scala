@@ -532,7 +532,7 @@ class RefinedPrinter(_ctx: Context) extends PlainPrinter(_ctx) {
         }
       case SeqLiteral(elems, elemtpt) =>
         "[" ~ toTextGlobal(elems, ",") ~ " : " ~ toText(elemtpt) ~ "]"
-      case tree @ Inlined(call, bindings, body) =>
+      case tree @ Inlined(inlineStack, call, bindings, body) =>
         val bodyText = if bindings.isEmpty then toText(body) else blockText(bindings :+ body)
         if homogenizedView || !ctx.settings.XprintInline.value then bodyText
         else if tree.inlinedFromOuterScope then stringText("{{") ~ stringText("/* inlined from outside */") ~ bodyText ~ stringText("}}")

@@ -75,7 +75,7 @@ class CheckLoopingImplicits extends MiniPhase:
       case Block(stats, expr) =>
         stats.foreach(checkNotLooping)
         checkNotLooping(expr)
-      case Inlined(_, bindings, expr) =>
+      case Inlined(_, _, bindings, expr) =>
         bindings.foreach(checkNotLooping)
         checkNotLooping(expr)
       case Typed(expr, _) =>

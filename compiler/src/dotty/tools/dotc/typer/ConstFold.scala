@@ -65,7 +65,7 @@ object ConstFold:
   private object ConstantTree:
     def unapply(tree: Tree)(using Context): Option[Constant] =
       tree match
-        case Inlined(_, Nil, expr) => unapply(expr)
+        case Inlined(_, _, Nil, expr) => unapply(expr)
         case Typed(expr, _) => unapply(expr)
         case Literal(c) if c.tag == Constants.NullTag => Some(c)
         case _ =>

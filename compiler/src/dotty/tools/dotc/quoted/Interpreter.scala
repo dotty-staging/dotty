@@ -103,7 +103,7 @@ class Interpreter(pos: SrcPos, classLoader0: ClassLoader)(using Context):
     case Block(stats, expr) => interpretBlock(stats, expr)
     case NamedArg(_, arg) => interpretTree(arg)
 
-    case Inlined(_, bindings, expansion) => interpretBlock(bindings, expansion)
+    case Inlined(_, _, bindings, expansion) => interpretBlock(bindings, expansion)
 
     case Typed(expr, _) =>
       interpretTree(expr)

@@ -88,12 +88,12 @@ trait TreeInfo[T <: Untyped] { self: Trees.Instance[T] =>
   /** If this is a block, its expression part */
   def stripBlock(tree: Tree): Tree = unsplice(tree) match {
     case Block(_, expr) => stripBlock(expr)
-    case Inlined(_, _, expr) => stripBlock(expr)
+    case Inlined(_, _, _, expr) => stripBlock(expr)
     case _ => tree
   }
 
   def stripInlined(tree: Tree): Tree = unsplice(tree) match {
-    case Inlined(_, _, expr) => stripInlined(expr)
+    case Inlined(_, _, _, expr) => stripInlined(expr)
     case _ => tree
   }
 
@@ -542,7 +542,7 @@ trait TypedTreeInfo extends TreeInfo[Type] { self: Trees.Instance[Type] =>
       exprPurity(expr)
     case Block(stats, expr) =>
       minOf(exprPurity(expr), stats.map(statPurity))
-    case Inlined(_, bindings, expr) =>
+    case Inlined(_, _, bindings, expr) =>
       minOf(exprPurity(expr), bindings.map(statPurity))
     case NamedArg(_, expr) =>
       exprPurity(expr)
@@ -696,7 +696,7 @@ trait TypedTreeInfo extends TreeInfo[Type] { self: Trees.Instance[Type] =>
   }
 
   def isExtMethodApply(tree: Tree)(using Context): Boolean = methPart(tree) match
-    case Inlined(call, _, _) => isExtMethodApply(call)
+    case Inlined(inlineStack, call, _, _) => isExtMethodApply(call)
     case tree @ Select(qual, nme.apply) => tree.symbol.is(ExtensionMethod) || isExtMethodApply(qual)
     case tree => tree.symbol.is(ExtensionMethod)
 
@@ -931,7 +931,7 @@ trait TypedTreeInfo extends TreeInfo[Type] { self: Trees.Instance[Type] =>
    */
   def tupleArgs(tree: Tree)(using Context): List[Tree] = tree match {
     case Block(Nil, expr) => tupleArgs(expr)
-    case Inlined(_, Nil, expr) => tupleArgs(expr)
+    case Inlined(_, _, Nil, expr) => tupleArgs(expr)
     case Apply(fn: NameTree, args)
     if fn.name == nme.apply &&
         fn.symbol.owner.is(Module) &&
@@ -1092,7 +1092,7 @@ trait TypedTreeInfo extends TreeInfo[Type] { self: Trees.Instance[Type] =>
     def unapply(tree: Tree)(using Context): Option[Any] =
       tree match
         case Typed(expr, _) => unapply(expr)
-        case Inlined(_, Nil, expr) => unapply(expr)
+        case Inlined(_, _, Nil, expr) => unapply(expr)
         case Block(Nil, expr) => unapply(expr)
         case _ =>
           tree.tpe.widenTermRefExpr.dealias.normalized match

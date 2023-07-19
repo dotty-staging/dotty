@@ -134,7 +134,7 @@ object ContextFunctionResults:
         integrateSelect(fn, n)
       case Block(_, expr) =>
         integrateSelect(expr, n)
-      case Inlined(_, _, expr) =>
+      case Inlined(_, _, _, expr) =>
         integrateSelect(expr, n)
       case _ =>
         false

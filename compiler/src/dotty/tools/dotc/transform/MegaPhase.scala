@@ -397,7 +397,7 @@ class MegaPhase(val miniPhases: Array[MiniPhase]) extends Phase {
         inContext(prepInlined(tree, start)(using outerCtx)) {
           val bindings = transformSpecificTrees(tree.bindings, start)
           val expansion = transformTree(tree.expansion, start)(using inlineContext(tree))
-          goInlined(cpy.Inlined(tree)(tree.call, bindings, expansion), start)
+          goInlined(cpy.Inlined(tree)(tree.inlineStack, tree.call, bindings, expansion), start)
         }
       case tree: Quote =>
         inContext(prepQuote(tree, start)(using outerCtx)) {

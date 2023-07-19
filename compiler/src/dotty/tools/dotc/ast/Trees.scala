@@ -671,8 +671,10 @@ object Trees {
    *  different context: `bindings` represent the arguments to the inlined
    *  call, whereas `expansion` represents the body of the inlined function.
    */
-  case class Inlined[+T <: Untyped] private[ast] (call: tpd.Tree, bindings: List[MemberDef[T]], expansion: Tree[T])(implicit @constructorOnly src: SourceFile)
+  case class Inlined[+T <: Untyped] private[ast] (inlineStack: List[tpd.Tree], call: tpd.Tree, bindings: List[MemberDef[T]], expansion: Tree[T])(implicit @constructorOnly src: SourceFile)
     extends Tree[T] {
+
+    assert(call.isEmpty || inlineStack.head.eq(call), "call not head of inline stack")
 
     def inlinedFromOuterScope: Boolean = call.isEmpty
 
@@ -1344,9 +1346,9 @@ object Trees {
         case tree: SeqLiteral if (elems eq tree.elems) && (elemtpt eq tree.elemtpt) => tree
         case _ => finalize(tree, untpd.SeqLiteral(elems, elemtpt)(sourceFile(tree)))
       }
-      def Inlined(tree: Tree)(call: tpd.Tree, bindings: List[MemberDef], expansion: Tree)(using Context): Inlined = tree match {
-        case tree: Inlined if (call eq tree.call) && (bindings eq tree.bindings) && (expansion eq tree.expansion) => tree
-        case _ => finalize(tree, untpd.Inlined(call, bindings, expansion)(sourceFile(tree)))
+      def Inlined(tree: Tree)(inlineStack: List[tpd.Tree], call: tpd.Tree, bindings: List[MemberDef], expansion: Tree)(using Context): Inlined = tree match {
+        case tree: Inlined if (inlineStack eq tree.inlineStack) && (call eq tree.call) && (bindings eq tree.bindings) && (expansion eq tree.expansion) => tree
+        case _ => finalize(tree, untpd.Inlined(inlineStack, call, bindings, expansion)(sourceFile(tree)))
       }
       def Quote(tree: Tree)(body: Tree, tags: List[Tree])(using Context): Quote = tree match {
         case tree: Quote if (body eq tree.body) && (tags eq tree.tags) => tree
@@ -1552,8 +1554,8 @@ object Trees {
               cpy.Try(tree)(transform(block), transformSub(cases), transform(finalizer))
             case SeqLiteral(elems, elemtpt) =>
               cpy.SeqLiteral(tree)(transform(elems), transform(elemtpt))
-            case tree @ Inlined(call, bindings, expansion) =>
-              cpy.Inlined(tree)(call, transformSub(bindings), transform(expansion)(using inlineContext(tree)))
+            case tree @ Inlined(inlineStack, call, bindings, expansion) =>
+              cpy.Inlined(tree)(inlineStack, call, transformSub(bindings), transform(expansion)(using inlineContext(tree)))
             case TypeTree() =>
               tree
             case SingletonTypeTree(ref) =>
@@ -1696,7 +1698,7 @@ object Trees {
               this(this(this(x, block), handler), finalizer)
             case SeqLiteral(elems, elemtpt) =>
               this(this(x, elems), elemtpt)
-            case tree @ Inlined(call, bindings, expansion) =>
+            case tree @ Inlined(_, _, bindings, expansion) =>
               this(this(x, bindings), expansion)(using inlineContext(tree))
             case TypeTree() =>
               x

@@ -248,7 +248,8 @@ object Splicer {
           case tree: Inlined if tree.inlinedFromOuterScope => tree.expansion
           case _ => body
         }
-        new ExprImpl(Inlined(EmptyTree, Nil, QuoteUtils.changeOwnerOfTree(body1, ctx.owner)).withSpan(body1.span), SpliceScope.getCurrent)
+        val inlineStack = enclosingInlineds.drop(1)
+        new ExprImpl(Inlined(inlineStack, EmptyTree, Nil, QuoteUtils.changeOwnerOfTree(body1, ctx.owner)).withSpan(body1.span), SpliceScope.getCurrent)
 
       // Interpret level -1 `Type.of[T]`
       case Apply(TypeApply(fn, quoted :: Nil), _) if fn.symbol == defn.QuotedTypeModule_of =>

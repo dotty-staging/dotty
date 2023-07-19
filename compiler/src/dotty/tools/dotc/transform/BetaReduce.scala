@@ -82,8 +82,8 @@ object BetaReduce:
           case _ => None
       case Block(stats, expr) if stats.forall(isPureBinding) =>
         recur(expr, argss).map(cpy.Block(fn)(stats, _))
-      case Inlined(call, bindings, expr) if bindings.forall(isPureBinding) =>
-        recur(expr, argss).map(cpy.Inlined(fn)(call, bindings, _))
+      case Inlined(inlineStack, call, bindings, expr) if bindings.forall(isPureBinding) =>
+        recur(expr, argss).map(cpy.Inlined(fn)(inlineStack, call, bindings, _))
       case Typed(expr, tpt) =>
         recur(expr, argss)
       case TypeApply(Select(expr, nme.asInstanceOfPM), List(tpt)) =>

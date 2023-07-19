@@ -2826,7 +2826,7 @@ class MissingImplicitArgument(
         arg.tpe match
           case tpe: SearchFailureType =>
             val original = arg match
-              case Inlined(call, _, _) => call
+              case Inlined(inlineStack, call, _, _) => call
               case _ => arg
             i"""$headline.
               |I found:

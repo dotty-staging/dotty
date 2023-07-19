@@ -101,7 +101,7 @@ object Inlines:
       override def transform(t: Tree)(using Context) =
         if call.span.exists then
           t match
-            case t @ Inlined(_, Nil, expr) if t.inlinedFromOuterScope => expr
+            case t @ Inlined(_, _, Nil, expr) if t.inlinedFromOuterScope => expr
             case _ if t.isEmpty => t
             case _ => super.transform(t.withSpan(call.span))
         else t
@@ -117,10 +117,10 @@ object Inlines:
       case Block(stats, expr) =>
         bindings ++= stats.map(liftPos)
         liftBindings(expr, liftPos)
-      case Inlined(call, stats, expr) =>
+      case Inlined(inlineStack, call, stats, expr) =>
         bindings ++= stats.map(liftPos)
         val lifter = liftFromInlined(call)
-        cpy.Inlined(tree)(call, Nil, liftBindings(expr, liftFromInlined(call).transform(_)))
+        cpy.Inlined(tree)(inlineStack, call, Nil, liftBindings(expr, liftFromInlined(call).transform(_)))
       case Apply(fn, args) =>
         cpy.Apply(tree)(liftBindings(fn, liftPos), args)
       case TypeApply(fn, args) =>
@@ -318,7 +318,7 @@ object Inlines:
       def stripTyped(t: Tree): Tree = t match {
         case Typed(t2, _) => stripTyped(t2)
         case Block(Nil, t2) => stripTyped(t2)
-        case Inlined(_, Nil, t2) => stripTyped(t2)
+        case Inlined(_, _, Nil, t2) => stripTyped(t2)
         case _ => t
       }
 
@@ -401,7 +401,7 @@ object Inlines:
         case (arg :: Nil) :: Nil =>
           if inlinedMethod == defn.Compiletime_requireConst then
             arg match
-              case ConstantValue(_) | Inlined(_, Nil, Typed(ConstantValue(_), _)) => // ok
+              case ConstantValue(_) | Inlined(_, _, Nil, Typed(ConstantValue(_), _)) => // ok
               case _ => report.error(em"expected a constant value but found: $arg", arg.srcPos)
             return Literal(Constant(())).withSpan(call.span)
           else if inlinedMethod == defn.Compiletime_codeOf then
@@ -443,9 +443,10 @@ object Inlines:
 
       val (bindings, expansion) = super.inlined(rhsToInline)
 
+      val inlineStack = call :: enclosingInlineds
       // Take care that only argument bindings go into `bindings`, since positions are
       // different for bindings from arguments and bindings from body.
-      val res = tpd.Inlined(call, bindings, expansion)
+      val res = tpd.Inlined(inlineStack, call, bindings, expansion)
 
       if !hasOpaqueProxies then res
       else

@@ -88,7 +88,7 @@ object Inliner:
         apply(expr)
       case Block(stats, expr) =>
         apply(expr) && stats.forall(isStatElideable)
-      case Inlined(_, bindings, expr) =>
+      case Inlined(_, _, bindings, expr) =>
         apply(expr) && bindings.forall(isStatElideable)
       case NamedArg(_, expr) =>
         apply(expr)
@@ -549,10 +549,12 @@ class Inliner(val call: tpd.Tree)(using Context):
 
     val inlineTyper = new InlineTyper(ctx.reporter.errorCount)
 
-    val inlineCtx = inlineContext(Inlined(call, Nil, ref(defn.Predef_undefined))).fresh.setTyper(inlineTyper).setNewScope
+    val enclosingInlined0 = enclosingInlineds
+    val inlineStack = call :: enclosingInlined0
+    val inlineCtx = inlineContext(Inlined(inlineStack, call, Nil, ref(defn.Predef_undefined))).fresh.setTyper(inlineTyper).setNewScope
 
     def inlinedFromOutside(tree: Tree)(span: Span): Tree =
-      Inlined(EmptyTree, Nil, tree)(using ctx.withSource(inlinedMethod.topLevelClass.source)).withSpan(span)
+      Inlined(enclosingInlined0, EmptyTree, Nil, tree)(using ctx.withSource(inlinedMethod.topLevelClass.source)).withSpan(span)
 
     // A tree type map to prepare the inlined body for typechecked.
     // The translation maps references to `this` and parameters to
@@ -687,7 +689,7 @@ class Inliner(val call: tpd.Tree)(using Context):
       }
 
       // Drop unused bindings
-      val (finalBindings, finalExpansion) = dropUnusedDefs(bindingsBuf.toList, expansion1)
+      val (finalBindings, finalExpansion) = dropUnusedDefs(bindingsBuf.toList, expansion1)(using inlineCtx)
 
       if (inlinedMethod == defn.Compiletime_error) issueError()
 
@@ -857,7 +859,7 @@ class Inliner(val call: tpd.Tree)(using Context):
         def selTyped(sel: Tree): Type = sel match {
           case Typed(sel2, _) => selTyped(sel2)
           case Block(Nil, sel2) => selTyped(sel2)
-          case Inlined(_, Nil, sel2) => selTyped(sel2)
+          case Inlined(_, _, Nil, sel2) => selTyped(sel2)
           case _ => sel.tpe
         }
         val selType = if (sel.isEmpty) wideSelType else selTyped(sel)
@@ -1049,7 +1051,7 @@ class Inliner(val call: tpd.Tree)(using Context):
     }
     val inlinedNormalizer = new TreeMap {
       override def transform(tree: tpd.Tree)(using Context): tpd.Tree = tree match {
-        case tree @ Inlined(_, Nil, expr) if tree.inlinedFromOuterScope && enclosingInlineds.isEmpty => transform(expr)
+        case tree @ Inlined(_, _, Nil, expr) if tree.inlinedFromOuterScope && enclosingInlineds.isEmpty => transform(expr)
         case _ => super.transform(tree)
       }
     }

@@ -164,7 +164,7 @@ class QuoteMatcher(debug: Boolean) {
       case tree: TypeDef => tree.symbol.hasAnnotation(defn.QuotedRuntimePatterns_patternTypeAnnot)
       case _ => false
     pat match
-      case tpd.Inlined(_, Nil, pat2) => instrumentTypeHoles(pat2)
+      case tpd.Inlined(_, _, Nil, pat2) => instrumentTypeHoles(pat2)
       case tpd.Block(stats @ ((typeHole: TypeDef) :: _), expr) if isTypeHoleDef(typeHole) =>
         val (holeDefs, otherStats) = stats.span(isTypeHoleDef)
         val holeSyms = holeDefs.map(_.symbol)
@@ -214,7 +214,7 @@ class QuoteMatcher(debug: Boolean) {
           expr match
             case _: Closure => tree
             case _ => normalize(Block(stats1 ::: stats2, expr))
-        case Inlined(_, Nil, expr) => normalize(expr)
+        case Inlined(_, _, Nil, expr) => normalize(expr)
         case _ => tree
       }
 

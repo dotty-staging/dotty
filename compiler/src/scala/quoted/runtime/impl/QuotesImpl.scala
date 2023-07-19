@@ -377,7 +377,7 @@ class QuotesImpl private (using val ctx: Context) extends Quotes, QuoteUnpickler
         tree match
           case tpd.Block(Nil, expr) =>
             for e <- betaReduce(expr) yield tpd.cpy.Block(tree)(Nil, e)
-          case tpd.Inlined(_, Nil, expr) =>
+          case tpd.Inlined(_, _, Nil, expr) =>
             betaReduce(expr)
           case _ =>
             val tree1 = dotc.transform.BetaReduce(tree)
@@ -1003,9 +1003,17 @@ class QuotesImpl private (using val ctx: Context) extends Quotes, QuoteUnpickler
 
     object Inlined extends InlinedModule:
       def apply(call: Option[Tree], bindings: List[Definition], expansion: Term): Inlined =
-        withDefaultPos(tpd.Inlined(call.getOrElse(tpd.EmptyTree), bindings.map { case b: tpd.MemberDef => b }, xCheckMacroValidExpr(expansion)))
+        val callTree = call.getOrElse(tpd.EmptyTree)
+        val inlineStack =
+          if callTree.isEmpty then enclosingInlineds.drop(1)
+          else callTree :: enclosingInlineds
+        withDefaultPos(tpd.Inlined(inlineStack, callTree, bindings.map { case b: tpd.MemberDef => b }, xCheckMacroValidExpr(expansion)))
       def copy(original: Tree)(call: Option[Tree], bindings: List[Definition], expansion: Term): Inlined =
-        tpd.cpy.Inlined(original)(call.getOrElse(tpd.EmptyTree), bindings.asInstanceOf[List[tpd.MemberDef]], xCheckMacroValidExpr(expansion))
+        val callTree = call.getOrElse(tpd.EmptyTree)
+        val inlineStack =
+          if callTree.isEmpty then enclosingInlineds.drop(1)
+          else callTree :: enclosingInlineds
+        tpd.cpy.Inlined(original)(inlineStack, callTree, bindings.asInstanceOf[List[tpd.MemberDef]], xCheckMacroValidExpr(expansion))
       def unapply(x: Inlined): (Option[Tree /* Term | TypeTree */], List[Definition], Term) =
         (optional(x.call), x.bindings, x.body)
     end Inlined

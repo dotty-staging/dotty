@@ -1356,7 +1356,7 @@ object Semantic:
       case SeqLiteral(elems, elemtpt) =>
         elems.map { elem => eval(elem, thisV, klass) }.join
 
-      case Inlined(call, bindings, expansion) =>
+      case Inlined(_, _, bindings, expansion) =>
         eval(bindings, thisV, klass)
         withTrace(trace2) { eval(expansion, thisV, klass) }
 

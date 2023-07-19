@@ -250,9 +250,9 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
 
     private object dropInlines extends TreeMap {
       override def transform(tree: Tree)(using Context): Tree = tree match {
-        case Inlined(call, _, expansion) =>
+        case Inlined(inlineStack, call, _, expansion) =>
           val newExpansion = PruneErasedDefs.trivialErasedTree(tree)
-          cpy.Inlined(tree)(call, Nil, newExpansion)
+          cpy.Inlined(tree)(inlineStack, call, Nil, newExpansion)
         case _ => super.transform(tree)
       }
     }
@@ -363,12 +363,12 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
             case _ =>
               super.transform(tree1)
           }
-        case tree @ Inlined(call, bindings, expansion) if !tree.inlinedFromOuterScope =>
+        case tree @ Inlined(inlineStack, call, bindings, expansion) if !tree.inlinedFromOuterScope =>
           val pos = call.sourcePos
           CrossVersionChecks.checkExperimentalRef(call.symbol, pos)
           withMode(Mode.InlinedCall)(transform(call))
-          val callTrace = Inlines.inlineCallTrace(call.symbol, pos)(using ctx.withSource(pos.source))
-          cpy.Inlined(tree)(callTrace, transformSub(bindings), transform(expansion)(using inlineContext(tree)))
+          val inlineCallTrace = inlineStack.map(call => Inlines.inlineCallTrace(call.symbol, pos)(using ctx.withSource(pos.source)))
+          cpy.Inlined(tree)(inlineCallTrace, inlineCallTrace.head, transformSub(bindings), transform(expansion)(using inlineContext(tree)))
         case templ: Template =>
           withNoCheckNews(templ.parents.flatMap(newPart)) {
             forwardParamAccessors(templ)

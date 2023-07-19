@@ -182,7 +182,7 @@ object LiftCoverage extends LiftImpure {
     arg match
       case a: tpd.Apply => a.symbol.is(Erased) // don't lift erased applications, but lift all others
       case tpd.Block(stats, expr) => stats.forall(noLiftArg) && noLiftArg(expr)
-      case tpd.Inlined(_, bindings, expr) => noLiftArg(expr)
+      case tpd.Inlined(_, _, bindings, expr) => noLiftArg(expr)
       case tpd.Typed(expr, _) => noLiftArg(expr)
       case _ => super.noLift(arg)
 

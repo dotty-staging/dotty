@@ -1430,7 +1430,7 @@ trait Applications extends Compatibility {
           def loop(unapp: Tree): Unit = unapp match {
             case Apply(Apply(unapply, `dummyArg` :: Nil), args2) => assert(args2.nonEmpty); res ++= args2
             case Apply(unapply, `dummyArg` :: Nil) =>
-            case Inlined(u, _, _) => loop(u)
+            case Inlined(_, u, _, _) => loop(u)
             case DynamicUnapply(_) => report.error(em"Structural unapply is not supported", unapplyFn.srcPos)
             case Apply(fn, args) => assert(args.nonEmpty); loop(fn); res ++= args
             case _ => ().assertingErrorsReported

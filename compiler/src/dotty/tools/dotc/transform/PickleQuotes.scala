@@ -115,7 +115,8 @@ class PickleQuotes extends MacroTransform {
             holeContents += content
             val holeType = getPicklableHoleType(tree.tpe, stagedClasses)
             val hole = untpd.cpy.Hole(tree)(content = EmptyTree).withType(holeType)
-            cpy.Inlined(tree)(EmptyTree, Nil, hole)
+            val inlineStack = enclosingInlineds.drop(1)
+            cpy.Inlined(tree)(inlineStack, EmptyTree, Nil, hole)
           case tree: DefTree =>
             if tree.symbol.isClass then
               stagedClasses += tree.symbol
@@ -304,7 +305,10 @@ object PickleQuotes {
     def pickleAsTasty() = {
       val body1 =
         if body.isType then body
-        else Inlined(Inlines.inlineCallTrace(ctx.owner, quote.sourcePos), Nil, body)
+        else
+          val inlineStack = enclosingInlineds
+          val callTrace = Inlines.inlineCallTrace(ctx.owner, quote.sourcePos)
+          Inlined(callTrace :: inlineStack, callTrace, Nil, body)
       val pickleQuote = PickledQuotes.pickleQuote(body1)
       val pickledQuoteStrings = pickleQuote match
         case x :: Nil => Literal(Constant(x))
@@ -380,7 +384,7 @@ object PickleQuotes {
     def getLiteral(tree: tpd.Tree): Option[Literal] = tree match
       case tree: Literal => Some(tree)
       case Block(Nil, e) => getLiteral(e)
-      case Inlined(_, Nil, e) => getLiteral(e)
+      case Inlined(_, _, Nil, e) => getLiteral(e)
       case _ => None
 
     if body.isType then
