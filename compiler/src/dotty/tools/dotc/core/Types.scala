@@ -1755,9 +1755,7 @@ object Types extends TypeUtils {
     }
 
     /** Is this (an alias of) the `scala.Null` type? */
-    final def isNullType(using Context) = {
-      isRef(defn.NullClass)
-    }
+    final def isNullType(using Context) = isRef(defn.NullClass)
 
     /** Is this (an alias of) the `scala.Nothing` type? */
     final def isNothingType(using Context) = isRef(defn.NothingClass)
