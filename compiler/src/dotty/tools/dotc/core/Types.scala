@@ -1672,10 +1672,6 @@ object Types extends TypeUtils {
 
     /** The type <this . name> with given denotation, reduced if possible. */
     def select(name: Name, denot: Denotation)(using Context): Type =
-      /*println("select:")
-      println(name)
-      println(denot)
-      println(NamedType(this, name, denot).reduceProjection) // "method get" for level12.get(0)*/
       NamedType(this, name, denot).reduceProjection
 
     /** The type <this . sym>, reduced if possible */
