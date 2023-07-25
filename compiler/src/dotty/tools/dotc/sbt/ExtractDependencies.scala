@@ -161,6 +161,9 @@ object ExtractDependencies {
     report.error(em"Internal error in the incremental compiler while compiling ${ctx.compilationUnit.source}: $msg", pos)
 }
 
+// TODO: toward faster hashing:
+// - start by DependencyContext ordinal : short Array
+// - then a long map from symbolID to hashset, (also store symbolID to Symbol to recover)
 private case class ClassDependency(from: Symbol, to: Symbol, context: DependencyContext)
 
 /** An object that maintain the set of used names from within a class */
