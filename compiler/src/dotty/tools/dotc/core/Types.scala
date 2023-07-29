@@ -968,6 +968,8 @@ object Types extends TypeUtils {
         if (keepOnly(pre, tp.refinedName)) ns + tp.refinedName else ns
       case tp: TypeProxy =>
         tp.superType.memberNames(keepOnly, pre)
+      case tp: FlexibleType =>
+        tp.underlying.memberNames(keepOnly, pre)
       case tp: AndType =>
         tp.tp1.memberNames(keepOnly, pre) | tp.tp2.memberNames(keepOnly, pre)
       case tp: OrType =>
@@ -3404,6 +3406,12 @@ object Types extends TypeUtils {
 
   // --- FlexibleType -----------------------------------------------------------------
 
+  object FlexibleType {
+    def apply(underlying: Type) = underlying match {
+      case ft: FlexibleType => ft
+      case _ => new FlexibleType(underlying)
+    }
+  }
   case class FlexibleType(underlying: Type) extends CachedGroundType with ValueType {
     def lo(using Context): Type = OrNull(underlying)
     override def show(using Context) = i"FlexibleType($underlying)"
@@ -5671,11 +5679,15 @@ object Types extends TypeUtils {
                   foldOver(vmap, t)
             val vmap = accu(VarianceMap.empty, samMeth.info)
             val tparams = tycon.typeParamSymbols
+            def boundFollowingVariance(lo: Type, hi: Type, tparam: TypeSymbol) =
+              val v = vmap.computedVariance(tparam)
+              if v.uncheckedNN < 0 then lo
+              else hi
             val args1 = args.zipWithConserve(tparams):
               case (arg @ TypeBounds(lo, hi), tparam) =>
-                val v = vmap.computedVariance(tparam)
-                if v.uncheckedNN < 0 then lo
-                else hi
+                boundFollowingVariance(lo, hi, tparam)
+              case (arg @ FlexibleType(lo, hi), tparam) =>
+                boundFollowingVariance(arg.lo, hi, tparam)
               case (arg, _) => arg
             tp.derivedAppliedType(tycon, args1)
           case tp: RefinedType =>
@@ -5710,6 +5722,8 @@ object Types extends TypeUtils {
       case tp: TypeVar =>
         samClass(tp.underlying)
       case tp: AnnotatedType =>
+        samClass(tp.underlying)
+      case tp: FlexibleType =>
         samClass(tp.underlying)
       case _ =>
         NoSymbol
