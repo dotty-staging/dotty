@@ -566,6 +566,7 @@ private class ExtractAPICollector(using Context) extends ThunkHolder {
         val s = combineApiTypes(apiType(tp.tp1), apiType(tp.tp2))
         withMarker(s, orMarker)
       case tp: FlexibleType =>
+        // TODO: determine whether this is the right behaviour for sbt
         apiType(tp.underlying)
       case ExprType(resultType) =>
         withMarker(apiType(resultType), byNameMarker)

@@ -660,7 +660,8 @@ class TypeErasure(sourceLanguage: SourceLanguage, semiEraseVCs: Boolean, isConst
       case tp: TypeVar if !tp.isInstantiated =>
         assert(inSigName, i"Cannot erase uninstantiated type variable $tp")
         WildcardType
-      case FlexibleType(tp) => this(tp)
+      case tp: FlexibleType =>
+        this(tp.underlying)
       case tp: TypeProxy =>
         this(tp.underlying)
       case tp @ AndType(tp1, tp2) =>

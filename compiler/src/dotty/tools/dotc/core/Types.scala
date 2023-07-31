@@ -3406,6 +3406,11 @@ object Types extends TypeUtils {
 
   // --- FlexibleType -----------------------------------------------------------------
 
+  /* Represents a nullable type coming from Java code in a similar way to Platform Types
+   * in Kotlin. A FlexibleType(T) generally behaves like an abstract type with bad bounds
+   * T|Null .. T, so that T|Null <: FlexibleType(T) <: T.
+   */
+
   object FlexibleType {
     def apply(underlying: Type) = underlying match {
       case ft: FlexibleType => ft
@@ -3414,7 +3419,6 @@ object Types extends TypeUtils {
   }
   case class FlexibleType(underlying: Type) extends CachedGroundType with ValueType {
     def lo(using Context): Type = OrNull(underlying)
-    override def show(using Context) = i"FlexibleType($underlying)"
     def derivedFlexibleType(under: Type)(using Context): Type =
       if this.underlying eq under then this else FlexibleType(under)
     override def computeHash(bs: Binders): Int = doHash(bs, underlying)
