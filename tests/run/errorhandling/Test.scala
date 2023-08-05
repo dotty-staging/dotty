@@ -75,4 +75,5 @@ def resultTest() =
   breakTest()
   optTest()
   resultTest()
+  nullableTest()
   parseCsvIgnoreErrors()
