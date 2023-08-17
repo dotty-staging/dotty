@@ -19,7 +19,8 @@ import StdNames.str
 import NameOps.*
 import inlines.Inlines
 import transform.ValueClasses
-import dotty.tools.io.{File, FileExtension, JarArchive}
+import transform.Pickler
+import dotty.tools.io.{File, FileExtension, JarArchive, ClassfileWriterOps}
 import util.{Property, SourceFile}
 import java.io.PrintWriter
 
@@ -65,15 +66,67 @@ class ExtractAPI extends Phase {
   // after `PostTyper` (unlike `ExtractDependencies`, the simplication to trees
   // done by `PostTyper` do not affect this phase because it only cares about
   // definitions, and `PostTyper` does not change definitions).
-  override def runsAfter: Set[String] = Set(transform.PostTyper.name)
+  override def runsAfter: Set[String] = Set(transform.Pickler.name)
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
+    val sigWriter: Option[Pickler.EarlyFileWriter] = ctx.settings.YearlyTastyOutput.value match
+      case earlyOut if earlyOut.isDirectory && earlyOut.exists =>
+        Some(Pickler.EarlyFileWriter(ClassfileWriterOps(earlyOut)))
+      case _ =>
+        None
     val nonLocalClassSymbols = new mutable.HashSet[Symbol]
     val ctx0 = ctx.withProperty(NonLocalClassSymbolsInCurrentUnits, Some(nonLocalClassSymbols))
     val units0 = super.runOn(units)(using ctx0)
+    sigWriter.foreach(writeSigFiles(units0, _))
     ctx.withIncCallback(recordNonLocalClasses(nonLocalClassSymbols, _))
-    units0
+    if ctx.settings.YjavaTasty.value then
+      units0.filterNot(_.typedAsJava) // remove java sources, this is the terminal phase when `-Yjava-tasty` is set
+    else
+      units0
   end runOn
+
+  // Why we only write to early output in the first run?
+  // ===================================================
+  // TL;DR the point of pipeline compilation is to start downstream projects early,
+  // so we don't want to wait for suspended units to be compiled.
+  //
+  // But why is it safe to ignore suspended units?
+  // If this project contains a transparent macro that is called in the same project,
+  // the compilation unit of that call will be suspended (if the macro implementation
+  // is also in this project), causing a second run.
+  // However before we do that run, we will have already requested sbt to begin
+  // early downstream compilation. This means that the suspended definitions will not
+  // be visible in *early* downstream compilation.
+  //
+  // However, sbt will by default prevent downstream compilation happening in this scenario,
+  // due to the existence of macro definitions. So we are protected from failure if user tries
+  // to use the suspended definitions.
+  //
+  // Additionally, it is recommended for the user to move macro implementations to another project
+  // if they want to force early output. In this scenario the suspensions will no longer occur, so now
+  // they will become visible in the early-output.
+  //
+  // See `sbt-test/pipelining/pipelining-scala-macro` and `sbt-test/pipelining/pipelining-scala-macro-force`
+  // for examples of this in action.
+  //
+  // Therefore we only need to write to early output in the first run. We also provide the option
+  // to diagnose suspensions with the `-Yno-suspended-units` flag.
+  private def writeSigFiles(units: List[CompilationUnit], writer: Pickler.EarlyFileWriter)(using Context): Unit = {
+    try
+      for
+        unit <- units
+        (cls, pickled) <- unit.pickled
+        if cls.isDefinedInCurrentRun
+      do
+        val binaryName = cls.binaryClassName.replace('.', java.io.File.separatorChar).nn
+        val binaryClassName = if (cls.is(Module)) binaryName.stripSuffix(str.MODULE_SUFFIX).nn else binaryName
+        writer.writeTasty(binaryClassName, pickled())
+    finally
+      writer.close()
+      if ctx.settings.verbose.value then
+        report.echo("[sig files written]")
+    end try
+  }
 
   private def recordNonLocalClasses(nonLocalClassSymbols: mutable.HashSet[Symbol], cb: interfaces.IncrementalCallback)(using Context): Unit =
     for cls <- nonLocalClassSymbols if !cls.isLocal do
