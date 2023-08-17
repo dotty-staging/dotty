@@ -2,6 +2,7 @@ package dotty.tools.xsbt;
 
 import dotty.tools.dotc.util.SourceFile;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class IncrementalCallback implements dotty.tools.dotc.sbt.interfaces.IncrementalCallback {
 
@@ -56,5 +57,15 @@ public final class IncrementalCallback implements dotty.tools.dotc.sbt.interface
   @Override
   public void generatedNonLocalClass(SourceFile source, java.nio.file.Path classFile, String binaryClassName, String srcClassName) {
     delegate.generatedNonLocalClass(asVirtualFile.apply(source), classFile, binaryClassName, srcClassName);
+  }
+
+  @Override
+  public void apiPhaseCompleted() {
+    delegate.apiPhaseCompleted();
+  }
+
+  @Override
+  public void dependencyPhaseCompleted() {
+    delegate.dependencyPhaseCompleted();
   }
 }

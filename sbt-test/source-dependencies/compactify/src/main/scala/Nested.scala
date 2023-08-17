@@ -41,3 +41,11 @@ object TopLevel3
 class TopLevel4
 
 object TopLevelModuleSuffix$
+
+// will generate a package object wrapper
+val topLevelVal = 23
+
+// explicit package object
+package object inner {
+	val innerVal = 23
+}
