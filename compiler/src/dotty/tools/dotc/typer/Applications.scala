@@ -721,8 +721,8 @@ trait Applications extends Compatibility {
         || argMatch == ArgMatch.CompatibleCAP
             && {
               val argtpe1 = argtpe.widen
-              val captured = captureWildcardsCompat(argtpe1, formal.widenExpr)
-              captured ne argtpe1
+              val captured = captureWildcards(argtpe1)
+              (captured ne argtpe1) && isCompatible(captured, formal.widenExpr)
             }
 
     /** The type of the given argument */
@@ -2426,9 +2426,4 @@ trait Applications extends Compatibility {
   def isApplicableExtensionMethod(methodRef: TermRef, receiverType: Type)(using Context): Boolean =
     methodRef.symbol.is(ExtensionMethod) && !receiverType.isBottomType &&
       tryApplyingExtensionMethod(methodRef, nullLiteral.asInstance(receiverType)).nonEmpty
-
-  def captureWildcardsCompat(tp: Type, pt: Type)(using Context): Type =
-    val captured = captureWildcards(tp)
-    if (captured ne tp) && isCompatible(captured, pt) then captured
-    else tp
 }
