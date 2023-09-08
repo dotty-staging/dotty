@@ -36,7 +36,7 @@ import config.Printers.{core, typr, matchTypes}
 import reporting.{trace, Message}
 import java.lang.ref.WeakReference
 import compiletime.uninitialized
-import cc.{CapturingType, CaptureSet, derivedCapturingType, isBoxedCapturing, EventuallyCapturingType, boxedUnlessFun, ccNestingLevel}
+import cc.*
 import CaptureSet.{CompareResult, IdempotentCaptRefMap, IdentityCaptRefMap}
 
 import scala.annotation.internal.sharable
@@ -1453,6 +1453,8 @@ object Types {
         tp match
           case tp @ CapturingType(parent, refs) =>
             tp.derivedCapturingType(parent1, refs)
+          case tp @ WithSepDegree(parent, refs) =>
+            tp.derivedWithSepDegree(parent1, refs)
           case _ =>
             if keep(tp) then tp.derivedAnnotatedType(parent1, tp.annot)
             else parent1
@@ -5784,6 +5786,8 @@ object Types {
       tp.derivedAnnotatedType(underlying, annot)
     protected def derivedCapturingType(tp: Type, parent: Type, refs: CaptureSet): Type =
       tp.derivedCapturingType(parent, refs)
+    protected def derivedWithSepDegree(tp: Type, parent: Type, refs: CaptureSet): Type =
+      tp.derivedWithSepDegree(parent, refs)
     protected def derivedWildcardType(tp: WildcardType, bounds: Type): Type =
       tp.derivedWildcardType(bounds)
     protected def derivedSkolemType(tp: SkolemType, info: Type): Type =
@@ -5825,6 +5829,20 @@ object Types {
       try derivedCapturingType(tp, this(parent), refs.map(this))
       finally variance = saved
 
+    protected def mapWithSepDegree(tp: Type, parent: Type, refs: CaptureSet, v: Int): Type =
+      val saved = variance
+      variance = v
+      try
+        val parent1 = this(parent)
+        val refs1 =
+          try
+            variance = -v
+            refs.map(this)
+          finally
+            variance = v
+        derivedWithSepDegree(tp, parent1, refs1)
+      finally variance = saved
+
     /** Map this function over given type */
     def mapOver(tp: Type): Type = {
       record(s"TypeMap mapOver ${getClass}")
@@ -5862,6 +5880,9 @@ object Types {
 
         case CapturingType(parent, refs) =>
           mapCapturingType(tp, parent, refs, variance)
+
+        case WithSepDegree(parent, refs) =>
+          mapWithSepDegree(tp, parent, refs, variance)
 
         case tp @ AnnotatedType(underlying, annot) =>
           val underlying1 = this(underlying)
@@ -6210,6 +6231,12 @@ object Types {
         case _ =>
           tp.derivedCapturingType(parent, refs)
 
+    override protected def derivedWithSepDegree(tp: Type, parent: Type, refs: CaptureSet): Type =
+      parent match
+        case Range(lo, hi) =>
+          range(derivedWithSepDegree(tp, lo, refs), derivedWithSepDegree(tp, hi, refs))
+        case _ => super.derivedWithSepDegree(tp, parent, refs)
+
     override protected def derivedWildcardType(tp: WildcardType, bounds: Type): WildcardType =
       tp.derivedWildcardType(rangeToBounds(bounds))
 
@@ -6264,6 +6291,12 @@ object Types {
         range(mapCapturingType(tp, parent, refs, -1), mapCapturingType(tp, parent, refs, 1))
       else
         super.mapCapturingType(tp, parent, refs, v)
+
+    override def mapWithSepDegree(tp: Type, parent: Type, refs: CaptureSet, v: Int): Type =
+      if v == 0 && needsRangeIfInvariant(refs) then
+        range(mapWithSepDegree(tp, parent, refs, -1), mapWithSepDegree(tp, parent, refs, 1))
+      else
+        super.mapWithSepDegree(tp, parent, refs, v)
 
     protected def reapply(tp: Type): Type = apply(tp)
   }

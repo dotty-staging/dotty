@@ -8,7 +8,7 @@ import core.Contexts._
 import core.Decorators._
 import core.NameOps._
 import core.Flags.{JavaDefined, ExtensionMethod}
-import core.StdNames.nme
+import core.StdNames.{nme, tpnme}
 import ast.Trees.mods
 import annotation.constructorOnly
 import annotation.internal.sharable
@@ -186,6 +186,8 @@ abstract class Positioned(implicit @constructorOnly src: SourceFile) extends Src
             case _: WildcardFunction
             if last.positioned.isInstanceOf[ValDef] && !p.isInstanceOf[ValDef] =>
               // ignore transition from last wildcard parameter to body
+            case Annotated(_, Apply(Select(New(Select(_, nme)), _), _)) if nme == tpnme.sep =>
+              // FIXME: should not skip checking for all annotations named sep
             case _ =>
               assert(!last.span.exists || !p.span.exists || last.span.end <= p.span.start,
                 i"""position error, child positions overlap or in wrong order

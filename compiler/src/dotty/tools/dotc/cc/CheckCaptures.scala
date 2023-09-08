@@ -83,7 +83,7 @@ object CheckCaptures:
     /** As long as this substitution is exact, there is no need to create `Range`s when mapping invariant positions. */
     override protected def needsRangeIfInvariant(refs: CaptureSet): Boolean = !isExactSubstitution
 
-    def apply(tp: Type): Type =
+    def apply(tp: Type): Type = //trace.force(i"substParam($tp)", show = true):
       tp match
         case tp: ParamRef =>
           if tp.binder == from then to(tp.paramNum) else tp
@@ -989,10 +989,20 @@ class CheckCaptures extends Recheck, SymTransformer:
             adaptedType(boxed)
       }
 
+      def pullCaptures(tp: Type): Type = tp match
+        case CapturingType(_, _) => tp
+        case tp @ AnnotatedType(parent, annot) =>
+          pullCaptures(parent) match
+            case CapturingType(parent, refs) =>
+              CapturingType(tp.derivedAnnotatedType(parent, annot), refs)
+            case parent1 => tp.derivedAnnotatedType(parent1, annot)
+        case _ => tp
+
       if expected.isSingleton && actual.isSingleton then
         actual
       else
         var actualw = actual.widenDealias
+        actualw = pullCaptures(actualw)
         actual match
           case ref: CaptureRef if ref.isTracked =>
             actualw match

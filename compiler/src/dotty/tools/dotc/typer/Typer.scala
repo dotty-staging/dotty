@@ -50,7 +50,7 @@ import transform.TypeUtils._
 import reporting._
 import Nullables._
 import NullOpsDecorator._
-import cc.CheckCaptures
+import cc.{CheckCaptures, SepCheck}
 import config.Config
 
 import scala.annotation.constructorOnly
@@ -2891,9 +2891,11 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     if (ctx.mode is Mode.Type) {
       val cls = annot1.symbol.maybeOwner
       if Feature.ccEnabled
-          && (cls == defn.RetainsAnnot || cls == defn.RetainsByNameAnnot)
+          && (cls == defn.RetainsAnnot || cls == defn.RetainsByNameAnnot || cls == defn.SepAnnot)
       then
         CheckCaptures.checkWellformed(arg1, annot1)
+        if cls == defn.SepAnnot then
+          SepCheck.checkWellformed(annot1, tree.srcPos)
       if arg1.isType then
         assignType(cpy.Annotated(tree)(arg1, annot1), arg1, annot1)
       else
