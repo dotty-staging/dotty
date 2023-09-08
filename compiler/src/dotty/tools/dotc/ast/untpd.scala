@@ -515,6 +515,12 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
   def makeRetaining(parent: Tree, refs: List[Tree], annotName: TypeName)(using Context): Annotated =
     Annotated(parent, New(scalaAnnotationDot(annotName), List(refs)))
 
+  def makeSep(parent: Tree, refs: List[Tree])(using Context): Annotated =
+    Annotated(parent, New(scalaAnnotationDot(tpnme.sep), List(refs)))
+
+  def makeInferSep(parent: Tree)(using Context): Annotated =
+    Annotated(parent, New(scalaAnnotationDot(tpnme.inferSep), List()))
+
   def makeConstructor(tparams: List[TypeDef], vparamss: List[List[ValDef]], rhs: Tree = EmptyTree)(using Context): DefDef =
     DefDef(nme.CONSTRUCTOR, joinParams(tparams, vparamss), TypeTree(), rhs)
 

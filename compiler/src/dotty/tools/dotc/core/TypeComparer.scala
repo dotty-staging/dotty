@@ -23,7 +23,7 @@ import typer.ProtoTypes.constrained
 import typer.Applications.productSelectorTypes
 import reporting.trace
 import annotation.constructorOnly
-import cc.{CapturingType, derivedCapturingType, CaptureSet, stripCapturing, isBoxedCapturing, boxed, boxedUnlessFun, boxedIfTypeParam, isAlwaysPure}
+import cc.*
 import NameKinds.WildcardParamName
 
 /** Provides methods to compare types.
@@ -358,6 +358,14 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
         isBottom(tp1) || !tp2.evaluating && recur(tp1, tp2.ref)
       case CapturingType(_, _) =>
         secondTry
+      case WithSepDegree(parent2, refs2) =>
+        //println(i"CATCH $tp1 <: $parent2? sep = $refs2")
+        def checkSep: Boolean =
+          val cs1 = tp1.captureSet
+          val res = SepCheck.isSeparated(cs1, refs2, frozen = frozenConstraint)
+          //println(i"checking sep: $cs1 >< $refs2 = $res")
+          res
+        checkSep && recur(tp1, parent2)
       case tp2: AnnotatedType if !tp2.isRefining =>
         recur(tp1, tp2.parent)
       case tp2: ThisType =>

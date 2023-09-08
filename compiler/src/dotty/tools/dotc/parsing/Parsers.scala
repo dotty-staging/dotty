@@ -190,8 +190,11 @@ object Parsers {
     def isPureArrow(name: Name): Boolean = isIdent(name) && Feature.pureFunsEnabled
     def isPureArrow: Boolean = isPureArrow(nme.PUREARROW) || isPureArrow(nme.PURECTXARROW)
     def isErased = isIdent(nme.erased) && in.erasedEnabled
+    def isSep = isIdent(nme.sep) && Feature.ccEnabled
     // Are we seeing an `erased` soft keyword that will not be an identifier?
     def isErasedKw = isErased && in.isSoftModifierInParamModifierPosition
+    // Similarly, are we seeing an `sep` soft keyword?
+    def isSepKw = isSep && in.isSoftModifierInParamModifierPosition
     def isSimpleLiteral =
       simpleLiteralTokens.contains(in.token)
       || isIdent(nme.raw.MINUS) && numericLitTokens.contains(in.lookahead.token)
@@ -3279,6 +3282,14 @@ object Parsers {
         var mods = impliedMods.withAnnotations(annotations())
         if isErasedKw then
           mods = addModifier(mods)
+        var sepInfer = false
+        var sepRefs: List[Tree] | Null = null
+        if isSepKw then
+          in.nextToken()
+          if in.token == LBRACE then
+            sepRefs = captureSet()
+          else
+            sepInfer = true
         if (ofClass) {
           mods = addFlag(modifiers(start = mods), ParamAccessor)
           mods =
@@ -3305,7 +3316,11 @@ object Parsers {
           if (in.token == ARROW && ofClass && !mods.is(Local))
             syntaxError(VarValParametersMayNotBeCallByName(name, mods.is(Mutable)))
               // needed?, it's checked later anyway
-          val tpt = paramType()
+          var tpt = paramType()
+          if sepInfer then
+            tpt = makeInferSep(tpt)
+          else if sepRefs ne null then
+            tpt = makeSep(tpt, sepRefs)
           val default =
             if (in.token == EQUALS) { in.nextToken(); subExpr() }
             else EmptyTree

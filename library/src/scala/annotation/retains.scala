@@ -6,7 +6,7 @@ package scala.annotation
  *
  *  is the internal representation used for the capturing type
  *
- *      {x, y, z}  T
+ *      T^{x, y, z}
  *
  *  The annotation can also be written explicitly if one wants to avoid the
  *  non-standard capturing type syntax.
