@@ -218,18 +218,35 @@ extends tpd.TreeTraverser:
       case _ =>
         mapOver(t)
 
-  private def transformExplicitType(tp: Type, boxed: Boolean)(using Context): Type =
+  private def addSepDegreeVar(sym: Symbol)(using Context) = new TypeMap:
+    def apply(t: Type) = t match
+      case AnnotatedType(parent, annot) if annot.symbol == defn.InferSepAnnot =>
+        //println(i"ADD sepvar to $sym, srcPos = ${sym.srcPos}")
+        val degree = CaptureSet.Var().ensureWellformed: refs =>
+          refs.foreach: ref =>
+            if sym.termRef.singletonCaptureSet.subCaptures(ref.singletonCaptureSet, frozen = true).isOK then
+              report.error(em"cannot include self in the separation degree", sym.srcPos)
+            ref match
+              case ref: TermRef if ref.symbol == defn.captureRoot =>
+                report.error(em"cannot include `cap` in the separation degree", sym.srcPos)
+              case _ =>
+            // FIXME disallow reader root
+        WithSepDegree(parent, degree)
+      case _ => mapOver(t)
+
+  private def transformExplicitType(tp: Type, boxed: Boolean, valsym: Symbol = NoSymbol)(using Context): Type =
     val tp1 = expandThrowsAliases(if boxed then box(tp) else tp)
     if tp1 ne tp then capt.println(i"expanded: $tp --> $tp1")
-    tp1
+    val tp2 = addSepDegreeVar(valsym)(tp1)
+    tp2
 
   /** Transform type of type tree, and remember the transformed type as the type the tree */
-  private def transformTT(tree: TypeTree, boxed: Boolean, exact: Boolean)(using Context): Unit =
+  private def transformTT(tree: TypeTree, boxed: Boolean, exact: Boolean, valsym: Symbol = NoSymbol)(using Context): Unit =
     if !tree.hasRememberedType then
       tree.rememberType(
         if tree.isInstanceOf[InferredTypeTree] && !exact
         then transformInferredType(tree.tpe, boxed)
-        else transformExplicitType(tree.tpe, boxed))
+        else transformExplicitType(tree.tpe, boxed, valsym))
 
   /** Substitute parameter symbols in `from` to paramRefs in corresponding
    *  method or poly types `to`. We use a single BiTypeMap to do everything.
@@ -284,7 +301,8 @@ extends tpd.TreeTraverser:
       case tree @ ValDef(_, tpt: TypeTree, _) =>
         transformTT(tpt,
           boxed = tree.symbol.is(Mutable),    // types of mutable variables are boxed
-          exact = tree.symbol.allOverriddenSymbols.hasNext // types of symbols that override a parent don't get a capture set
+          exact = tree.symbol.allOverriddenSymbols.hasNext, // types of symbols that override a parent don't get a capture set
+          valsym = tree.symbol
         )
         if allowUniversalInBoxed && tree.symbol.is(Mutable)
             && !tree.symbol.hasAnnotation(defn.UncheckedCapturesAnnot)
