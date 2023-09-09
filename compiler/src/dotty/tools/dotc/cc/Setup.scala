@@ -259,6 +259,29 @@ extends tpd.TreeTraverser:
         then transformInferredType(tree.tpe, boxed, mapRoots)
         else transformExplicitType(tree.tpe, boxed, mapRoots))
 
+// !cc-sep! unmerged
+// private def addSepDegreeVar(sym: Symbol)(using Context) = new TypeMap:
+//     def apply(t: Type) = t match
+//       case AnnotatedType(parent, annot) if annot.symbol == defn.InferSepAnnot =>
+//         //println(i"ADD sepvar to $sym, srcPos = ${sym.srcPos}")
+//         val degree = CaptureSet.Var().ensureWellformed: refs =>
+//           refs.foreach: ref =>
+//             if sym.termRef.singletonCaptureSet.subCaptures(ref.singletonCaptureSet, frozen = true).isOK then
+//               report.error(em"cannot include self in the separation degree", sym.srcPos)
+//             ref match
+//               case ref: TermRef if ref.symbol == defn.captureRoot =>
+//                 report.error(em"cannot include `cap` in the separation degree", sym.srcPos)
+//               case _ =>
+//             // FIXME disallow reader root
+//         WithSepDegree(parent, degree)
+//       case _ => mapOver(t)
+
+//   private def transformExplicitType(tp: Type, boxed: Boolean, valsym: Symbol = NoSymbol)(using Context): Type =
+//     val tp1 = expandThrowsAliases(if boxed then box(tp) else tp)
+//     if tp1 ne tp then capt.println(i"expanded: $tp --> $tp1")
+//     val tp2 = addSepDegreeVar(valsym)(tp1)
+//     tp2
+
   /** Substitute parameter symbols in `from` to paramRefs in corresponding
    *  method or poly types `to`. We use a single BiTypeMap to do everything.
    *  @param from  a list of lists of type or term parameter symbols of a curried method
@@ -404,7 +427,22 @@ extends tpd.TreeTraverser:
           )
           capt.println(i"mapped $tree = ${tpt.knownType}")
           traverse(tree.rhs)
-
+// !cc-sep! unmerged
+// =======
+//         transformTT(tpt,
+//           boxed = tree.symbol.is(Mutable),    // types of mutable variables are boxed
+//           exact = tree.symbol.allOverriddenSymbols.hasNext, // types of symbols that override a parent don't get a capture set
+//           valsym = tree.symbol
+//         )
+//         if allowUniversalInBoxed && tree.symbol.is(Mutable)
+//             && !tree.symbol.hasAnnotation(defn.UncheckedCapturesAnnot)
+//         then
+//           CheckCaptures.disallowRootCapabilitiesIn(tpt.knownType,
+//             i"Mutable variable ${tree.symbol.name}", "have type",
+//             "This restriction serves to prevent local capabilities from escaping the scope where they are defined.",
+//             tree.srcPos)
+//         traverse(tree.rhs)
+// >>>>>>> e46015959d (Install separation degree variables)
       case tree @ TypeApply(fn, args) =>
         traverse(fn)
         for case arg: TypeTree <- args do
