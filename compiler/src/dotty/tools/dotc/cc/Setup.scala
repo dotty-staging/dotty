@@ -216,6 +216,22 @@ extends tpd.TreeTraverser:
     then CapturingType(tp, CaptureSet.universal, boxed = false)
     else tp
 
+  private def addSepDegreeVar(sym: Symbol)(using Context) = new TypeMap:
+    def apply(t: Type) = t match
+      case AnnotatedType(parent, annot) if annot.symbol == defn.InferSepAnnot =>
+        //println(i"ADD sepvar to $sym, srcPos = ${sym.srcPos}")
+        def isAllowed(ref: CaptureRef)(using Context): Boolean =
+          val result = !sym.termRef.singletonCaptureSet.subCaptures(ref.singletonCaptureSet, frozen = true).isOK
+            && ref.match
+                case ref: TermRef if ref.symbol == defn.captureRoot => false
+                case _ => true
+                // FIXME: disallow reader root
+          //println(i"CHECK whether $ref can be included in $sym --> $result")
+          result
+        val degree = CaptureSet.Var().installPredicate(isAllowed)
+        WithSepDegree(parent, degree)
+      case _ => mapOver(t)
+
   private def checkQualifiedRoots(tree: Tree)(using Context): Unit =
     for case elem @ QualifiedRoot(outer) <- retainedElems(tree) do
       if !ctx.owner.levelOwnerNamed(outer).exists then
