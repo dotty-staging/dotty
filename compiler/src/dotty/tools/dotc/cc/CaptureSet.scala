@@ -398,6 +398,9 @@ object CaptureSet:
     /** A handler to be invoked when new elems are added to this set */
     var newElemAddedHandler: List[CaptureRef] => Context ?=> Unit = _ => ()
 
+    /** A predicate that gets tested on each new element. New elements that fail the check will be rejected. */
+    var myPredicate: CaptureRef => Context ?=> Boolean = _ => true
+
     var description: String = ""
 
     /** Record current elements in given VarState provided it does not yet
@@ -426,13 +429,17 @@ object CaptureSet:
 
     def addNewElems(newElems: Refs, origin: CaptureSet)(using Context, VarState): CompareResult =
       if !isConst && recordElemsState() then
-        elems ++= newElems
-        if isUniversal then rootAddedHandler()
-        newElemAddedHandler(newElems.toList)
-        // assert(id != 5 || elems.size != 3, this)
-        (CompareResult.OK /: deps) { (r, dep) =>
-          r.andAlso(dep.tryInclude(newElems, this))
-        }
+        val rejected = newElems.filter(ref => !myPredicate(ref))
+        if !rejected.isEmpty then
+          CompareResult.fail(CaptureSet.Const(rejected))
+        else
+          elems ++= newElems
+          if isUniversal then rootAddedHandler()
+          newElemAddedHandler(newElems.toList)
+          // assert(id != 5 || elems.size != 3, this)
+          (CompareResult.OK /: deps) { (r, dep) =>
+            r.andAlso(dep.tryInclude(newElems, this))
+          }
       else // fail if variable is solved or given VarState is frozen
         CompareResult.fail(this)
 
@@ -452,6 +459,16 @@ object CaptureSet:
     override def ensureWellformed(handler: List[CaptureRef] => (Context) ?=> Unit)(using Context): this.type =
       newElemAddedHandler = handler
       super.ensureWellformed(handler)
+
+    /** Install a predicate on the capture set variable.
+     *  When including new elements, only those satisfying the predicate are accepted.
+     *
+     *  @pre the Var has not included any element yet
+     */
+    def installPredicate(pred: CaptureRef => Context ?=> Boolean)(using Context): this.type =
+      assert(elems.size == 0)
+      myPredicate = pred
+      this
 
     private var computingApprox = false
 

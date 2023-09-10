@@ -222,15 +222,15 @@ extends tpd.TreeTraverser:
     def apply(t: Type) = t match
       case AnnotatedType(parent, annot) if annot.symbol == defn.InferSepAnnot =>
         //println(i"ADD sepvar to $sym, srcPos = ${sym.srcPos}")
-        val degree = CaptureSet.Var().ensureWellformed: refs =>
-          refs.foreach: ref =>
-            if sym.termRef.singletonCaptureSet.subCaptures(ref.singletonCaptureSet, frozen = true).isOK then
-              report.error(em"cannot include self in the separation degree", sym.srcPos)
-            ref match
-              case ref: TermRef if ref.symbol == defn.captureRoot =>
-                report.error(em"cannot include `cap` in the separation degree", sym.srcPos)
-              case _ =>
-            // FIXME disallow reader root
+        def isAllowed(ref: CaptureRef)(using Context): Boolean =
+          val result = !sym.termRef.singletonCaptureSet.subCaptures(ref.singletonCaptureSet, frozen = true).isOK
+            && ref.match
+                case ref: TermRef if ref.symbol == defn.captureRoot => false
+                case _ => true
+                // FIXME: disallow reader root
+          //println(i"CHECK whether $ref can be included in $sym --> $result")
+          result
+        val degree = CaptureSet.Var().installPredicate(isAllowed)
         WithSepDegree(parent, degree)
       case _ => mapOver(t)
 
