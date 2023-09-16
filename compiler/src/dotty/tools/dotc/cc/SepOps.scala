@@ -11,6 +11,7 @@ import config.Printers.capt
 import util.Property.Key
 import tpd.*
 import config.Feature
+import MutableCaptures.*
 
 extension (t: Tree)
   /** Extract the elememts of the separation degree specified by a @sep annotation */
@@ -52,3 +53,8 @@ extension (tp: Type)
       if (parent eq p) && (refs eq r) then tp else WithSepDegree(parent, refs)
 
   def sepDegree(using Context): CaptureSet = SepDegree.ofType(tp)
+
+extension (ref: CaptureRef)
+  def isReader(using Context): Boolean = ref match
+    case MutableRef(_, isRead) => isRead
+    case _ => false

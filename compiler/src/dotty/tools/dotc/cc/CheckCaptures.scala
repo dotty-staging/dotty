@@ -16,6 +16,7 @@ import util.{SimpleIdentitySet, EqHashMap, SrcPos, Property}
 import transform.SymUtils.*
 import transform.{Recheck, PreRecheck}
 import Recheck.*
+import MutableCaptures.*
 import scala.collection.mutable
 import CaptureSet.{withCaptureSetsExplained, IdempotentCaptRefMap}
 import StdNames.nme
@@ -263,7 +264,11 @@ class CheckCaptures extends Recheck, SymTransformer:
      */
     def markFree(sym: Symbol, pos: SrcPos)(using Context): Unit =
       if sym.exists then
-        val ref = sym.termRef
+        val ref =
+          if sym.is(Flags.Mutable) then
+            val mref = MutableRef(sym, isRead = !isLhsOfAssign)
+            mref
+          else sym.termRef
         if ref.isTracked then
           forallOuterEnvsUpTo(sym.enclosure): env =>
             capt.println(i"Mark $sym with cs ${ref.captureSet} free in ${env.owner}")
@@ -323,6 +328,7 @@ class CheckCaptures extends Recheck, SymTransformer:
     end handleBackwardsCompat
 
     override def recheckIdent(tree: Ident)(using Context): Type =
+      //println(i"IDENT ${tree.symbol} at $tree, mutable = ${tree.symbol.is(Flags.Mutable)}, lhs of assign = $isLhsOfAssign")
       if tree.symbol.is(Method) then
         if tree.symbol.info.isParameterless then
           // there won't be an apply; need to include call captures now

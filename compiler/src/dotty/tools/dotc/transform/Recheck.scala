@@ -142,6 +142,14 @@ abstract class Recheck extends Phase, SymTransformer:
   /** The typechecker pass */
   class Rechecker(@constructorOnly ictx: Context):
     private val ta = ictx.typeAssigner
+    private var lhsOfAssign: Boolean = false
+
+    def isLhsOfAssign: Boolean = lhsOfAssign
+
+    def inAssignLhs[T](op: => T): T =
+      val saved = lhsOfAssign
+      lhsOfAssign = true
+      try op finally lhsOfAssign = saved
 
     /** If true, remember types of all tree nodes in attachments so that they
      *  can be retrieved with `knownType`
@@ -309,7 +317,7 @@ abstract class Recheck extends Phase, SymTransformer:
       tptType
 
     def recheckAssign(tree: Assign)(using Context): Type =
-      val lhsType = recheck(tree.lhs)
+      val lhsType = inAssignLhs(recheck(tree.lhs))
       recheck(tree.rhs, lhsType.widen)
       defn.UnitType
 

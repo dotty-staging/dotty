@@ -16,6 +16,7 @@ import util.{SimpleIdentitySet, Property}
 import util.common.alwaysTrue
 import scala.collection.mutable
 import config.Config.ccAllowUnsoundMaps
+import MutableCaptures.*
 
 /** A class for capture sets. Capture sets can be constants or variables.
  *  Capture sets support inclusion constraints <:< where <:< is subcapturing.
@@ -877,6 +878,9 @@ object CaptureSet:
   /** The capture set of the type underlying a CaptureRef */
   def ofInfo(ref: CaptureRef)(using Context): CaptureSet = ref match
     case ref: TermRef if ref.isRootCapability => ref.singletonCaptureSet
+    case ref @ MutableRef(owner, isRead) =>
+      if isRead then ref.derivedMutableRef(owner, isRead = false).singletonCaptureSet
+      else universal
     case _ => ofType(ref.underlying, followResult = true)
 
   /** Capture set of a type */

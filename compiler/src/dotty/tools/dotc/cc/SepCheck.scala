@@ -22,6 +22,7 @@ import CaptureSet.{withCaptureSetsExplained, IdempotentCaptRefMap}
 import StdNames.nme
 import NameKinds.DefaultGetterName
 import reporting.trace
+import MutableCaptures.*
 
 object SepCheck:
   def isSeparated(ref1: CaptureRef, ref2: CaptureRef, frozen: Boolean)(using Context): Boolean =
@@ -33,7 +34,13 @@ object SepCheck:
       val w1 = r1.captureSetOfInfo
       !w1.isUniversal && isSeparated(w1, r2.singletonCaptureSet, frozen = frozen)
 
-    tryDegree(ref1, ref2) || tryDegree(ref2, ref1) || tryWiden(ref1, ref2) || tryWiden(ref2, ref1)
+    def tryVars = (ref1, ref2) match
+      case (MutableRef(sym1, _), MutableRef(sym2, _)) => sym1 ne sym2
+      case _ => false
+
+    def tryReaders = ref1.isReader && ref2.isReader
+
+    tryReaders || tryVars || tryDegree(ref1, ref2) || tryDegree(ref2, ref1) || tryWiden(ref1, ref2) || tryWiden(ref2, ref1)
 
   def isSeparated(cs1: CaptureSet, cs2: CaptureSet, frozen: Boolean)(using Context): Boolean =
     cs1.isAlwaysEmpty || cs2.isAlwaysEmpty

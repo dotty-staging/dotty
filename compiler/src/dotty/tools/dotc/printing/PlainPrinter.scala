@@ -15,7 +15,7 @@ import util.SourcePosition
 import scala.util.control.NonFatal
 import scala.annotation.switch
 import config.{Config, Feature}
-import cc.{CapturingType, EventuallyCapturingType, CaptureSet, isBoxed}
+import cc.{CapturingType, EventuallyCapturingType, CaptureSet, isBoxed, MutableCaptures}
 
 class PlainPrinter(_ctx: Context) extends Printer {
 
@@ -373,6 +373,8 @@ class PlainPrinter(_ctx: Context) extends Printer {
         if (homogenizedView) toText(tp.info)
         else if (ctx.settings.XprintTypes.value) "<" ~ toText(tp.repr) ~ ":" ~ toText(tp.info) ~ ">"
         else toText(tp.repr)
+      case MutableCaptures.MutableRef(owner, isRead) =>
+        toTextCaptureRef(owner.termRef) ~ "[" ~ (if isRead then "read" else "write") ~ "]"
     }
   }
 
