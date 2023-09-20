@@ -309,3 +309,11 @@ class MyExperimentalTests {
 ```
 
 </details>
+
+### `import scala.language.experimental`
+
+This top-level import will make all top-level definitions have the `@experimental` annotation in that source file. This effectively enables the use of any experimental language feature in that source file.
+
+### `-language:experimental` compiler flag
+
+This flag will make all top-level definitions have the `@experimental` annotation. This effectively enables the use of any experimental definition or language feature in the project.

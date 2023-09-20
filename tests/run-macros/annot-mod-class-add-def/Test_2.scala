@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 @addIndirectToString("This is Foo")
 class Foo
   //> private def string$macro$1: String = "This is Foo"

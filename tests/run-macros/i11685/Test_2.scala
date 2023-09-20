@@ -1,3 +1,4 @@
+import scala.language.experimental
 import test.MyMacro
 
 trait Command {

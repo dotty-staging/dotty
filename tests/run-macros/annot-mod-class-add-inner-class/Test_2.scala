@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 @addInnerClass
 class Foo
   //> class Show:

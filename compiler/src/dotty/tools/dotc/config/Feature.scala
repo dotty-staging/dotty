@@ -34,6 +34,21 @@ object Feature:
   val captureChecking = experimental("captureChecking")
   val into = experimental("into")
 
+  def experimentalEnabled(using Context): Boolean =
+    enabled(nme.experimental)
+    // || enabled(namedTypeArguments)
+    // || enabled(genericNumberLiterals)
+    || enabled(scala2macros)
+    || enabled(dependent)
+    || enabled(erasedDefinitions)
+    // || enabled(fewerBraces)
+    || enabled(saferExceptions)
+    || enabled(clauseInterleaving)
+    || enabled(relaxedExtensionImports)
+    || enabled(pureFunctions)
+    || enabled(captureChecking)
+    || enabled(into)
+
   val globalOnlyImports: Set[TermName] = Set(pureFunctions, captureChecking)
 
   /** Is `feature` enabled by by a command-line setting? The enabling setting is
@@ -133,14 +148,20 @@ object Feature:
       false
 
   def checkExperimentalFeature(which: String, srcPos: SrcPos, note: => String = "")(using Context) =
-    if !isExperimentalEnabled then
-      report.error(em"Experimental $which may only be used with a nightly or snapshot version of the compiler$note", srcPos)
+    if !experimentalEnabled then
+      report.error(
+        em"""Experimental $which may only be used under experimental mode:
+            |  1. In a definition marked as @experimental
+            |  2. Top-level import scala.language.experimental or scala.language.experimental.<feature>
+            |  3. Compiler flag: -language:experimental or -language:experimental.<feature>
+            |  4. With a nightly or snapshot version of the compiler$note
+          """, srcPos)
 
   private def ccException(sym: Symbol)(using Context): Boolean =
     ccEnabled && defn.ccExperimental.contains(sym)
 
   def checkExperimentalDef(sym: Symbol, srcPos: SrcPos)(using Context) =
-    if !isExperimentalEnabled then
+    if !experimentalEnabled then
       val experimentalSym =
         if sym.hasAnnotation(defn.ExperimentalAnnot) then sym
         else if sym.owner.hasAnnotation(defn.ExperimentalAnnot) then sym.owner
@@ -151,15 +172,6 @@ object Feature:
           then i"$experimentalSym is marked @experimental"
           else i"$sym inherits @experimental"
         report.error(em"$symMsg and therefore may only be used in an experimental scope.", srcPos)
-
-  /** Check that experimental compiler options are only set for snapshot or nightly compiler versions. */
-  def checkExperimentalSettings(using Context): Unit =
-    for setting <- ctx.settings.language.value
-        if setting.startsWith("experimental.") && setting != "experimental.macros"
-    do checkExperimentalFeature(s"feature $setting", NoSourcePosition)
-
-  def isExperimentalEnabled(using Context): Boolean =
-    Properties.experimental && !ctx.settings.YnoExperimental.value
 
   /** Handle language import `import language.<prefix>.<imported>` if it is one
    *  of the global imports `pureFunctions` or `captureChecking`. In this case

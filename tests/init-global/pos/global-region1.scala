@@ -1,3 +1,4 @@
+import scala.language.experimental
 import scala.annotation.init.region
 
 trait B { def foo(): Int }

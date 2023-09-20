@@ -1,3 +1,4 @@
+import scala.language.experimental
 import scala.quoted.*
 
 inline def makeClass(inline name: String): Any = ${ makeClassExpr('name) }

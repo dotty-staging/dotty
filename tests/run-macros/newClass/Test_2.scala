@@ -1,3 +1,4 @@
+import scala.language.experimental
 @main def Test: Unit = {
   val foo = makeClass("foo")
   println(foo.getClass)

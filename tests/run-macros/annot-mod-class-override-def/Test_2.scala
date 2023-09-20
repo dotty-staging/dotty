@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 @genToString("This is Foo")
 class Foo
   //> override def toString(): String = "This is Foo"

@@ -1,0 +1,10 @@
+-- [E129] Potential Issue Warning: tests/neg/experimental-with-lang-feature-1/B.scala:1:26 -----------------------------
+1 |def test: Unit = erasedFun(1) // error
+  |                 ^^^^^^^^^^^^
+  |                 A pure expression does nothing in statement position; you may be omitting necessary parentheses
+  |
+  | longer explanation available when compiling with `-explain`
+-- Error: tests/neg/experimental-with-lang-feature-1/B.scala:1:17 ------------------------------------------------------
+1 |def test: Unit = erasedFun(1) // error
+  |                 ^^^^^^^^^
+  |                 method erasedFun is marked @experimental and therefore may only be used in an experimental scope.

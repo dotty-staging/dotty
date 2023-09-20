@@ -1,4 +1,5 @@
 package p
+import scala.language.experimental
 class A(f: Int => Int):
   def foo(f: Int => Int) = ???
   def map(other: Iter): Iter = other

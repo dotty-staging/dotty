@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 @setValue("valDef", "a")
 @setValue("varDef", "b")
 @setValue("lazyVarDef", "c")

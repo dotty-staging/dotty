@@ -1,3 +1,5 @@
+import language.experimental
+
 @addCountToString("This is Foo: ")
 class Foo:
   //> private var count$macro$1: Int = 0

@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 import test.BigFloat
 import language.experimental.genericNumberLiterals
 import scala.util.FromDigits

@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 class Foo {
   type A = Int
   type B >: Int <: Int

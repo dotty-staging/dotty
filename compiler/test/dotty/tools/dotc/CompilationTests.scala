@@ -41,7 +41,7 @@ class CompilationTests {
       // Run tests for legacy lazy vals
       compileFilesInDir("tests/pos", defaultOptions.and("-Ysafe-init", "-Ylegacy-lazy-vals", "-Ycheck-constraint-deps"), FileFilter.include(TestSources.posLazyValsAllowlist)),
       compileDir("tests/pos-special/java-param-names", defaultOptions.withJavacOnlyOptions("-parameters")),
-      compileDir("tests/pos-special/stdlib", defaultOptions),
+      compileDir("tests/pos-special/stdlib", defaultOptions.and("-language:experimental")),
     )
 
     if scala.util.Properties.isJavaAtLeast("16") then
@@ -149,6 +149,7 @@ class CompilationTests {
       compileFilesInDir("tests/run", defaultOptions.and("-Ysafe-init")),
       compileFilesInDir("tests/run-deep-subtype", allowDeepSubtypes),
       compileFilesInDir("tests/run-custom-args/captures", allowDeepSubtypes.and("-language:experimental.captureChecking")),
+      compileFilesInDir("tests/run-custom-args/main-annotations", defaultOptions.and("-language:experimental", "-Ysafe-init")),
       // Run tests for legacy lazy vals.
       compileFilesInDir("tests/run", defaultOptions.and("-Ysafe-init", "-Ylegacy-lazy-vals", "-Ycheck-constraint-deps"), FileFilter.include(TestSources.runLazyValsAllowlist)),
     ).checkRuns()

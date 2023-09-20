@@ -1,7 +1,7 @@
-import scala.annotation.{experimental, MacroAnnotation}
+import scala.language.experimental
+import scala.annotation.MacroAnnotation
 import scala.quoted._
 
-@experimental
 class foo extends MacroAnnotation {
   def transform(using Quotes)(tree: quotes.reflect.Definition): List[quotes.reflect.Definition] =
     import quotes.reflect._

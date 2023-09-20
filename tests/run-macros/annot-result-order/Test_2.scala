@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 @print("foo")
 def foo(): Unit = ()
 

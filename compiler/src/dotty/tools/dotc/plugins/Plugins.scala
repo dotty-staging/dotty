@@ -10,6 +10,7 @@ import config.{ PathResolver, Feature }
 import dotty.tools.io._
 import Phases._
 import config.Printers.plugins.{ println => debug }
+import StdNames.nme
 
 /** Support for run-time loading of compiler plugins.
  *
@@ -126,7 +127,7 @@ trait Plugins {
     val updatedPlan = Plugins.schedule(plan, pluginPhases)
 
     // add research plugins
-    if (Feature.isExperimentalEnabled)
+    if (Feature.enabled(nme.experimental))
       plugins.collect { case p: ResearchPlugin => p }.foldRight(updatedPlan) {
         (plug, plan) => plug.init(options(plug), plan)
       }

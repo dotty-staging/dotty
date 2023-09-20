@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 @newUnusedSymbol
 class Foo
 

@@ -1,4 +1,4 @@
-//> using options -Xmacro-settings:one,two,three
+//> using options -language:experimental -Xmacro-settings:one,two,three
 
 import x.*
 

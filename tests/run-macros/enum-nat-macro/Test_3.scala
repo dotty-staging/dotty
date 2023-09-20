@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 import Nat.*
 
 @main def Test: Unit =

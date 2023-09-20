@@ -1,3 +1,5 @@
+import scala.language.experimental
+
 import scala.compiletime.*
 
 object Test {

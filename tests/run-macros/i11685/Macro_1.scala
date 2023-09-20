@@ -1,5 +1,6 @@
 package test
 
+import scala.language.experimental
 import scala.quoted.*
 
 trait Thing {
