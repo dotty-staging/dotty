@@ -377,6 +377,9 @@ object Flags {
   /** Symbol cannot be found as a member during typer */
   val (Invisible @ _, _, _) = newFlags(45, "<invisible>")
 
+  /** A parallel value definition */
+  val (_, Par @ _, _) = newFlags(46, "<par>")
+
   // ------------ Flags following this one are not pickled ----------------------------------
 
   /** Symbol is not a member of its owner */

@@ -17,6 +17,7 @@ import util.common.alwaysTrue
 import scala.collection.mutable
 import config.Config.ccAllowUnsoundMaps
 import MutableCaptures.*
+import SepCheck.*
 
 /** A class for capture sets. Capture sets can be constants or variables.
  *  Capture sets support inclusion constraints <:< where <:< is subcapturing.

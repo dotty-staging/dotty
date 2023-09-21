@@ -270,6 +270,7 @@ class CheckCaptures extends Recheck, SymTransformer:
             mref
           else sym.termRef
         if ref.isTracked then
+          //println(i"MARKFREE $ref is tracked, enclosure = ${sym.enclosure}")
           forallOuterEnvsUpTo(sym.enclosure): env =>
             capt.println(i"Mark $sym with cs ${ref.captureSet} free in ${env.owner}")
             checkElem(ref, env.captured, pos)
@@ -328,12 +329,13 @@ class CheckCaptures extends Recheck, SymTransformer:
     end handleBackwardsCompat
 
     override def recheckIdent(tree: Ident)(using Context): Type =
-      //println(i"IDENT ${tree.symbol} at $tree, mutable = ${tree.symbol.is(Flags.Mutable)}, lhs of assign = $isLhsOfAssign")
+      //println(i"IDENT ${tree.symbol} at $tree")
       if tree.symbol.is(Method) then
         if tree.symbol.info.isParameterless then
           // there won't be an apply; need to include call captures now
           includeCallCaptures(tree.symbol, tree.srcPos)
       else
+        //println(i"MARKFREE ${tree.symbol}")
         markFree(tree.symbol, tree.srcPos)
       handleBackwardsCompat(super.recheckIdent(tree), tree.symbol)
 
@@ -548,6 +550,47 @@ class CheckCaptures extends Recheck, SymTransformer:
             case _ =>
         case _ =>
       super.recheckBlock(block, pt)
+
+    def withinNewEnvIf[T](cond: Boolean)(owner: Symbol, kind: EnvKind, cs: => CaptureSet)(op: => T): T =
+      if cond then
+        val saved = curEnv
+        try
+          curEnv = Env(owner, kind, cs, curEnv)
+          op
+        finally
+          curEnv = saved
+      else op
+
+    private def debugPrintEnvs(): Unit =
+      @annotation.tailrec def recur(env: Env | Null): Unit =
+        if env != null then
+          println(env)
+          recur(env.outer0)
+      println("------ Env stack ------")
+      recur(curEnv)
+      println("------------")
+
+    def withinNewEnv[T](owner: Symbol, kind: EnvKind, cs: CaptureSet)(op: => T): T =
+      withinNewEnvIf(true)(owner, kind, cs)(op)
+
+    override def recheckStats(stats: List[Tree], recheckExpr: => Type)(using Context): Type =
+      def traverse(stats: List[Tree])(using Context): Type = stats match
+        case (imp: Import) :: rest =>
+          traverse(rest)(using ctx.importContext(imp, imp.symbol))
+        case (stat: ValDef) :: rest if stat.symbol.is(Flags.Par) =>
+          val sym = stat.symbol
+          val cs1 = CaptureSet.Var()
+          val cs2 = CaptureSet.Var().installPredicate: ref =>
+            SepCheck.isSeparated(ref.singletonCaptureSet, cs1, frozen = false)
+          withinNewEnv(sym, EnvKind.Regular, cs1):
+            recheck(stat)
+          withinNewEnv(sym, EnvKind.Regular, cs2):
+            traverse(rest)
+        case stat :: rest =>
+          recheck(stat)
+          traverse(rest)
+        case _ => recheckExpr
+      traverse(stats)
 
     override def recheckValDef(tree: ValDef, sym: Symbol)(using Context): Unit =
       try

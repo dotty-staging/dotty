@@ -562,6 +562,7 @@ object StdNames {
     val ordinalDollar: N        = "$ordinal"
     val ordinalDollar_ : N      = "_$ordinal"
     val origin: N               = "origin"
+    val par: N                  = "par"
     val parameters: N           = "parameters"
     val parts: N                = "parts"
     val postfixOps: N           = "postfixOps"

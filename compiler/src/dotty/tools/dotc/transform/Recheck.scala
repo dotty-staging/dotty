@@ -322,12 +322,13 @@ abstract class Recheck extends Phase, SymTransformer:
       defn.UnitType
 
     def recheckBlock(stats: List[Tree], expr: Tree, pt: Type)(using Context): Type =
-      recheckStats(stats)
-      val exprType = recheck(expr)
-        // The expected type `pt` is not propagated. Doing so would allow variables in the
-        // expected type to contain references to local symbols of the block, so the
-        // local symbols could escape that way.
-      TypeOps.avoid(exprType, localSyms(stats).filterConserve(_.isTerm))
+      def checkExpr =
+        val exprType = recheck(expr)
+          // The expected type `pt` is not propagated. Doing so would allow variables in the
+          // expected type to contain references to local symbols of the block, so the
+          // local symbols could escape that way.
+        TypeOps.avoid(exprType, localSyms(stats).filterConserve(_.isTerm))
+      recheckStats(stats, checkExpr)
 
     def recheckBlock(tree: Block, pt: Type)(using Context): Type =
       recheckBlock(tree.stats, tree.expr, pt)
@@ -422,7 +423,7 @@ abstract class Recheck extends Phase, SymTransformer:
       recheckStats(tree.stats)
       NoType
 
-    def recheckStats(stats: List[Tree])(using Context): Unit =
+    def recheckStats(stats: List[Tree], checkExpr: => Type = NoType)(using Context): Type =
       @tailrec def traverse(stats: List[Tree])(using Context): Unit = stats match
         case (imp: Import) :: rest =>
           traverse(rest)(using ctx.importContext(imp, imp.symbol))
@@ -431,6 +432,7 @@ abstract class Recheck extends Phase, SymTransformer:
           traverse(rest)
         case _ =>
       traverse(stats)
+      checkExpr
 
     def recheckDef(tree: ValOrDefDef, sym: Symbol)(using Context): Unit =
       inContext(ctx.localContext(tree, sym)) {

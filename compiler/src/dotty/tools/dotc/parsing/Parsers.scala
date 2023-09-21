@@ -191,6 +191,7 @@ object Parsers {
     def isPureArrow: Boolean = isPureArrow(nme.PUREARROW) || isPureArrow(nme.PURECTXARROW)
     def isErased = isIdent(nme.erased) && in.erasedEnabled
     def isSep = isIdent(nme.sep) && Feature.ccEnabled
+    def isPar = isIdent(nme.par) && Feature.ccEnabled
     // Are we seeing an `erased` soft keyword that will not be an identifier?
     def isErasedKw = isErased && in.isSoftModifierInParamModifierPosition
     // Similarly, are we seeing an `sep` soft keyword?
@@ -3020,6 +3021,7 @@ object Parsers {
       case IDENTIFIER =>
         name match {
           case nme.erased if in.erasedEnabled => Mod.Erased()
+          case nme.par if Feature.ccEnabled => Mod.Par()
           case nme.inline => Mod.Inline()
           case nme.opaque => Mod.Opaque()
           case nme.open => Mod.Open()
