@@ -131,13 +131,13 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
 
       def identifierRef: Tree =
         if isSimpleEnumValue then // owner is `def $new(_$ordinal: Int, $name: String) = new MyEnum { ... }`
-          ref(clazz.owner.paramSymss.head.find(_.name == nme.nameDollar).get)
+          ref(clazz.owner.paramSymss.last.find(_.name == nme.nameDollar).get)
         else // assume owner is `val Foo = new MyEnum { def ordinal = 0 }`
           Literal(Constant(clazz.owner.name.toString))
 
       def ordinalRef: Tree =
         if isSimpleEnumValue then // owner is `def $new(_$ordinal: Int, $name: String) = new MyEnum { ... }`
-          ref(clazz.owner.paramSymss.head.find(_.name == nme.ordinalDollar_).get)
+          ref(clazz.owner.paramSymss.last.find(_.name == nme.ordinalDollar_).get)
         else // val CaseN = new MyEnum { ... def ordinal: Int = n }
           val vdef = clazz.owner
           val parentEnum = vdef.owner.companionClass

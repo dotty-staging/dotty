@@ -340,6 +340,17 @@ trait TreeInfo[T <: Untyped] { self: Trees.Instance[T] =>
     case tree                   => tree
   }
 
+  /** Strip arguments from a class parent, and apply them to the given function,
+   *  Note: not intended for complex parents such as out of order default parameters
+   */
+  def reapplyArgs(parent: Tree, fn: Tree)(using Context): Tree = parent match {
+    case Apply(parent, args)                                     => Apply(reapplyArgs(parent, fn), args)
+    case Select(New(AppliedTypeTree(_, targs)), nme.CONSTRUCTOR) => TypeApply(fn, targs)
+    case TypeApply(parent, targs)                                => TypeApply(reapplyArgs(parent, fn), targs)
+    case AppliedTypeTree(parent, targs)                          => TypeApply(reapplyArgs(parent, fn), targs)
+    case tree                                                    => fn
+  }
+
   /** Is tree an application with result `this.type`?
    *  Accept `b.addOne(x)` and also `xs(i) += x`
    *  where the op is an assignment operator.

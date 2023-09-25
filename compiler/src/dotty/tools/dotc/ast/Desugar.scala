@@ -434,6 +434,13 @@ object desugar {
 
   @sharable private val synthetic = Modifiers(Synthetic)
 
+  def copyParamss(paramss: List[ParamClause])(using Context): List[ParamClause] =
+    mapParamss(paramss)
+      .apply: tparam =>
+        toDefParam(tparam, keepAnnotations = true)
+      .apply: vparam =>
+        toDefParam(vparam, keepAnnotations = true, keepDefault = true)
+
   private def toDefParam(tparam: TypeDef, keepAnnotations: Boolean): TypeDef = {
     var mods = tparam.rawMods
     if (!keepAnnotations) mods = mods.withAnnotations(Nil)
@@ -558,7 +565,7 @@ object desugar {
             defDef(
               addEvidenceParams(
                 cpy.DefDef(ddef)(paramss = joinParams(constrTparams, ddef.paramss)),
-                evidenceParams(constr1).map(toDefParam(_, keepAnnotations = false, keepDefault = false)))))
+                evidenceParams(constr1).map(toDefParam(_, keepAnnotations = false, keepDefault = true)))))
         case stat =>
           stat
       }
@@ -582,10 +589,13 @@ object desugar {
 
       if (isEnum) {
         val (enumCases, enumStats) = stats.partition(DesugarEnums.isEnumCase)
+        val ctors = constr1 :: enumStats.collect {
+          case ddef: DefDef if ddef.name.isConstructorName => ddef
+        }
         if (enumCases.isEmpty)
           report.error(EnumerationsShouldNotBeEmpty(cdef), namePos)
         else
-          enumCases.last.pushAttachment(DesugarEnums.DefinesEnumLookupMethods, ())
+          enumCases.last.pushAttachment(DesugarEnums.DefinesEnumLookupMethods, (ctors, defaultGetters))
         val enumCompanionRef = TermRefTree()
         val enumImport =
           Import(enumCompanionRef, enumCases.flatMap(caseIds).map(
@@ -1169,8 +1179,8 @@ object desugar {
   /**This will check if this def tree is marked to define enum lookup methods,
    * this is not recommended to call more than once per tree
    */
-  private def definesEnumLookupMethods(ddef: DefTree): Boolean =
-    ddef.removeAttachment(DefinesEnumLookupMethods).isDefined
+  private def definesEnumLookupMethods(ddef: DefTree): Option[DesugarEnums.PreScaffoldingData] =
+    ddef.removeAttachment(DefinesEnumLookupMethods)
 
   /**     val p1, ..., pN: T = E
    *  ==>
@@ -1183,15 +1193,16 @@ object desugar {
   def patDef(pdef: PatDef)(using Context): Tree = flatTree {
     val PatDef(mods, pats, tpt, rhs) = pdef
     if mods.isEnumCase then
-      def expand(id: Ident, definesLookups: Boolean) =
+      def expand(id: Ident, definesLookups: Option[PreScaffoldingData]) =
         expandSimpleEnumCase(id.name.asTermName, mods, definesLookups,
             Span(id.span.start, id.span.end, id.span.start))
 
       val ids = pats.asInstanceOf[List[Ident]]
-      if definesEnumLookupMethods(pdef) then
-        ids.init.map(expand(_, false)) ::: expand(ids.last, true) :: Nil
-      else
-        ids.map(expand(_, false))
+      definesEnumLookupMethods(pdef) match
+        case pre @ Some(_) =>
+          ids.init.map(expand(_, None)) ::: expand(ids.last, pre) :: Nil
+        case _ =>
+          ids.map(expand(_, None))
     else {
       val pats1 = if (tpt.isEmpty) pats else pats map (Typed(_, tpt))
       pats1 map (makePatDef(pdef, mods, _, rhs))

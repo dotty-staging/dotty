@@ -14,6 +14,7 @@ import Constants._
 import Decorators._
 import DenotTransformers._
 import SymUtils._
+import dotty.tools.dotc.core.Phases.picklerPhase
 
 
 object CompleteJavaEnums {
@@ -170,7 +171,8 @@ class CompleteJavaEnums extends MiniPhase with InfoTransformer { thisPhase =>
         body = params ++ addedDefs ++ addedForwarders ++ rest)
     else if isJavaEnumValueImpl(cls) then
       def creatorParamRef(name: TermName) =
-        ref(cls.owner.paramSymss.head.find(_.name == name).get)
+        atPhase(picklerPhase):
+          ref(cls.owner.paramSymss.last.find(_.name == name).get)
       val args =
         if cls.owner.isAllOf(EnumCase) then
           List(Literal(Constant(cls.owner.name.toString)), Literal(Constant(ordinalFor(cls.owner))))
