@@ -3410,19 +3410,28 @@ object Types extends TypeUtils {
    * in Kotlin. A FlexibleType(T) generally behaves like an abstract type with bad bounds
    * T|Null .. T, so that T|Null <: FlexibleType(T) <: T.
    */
+  case class FlexibleType(underlying: Type, lo: Type, hi: Type) extends CachedGroundType with ValueType {
+    def derivedFlexibleType(underlying: Type)(using Context): Type =
+      if this.underlying eq underlying then this else FlexibleType(underlying)
+
+    override def computeHash(bs: Binders): Int = doHash(bs, underlying)
+
+    override final def baseClasses(using Context): List[ClassSymbol] = underlying.baseClasses
+  }
 
   object FlexibleType {
-    def apply(underlying: Type) = underlying match {
+    def apply(underlying: Type)(using Context): FlexibleType = underlying match {
       case ft: FlexibleType => ft
-      case _ => new FlexibleType(underlying)
+      case _ =>
+        val hi = underlying.stripNull
+        val lo = if hi eq underlying then OrNull(hi) else underlying
+        new FlexibleType(underlying, lo, hi)
     }
-  }
-  case class FlexibleType(underlying: Type) extends CachedGroundType with ValueType {
-    def lo(using Context): Type = OrNull(underlying)
-    def derivedFlexibleType(under: Type)(using Context): Type =
-      if this.underlying eq under then this else FlexibleType(under)
-    override def computeHash(bs: Binders): Int = doHash(bs, underlying)
-    override final def baseClasses(using Context): List[ClassSymbol] = underlying.baseClasses
+
+    def unapply(tp: Type)(using Context): Option[Type] = tp match {
+      case ft: FlexibleType => Some(ft.underlying)
+      case _ => None
+    }
   }
 
   // --- AndType/OrType ---------------------------------------------------------------
@@ -5690,8 +5699,8 @@ object Types extends TypeUtils {
             val args1 = args.zipWithConserve(tparams):
               case (arg @ TypeBounds(lo, hi), tparam) =>
                 boundFollowingVariance(lo, hi, tparam)
-              case (arg @ FlexibleType(lo, hi), tparam) =>
-                boundFollowingVariance(arg.lo, hi, tparam)
+              case (arg: FlexibleType, tparam) =>
+                boundFollowingVariance(arg.lo, arg.hi, tparam)
               case (arg, _) => arg
             tp.derivedAppliedType(tycon, args1)
           case tp: RefinedType =>

@@ -35,7 +35,7 @@ object Nullables:
 
   private def nullifiedHi(lo: Type, hi: Type)(using Context): Type =
     if needNullifyHi(lo, hi) then
-      if ctx.flexibleTypes then FlexibleType(hi) else OrType(hi, defn.NullType, soft = false)
+      if ctx.flexibleTypes then FlexibleType(hi) else OrNull(hi)
     else hi
 
   /** Create a nullable type bound

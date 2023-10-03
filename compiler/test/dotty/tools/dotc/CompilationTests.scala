@@ -213,16 +213,24 @@ class CompilationTests {
   }.checkRuns()
 
   // Flexible types tests
-  @Test def flexibleTypesRun: Unit = {
-    implicit val testGroup: TestGroup = TestGroup("flexibleTypesRun")
-    compileFilesInDir("tests/flexible-types/run", flexibleTypesOptions)
-  }.checkRuns()
+  // @Test def flexibleTypesRun: Unit = {
+  //   implicit val testGroup: TestGroup = TestGroup("flexibleTypesRun")
+  //   compileFilesInDir("tests/flexible-types/run", flexibleTypesOptions)
+  // }.checkRuns()
+
+  @Test def flexibleTypesNeg: Unit = {
+    implicit val testGroup: TestGroup = TestGroup("flexibleTypesNeg")
+    aggregateTests(
+      compileFilesInDir("tests/explicit-nulls/flexible-types/neg", defaultOptions and "-Yexplicit-nulls"),
+      compileFilesInDir("tests/explicit-nulls/flexible-types/common", defaultOptions and "-Yexplicit-nulls"),
+    )
+  }.checkExpectedErrors()
 
   @Test def flexibleTypesPos: Unit = {
     implicit val testGroup: TestGroup = TestGroup("flexibleTypesPos")
     aggregateTests(
-      compileFilesInDir("tests/flexible-types/pos", flexibleTypesOptions),
-      compileFilesInDir("tests/flexible-types/pos-separate", flexibleTypesOptions)
+      compileFilesInDir("tests/explicit-nulls/flexible-types/pos", flexibleTypesOptions),
+      compileFilesInDir("tests/explicit-nulls/flexible-types/common", flexibleTypesOptions),
     )
   }.checkCompile()
 

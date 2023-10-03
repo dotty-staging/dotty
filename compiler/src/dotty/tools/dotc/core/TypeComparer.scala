@@ -532,7 +532,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
       // invariant: tp2 is NOT a FlexibleType
       // is Flex(T) <: tp2?
       case tp1: FlexibleType =>
-        recur(tp1.underlying, tp2)
+        recur(tp1.hi, tp2)
       case tp1 @ CapturingType(parent1, refs1) =>
         def compareCapturing =
           if tp2.isAny then true

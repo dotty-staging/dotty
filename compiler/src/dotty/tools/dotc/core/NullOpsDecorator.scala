@@ -39,7 +39,7 @@ object NullOpsDecorator:
             if (tp1s ne tp1) && (tp2s ne tp2) then
               tp.derivedAndType(tp1s, tp2s)
             else tp
-          case tp @ FlexibleType(tp1) => strip(tp1)
+          case tp: FlexibleType => tp.hi
           case tp @ TypeBounds(lo, hi) =>
             tp.derivedTypeBounds(strip(lo), strip(hi))
           case tp => tp
