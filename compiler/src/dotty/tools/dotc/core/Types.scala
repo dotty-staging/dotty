@@ -281,8 +281,6 @@ object Types extends TypeUtils {
           tp.bound.derivesFrom(cls) || tp.reduced.derivesFrom(cls)
         case tp: TypeProxy =>
           loop(tp.underlying)
-        case tp: FlexibleType =>
-          loop(tp.underlying)
         case tp: AndType =>
           loop(tp.tp1) || loop(tp.tp2)
         case tp: OrType =>
@@ -345,6 +343,7 @@ object Types extends TypeUtils {
     /** Is this type guaranteed not to have `null` as a value? */
     final def isNotNull(using Context): Boolean = this match {
       case tp: ConstantType => tp.value.value != null
+      case tp: FlexibleType => false
       case tp: ClassInfo => !tp.cls.isNullableClass && tp.cls != defn.NothingClass
       case tp: AppliedType => tp.superType.isNotNull
       case tp: TypeBounds => tp.lo.isNotNull
@@ -754,8 +753,6 @@ object Types extends TypeUtils {
             case d: ClassDenotation => d.findMember(name, pre, required, excluded)
             case d => go(d.info)
           }
-        case tp: FlexibleType =>
-          go(tp.underlying)
         case tp: AppliedType =>
           tp.tycon match {
             case tc: TypeRef =>
@@ -968,8 +965,6 @@ object Types extends TypeUtils {
         if (keepOnly(pre, tp.refinedName)) ns + tp.refinedName else ns
       case tp: TypeProxy =>
         tp.superType.memberNames(keepOnly, pre)
-      case tp: FlexibleType =>
-        tp.underlying.memberNames(keepOnly, pre)
       case tp: AndType =>
         tp.tp1.memberNames(keepOnly, pre) | tp.tp2.memberNames(keepOnly, pre)
       case tp: OrType =>
@@ -1427,7 +1422,6 @@ object Types extends TypeUtils {
         case tp: ExprType => tp.resType.atoms
         case tp: OrType => tp.atoms // `atoms` overridden in OrType
         case tp: AndType => tp.tp1.atoms & tp.tp2.atoms
-        case tp: FlexibleType => tp.underlying.atoms
         case tp: TypeRef if tp.symbol.is(ModuleClass) =>
           // The atom of a module class is the module itself,
           // this corresponds to the special case in TypeComparer
@@ -3410,26 +3404,30 @@ object Types extends TypeUtils {
    * in Kotlin. A FlexibleType(T) generally behaves like an abstract type with bad bounds
    * T|Null .. T, so that T|Null <: FlexibleType(T) <: T.
    */
-  case class FlexibleType(underlying: Type, lo: Type, hi: Type) extends CachedGroundType with ValueType {
-    def derivedFlexibleType(underlying: Type)(using Context): Type =
-      if this.underlying eq underlying then this else FlexibleType(underlying)
+  case class FlexibleType(original: Type, lo: Type, hi: Type) extends CachedProxyType with ValueType {
+    def underlying(using Context): Type = original
 
-    override def computeHash(bs: Binders): Int = doHash(bs, underlying)
+    override def superType(using Context): Type = hi
 
-    override final def baseClasses(using Context): List[ClassSymbol] = underlying.baseClasses
+    def derivedFlexibleType(original: Type)(using Context): Type =
+      if this.original eq original then this else FlexibleType(original)
+
+    override def computeHash(bs: Binders): Int = doHash(bs, original)
+
+    override final def baseClasses(using Context): List[ClassSymbol] = original.baseClasses
   }
 
   object FlexibleType {
-    def apply(underlying: Type)(using Context): FlexibleType = underlying match {
+    def apply(original: Type)(using Context): FlexibleType = original match {
       case ft: FlexibleType => ft
       case _ =>
-        val hi = underlying.stripNull
-        val lo = if hi eq underlying then OrNull(hi) else underlying
-        new FlexibleType(underlying, lo, hi)
+        val hi = original.stripNull
+        val lo = if hi eq original then OrNull(hi) else original
+        new FlexibleType(original, lo, hi)
     }
 
     def unapply(tp: Type)(using Context): Option[Type] = tp match {
-      case ft: FlexibleType => Some(ft.underlying)
+      case ft: FlexibleType => Some(ft.original)
       case _ => None
     }
   }
@@ -5699,6 +5697,7 @@ object Types extends TypeUtils {
             val args1 = args.zipWithConserve(tparams):
               case (arg @ TypeBounds(lo, hi), tparam) =>
                 boundFollowingVariance(lo, hi, tparam)
+              // TODO: why do we need this?
               case (arg: FlexibleType, tparam) =>
                 boundFollowingVariance(arg.lo, arg.hi, tparam)
               case (arg, _) => arg
@@ -5737,7 +5736,7 @@ object Types extends TypeUtils {
       case tp: AnnotatedType =>
         samClass(tp.underlying)
       case tp: FlexibleType =>
-        samClass(tp.underlying)
+        samClass(tp.superType)
       case _ =>
         NoSymbol
 

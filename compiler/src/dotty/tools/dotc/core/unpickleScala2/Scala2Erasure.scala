@@ -88,8 +88,6 @@ object Scala2Erasure:
         tpw
       else
         sym
-    case tpw: FlexibleType =>
-      pseudoSymbol(tpw.underlying)
     case tpw: TypeProxy =>
       pseudoSymbol(tpw.underlying)
     case tpw: JavaArrayType =>
