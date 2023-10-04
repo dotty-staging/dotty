@@ -122,7 +122,6 @@ class CheckRealizable(using Context) {
         case tp: TypeProxy => isConcrete(tp.underlying)
         case tp: AndType => isConcrete(tp.tp1) && isConcrete(tp.tp2)
         case tp: OrType  => isConcrete(tp.tp1) && isConcrete(tp.tp2)
-        case tp: FlexibleType => isConcrete(tp.underlying)
         case _ => false
       }
       if (!isConcrete(tp)) NotConcrete
