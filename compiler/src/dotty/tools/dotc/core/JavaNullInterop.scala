@@ -100,20 +100,22 @@ object JavaNullInterop {
 
     /** Should we nullify `tp` at the outermost level? */
     def needsNull(tp: Type): Boolean =
-      !outermostLevelAlreadyNullable && (tp match {
+      !(outermostLevelAlreadyNullable || (tp match {
         case tp: TypeRef =>
           // We don't modify value types because they're non-nullable even in Java.
-          !tp.symbol.isValueClass &&
+          tp.symbol.isValueClass
+          // We don't modify unit types.
+          || tp.isRef(defn.UnitClass)
           // We don't modify `Any` because it's already nullable.
-          !tp.isRef(defn.AnyClass) &&
+          || tp.isRef(defn.AnyClass)
           // We don't nullify Java varargs at the top level.
           // Example: if `setNames` is a Java method with signature `void setNames(String... names)`,
           // then its Scala signature will be `def setNames(names: (String|Null)*): Unit`.
           // This is because `setNames(null)` passes as argument a single-element array containing the value `null`,
           // and not a `null` array.
-          !tp.isRef(defn.RepeatedParamClass)
+          || !ctx.flexibleTypes && tp.isRef(defn.RepeatedParamClass)
         case _ => true
-      })
+      }))
 
     override def apply(tp: Type): Type = tp match {
       case tp: TypeRef if needsNull(tp) => nullify(tp)

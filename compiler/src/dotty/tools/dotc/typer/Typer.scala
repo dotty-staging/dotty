@@ -969,13 +969,15 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
         // A sequence argument `xs: _*` can be either a `Seq[T]` or an `Array[_ <: T]`,
         // irrespective of whether the method we're calling is a Java or Scala method,
         // so the expected type is the union `Seq[T] | Array[_ <: T]`.
-        val ptArg =
+        val pt1 = pt.stripFlexible
+        val ptArg0 =
           // FIXME(#8680): Quoted patterns do not support Array repeated arguments
           if ctx.mode.isQuotedPattern then
-            pt.translateFromRepeated(toArray = false, translateWildcard = true)
+            pt1.translateFromRepeated(toArray = false, translateWildcard = true)
           else
-            pt.translateFromRepeated(toArray = false, translateWildcard = true)
-            | pt.translateFromRepeated(toArray = true,  translateWildcard = true)
+            pt1.translateFromRepeated(toArray = false, translateWildcard = true)
+            | pt1.translateFromRepeated(toArray = true,  translateWildcard = true)
+        val ptArg = if pt1 eq pt then ptArg0 else FlexibleType(ptArg0)
         val expr0 = typedExpr(tree.expr, ptArg)
         val expr1 = if ctx.explicitNulls && (!ctx.mode.is(Mode.Pattern)) then
             if expr0.tpe.isNullType then
