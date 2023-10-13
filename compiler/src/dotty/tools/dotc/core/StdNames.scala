@@ -214,6 +214,8 @@ object StdNames {
     final val Throwable: N           = "Throwable"
     final val IOOBException: N       = "IndexOutOfBoundsException"
     final val FunctionXXL: N         = "FunctionXXL"
+    final val Phantom: N             = "Phantom"
+    final val Impossible: N          = "Impossible"
 
     final val Abs: N                  = "Abs"
     final val And: N                  = "&&"

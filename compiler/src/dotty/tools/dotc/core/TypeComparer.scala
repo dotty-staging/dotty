@@ -93,6 +93,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
   protected val AnyType      = AnyClass.typeRef
   protected val AnyKindType  = AnyKindClass.typeRef
   protected val NothingType  = NothingClass.typeRef
+  protected val ImpossibleType = defn.ImpossibleClass.typeRef
 
   override def checkReset() =
     super.checkReset()
@@ -961,8 +962,9 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
               case ConstantType(c) => c.tag == Constants.NullTag
               case _ => false
             val sym1 = tp1.symbol
-            (sym1 eq NothingClass) && tp2.isValueTypeOrLambda ||
-            (sym1 eq NullClass) && isNullable(tp2)
+            (sym1 eq NothingClass) && tp2.isValueTypeOrLambda && !tp2.derivesFrom(defn.ImpossibleClass) ||
+            (sym1 eq NullClass) && isNullable(tp2) ||
+            (sym1 eq defn.ImpossibleClass) && tp1.topType == tp2.topType
         }
       case tp1 @ AppliedType(tycon1, args1) =>
         compareAppliedType1(tp1, tycon1, args1)

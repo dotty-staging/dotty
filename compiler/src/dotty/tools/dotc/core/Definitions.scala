@@ -455,6 +455,22 @@ class Definitions {
   }
   def AnyKindType: TypeRef = AnyKindClass.typeRef
 
+  lazy val PhantomClass: ClassSymbol =
+    val cls = newCompleteClassSymbol(ScalaPackageClass, tpnme.Phantom, NoInitsTrait, Nil, newScope(0))
+    if true then // !ctx.settings.YnoPhantomTypes.value
+      // Enable phantom types by exposing scala.Phantom
+      cls.entered
+    cls
+  def PhantomType: TypeRef = PhantomClass.typeRef
+
+  lazy val ImpossibleClass: ClassSymbol =
+    val cls = newCompleteClassSymbol(ScalaPackageClass, tpnme.Impossible, Final | NoInitsTrait, List(PhantomType), newScope(0))
+    if true then // !ctx.settings.YnoPhantomTypes.value
+      // Enable phantom types by exposing scala.Impossible
+      cls.entered
+    cls
+  def ImpossibleType: TypeRef = ImpossibleClass.typeRef
+
   @tu lazy val andType: TypeSymbol = enterBinaryAlias(tpnme.AND, AndType(_, _))
   @tu lazy val orType: TypeSymbol = enterBinaryAlias(tpnme.OR, OrType(_, _, soft = false))
 
@@ -2142,7 +2158,10 @@ class Definitions {
       NullClass,
       NothingClass,
       SingletonClass,
-      MaybeCapabilityAnnot)
+      MaybeCapabilityAnnot,
+      PhantomClass,
+      ImpossibleClass,
+    )
 
   @tu lazy val syntheticCoreClasses: List[Symbol] = syntheticScalaClasses ++ List(
     EmptyPackageVal,

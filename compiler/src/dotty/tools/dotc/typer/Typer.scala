@@ -2389,8 +2389,8 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     val lo1 = typed(lo)
     val hi1 = typed(hi)
     val alias1 = typed(alias)
-    val lo2 = if (lo1.isEmpty) typed(untpd.TypeTree(defn.NothingType)) else lo1
-    val hi2 = if (hi1.isEmpty) typed(untpd.TypeTree(defn.AnyType)) else hi1
+    val lo2 = if (lo1.isEmpty) typed(untpd.TypeTree(hi1.typeOpt.bottomType)) else lo1
+    val hi2 = if (hi1.isEmpty) typed(untpd.TypeTree(lo1.typeOpt.topType)) else hi1
     assignType(cpy.TypeBoundsTree(tree)(lo2, hi2, alias1), lo2, hi2, alias1)
 
   def typedBind(tree: untpd.Bind, pt: Type)(using Context): Tree = {

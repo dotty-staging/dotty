@@ -924,7 +924,7 @@ object Erasure {
         var vparams = outerParamDefs(sym)
             ::: ddef.paramss.collect {
               case untpd.ValDefs(vparams) => vparams
-            }.flatten.filterConserve(!_.symbol.is(Flags.Erased))
+            }.flatten.filterConserve(vdef => !vdef.symbol.is(Flags.Erased) && !vdef.symbol.info.derivesFrom(defn.PhantomClass))
 
         def skipContextClosures(rhs: Tree, crCount: Int)(using Context): Tree =
           if crCount == 0 then rhs

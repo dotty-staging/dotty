@@ -303,6 +303,22 @@ object Types extends TypeUtils {
       loop(this)
     }
 
+    /** Returns the top type of the lattice
+     *   - scala.Phantom if this type is upper scala.Phantom
+     *   - scala.AnyKind otherwise
+     */
+    final def topType(implicit ctx: Context): Type =
+      if derivesFrom(defn.PhantomClass) then defn.PhantomType
+      else defn.AnyType
+
+    /** Returns the top type of the lattice
+     *   - scala.Phantom if this type is upper scala.Phantom
+     *   - scala.Any otherwise
+     */
+    final def bottomType(implicit ctx: Context): Type =
+      if derivesFrom(defn.PhantomClass) then defn.ImpossibleType
+      else defn.NothingType
+
     def isFromJavaObject(using Context): Boolean =
       isRef(defn.ObjectClass) && (typeSymbol eq defn.FromJavaObjectSymbol)
 
@@ -4059,18 +4075,21 @@ object Types extends TypeUtils {
 
     final override def isImplicitMethod: Boolean =
       companion.eq(ImplicitMethodType) || isContextualMethod
-    final override def hasErasedParams(using Context): Boolean =
-      paramInfos.exists(p => p.hasAnnotation(defn.ErasedParamAnnot))
 
     final override def isContextualMethod: Boolean =
       companion.eq(ContextualMethodType)
 
-    def erasedParams(using Context): List[Boolean] =
-      paramInfos.map(p => p.hasAnnotation(defn.ErasedParamAnnot))
+    final def erasedParams(using Context): List[Boolean] =
+      paramInfos.map(isErasedParam)
 
-    def nonErasedParamCount(using Context): Int =
-      paramInfos.count(p => !p.hasAnnotation(defn.ErasedParamAnnot))
+    final override def hasErasedParams(using Context): Boolean =
+      paramInfos.exists(isErasedParam)
 
+    final def nonErasedParamCount(using Context): Int =
+      paramInfos.count(!isErasedParam(_))
+
+    private def isErasedParam(info: Type)(using Context): Boolean =
+      info.hasAnnotation(defn.ErasedParamAnnot) || info.derivesFrom(defn.PhantomClass)
 
     protected def prefixString: String = companion.prefixString
   }

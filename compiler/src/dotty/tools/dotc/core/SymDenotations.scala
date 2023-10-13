@@ -1034,6 +1034,7 @@ object SymDenotations {
     /** An erased value or an erased inline method or field */
     def isEffectivelyErased(using Context): Boolean =
       isOneOf(EffectivelyErased)
+      || info.finalResultType.derivesFrom(defn.PhantomClass)
       || is(Inline) && !isRetainedInline && !hasAnnotation(defn.ScalaStaticAnnot)
 
     /** Is this a member that will become public in the generated binary */
