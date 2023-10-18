@@ -114,7 +114,7 @@ object JavaNullInterop {
           // This is because `setNames(null)` passes as argument a single-element array containing the value `null`,
           // and not a `null` array.
           || !ctx.flexibleTypes && tp.isRef(defn.RepeatedParamClass)
-        case _ => true
+        case _ => false
       }))
 
     override def apply(tp: Type): Type = tp match {

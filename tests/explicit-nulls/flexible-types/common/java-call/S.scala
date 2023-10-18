@@ -10,7 +10,7 @@ val s1n: String | Null = j.f1()
 
 val i1: Int = j.f2()
 
-val k: jj.K = jj.f3()
+val k: jj.K = jj.f3() // error // error
 
 val s2: String = j.g1[String]()  // error
 
