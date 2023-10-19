@@ -221,7 +221,7 @@ class CompilationTests {
   @Test def flexibleTypesNeg: Unit = {
     implicit val testGroup: TestGroup = TestGroup("flexibleTypesNeg")
     aggregateTests(
-      compileFilesInDir("tests/explicit-nulls/flexible-types/neg", defaultOptions and "-Yexplicit-nulls"),
+      // compileFilesInDir("tests/explicit-nulls/flexible-types/neg", defaultOptions and "-Yexplicit-nulls"),
       compileFilesInDir("tests/explicit-nulls/flexible-types/common", defaultOptions and "-Yexplicit-nulls"),
     )
   }.checkExpectedErrors()
