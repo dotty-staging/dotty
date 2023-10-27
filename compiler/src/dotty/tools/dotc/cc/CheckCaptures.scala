@@ -769,13 +769,9 @@ class CheckCaptures extends Recheck, SymTransformer:
           }
           checkNotUniversal(parent)
         case _ =>
-      val adapted =
-        if ccConfig.allowUniversalInBoxed then
-          adaptUniversal(tpe, pt, tree)
-        else
-          if needsUniversalCheck then checkNotUniversal(tpe)
-          tpe
-      super.recheckFinish(adapted, tree, pt)
+      if needsUniversalCheck && !ccConfig.allowUniversalInBoxed then
+        checkNotUniversal(tpe)
+      super.recheckFinish(tpe, tree, pt)
     end recheckFinish
 
     // ------------------ Adaptation -------------------------------------
@@ -845,7 +841,7 @@ class CheckCaptures extends Recheck, SymTransformer:
      */
     override def checkConformsExpr(actual: Type, expected: Type, tree: Tree, addenda: Addenda)(using Context): Type =
       val expected1 = alignDependentFunction(addOuterRefs(expected, actual), actual.stripCapturing)
-      val actualBoxed = adaptBoxed(actual, expected1, tree.srcPos)
+      val actualBoxed = adaptBoxed(actual, expected1, tree.srcPos, adaptUniversal = adaptUniversal(_, expected, tree))
       //println(i"check conforms $actualBoxed <<< $expected1")
       if isCompatible(actualBoxed, expected1) then
         if debugSuccesses then tree match
@@ -927,7 +923,7 @@ class CheckCaptures extends Recheck, SymTransformer:
      *
      *  @param alwaysConst  always make capture set variables constant after adaptation
      */
-    def adaptBoxed(actual: Type, expected: Type, pos: SrcPos, alwaysConst: Boolean = false)(using Context): Type =
+    def adaptBoxed(actual: Type, expected: Type, pos: SrcPos, alwaysConst: Boolean = false, adaptUniversal: Type => Type = tpe => tpe)(using Context): Type =
 
       inline def inNestedEnv[T](boxed: Boolean)(op: => T): T =
         val saved = curEnv
@@ -1080,7 +1076,8 @@ class CheckCaptures extends Recheck, SymTransformer:
                   // given `a: T^C`, improve `T^C` to `T^{a}`
               case _ =>
           case _ =>
-        val adapted = adapt(actualw, expected, covariant = true)
+        val adapted0 = adaptUniversal(actualw)
+        val adapted = adapt(adapted0, expected, covariant = true)
         if adapted ne actualw then
           capt.println(i"adapt boxed $actual vs $expected ===> $adapted")
           adapted
