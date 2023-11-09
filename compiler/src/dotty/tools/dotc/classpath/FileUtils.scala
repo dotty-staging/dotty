@@ -25,6 +25,8 @@ object FileUtils {
 
     def hasBetastyExtension: Boolean = file.ext.isBetasty
 
+    def hasScalaExtension: Boolean = file.ext.isScala
+
     def isTasty: Boolean = !file.isDirectory && hasTastyExtension
 
     def isBestEffortTasty: Boolean = !file.isDirectory && hasBetastyExtension

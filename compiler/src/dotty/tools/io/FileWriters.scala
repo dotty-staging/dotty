@@ -128,9 +128,12 @@ object FileWriters {
 
     /** Should only be called from main compiler thread. */
     def relayReports(toReporting: BackendReporting)(using Context): Unit =
+      handleReports(_.iterator.foreach(_.relay(toReporting)))
+
+    def handleReports(f: IterableOnce[Report] => Unit)(using Context): Unit =
       val reports = resetReports()
       if reports.nonEmpty then
-        reports.reverse.foreach(_.relay(toReporting))
+        f(reports.reverse)
   }
 
   trait ReadOnlySettings:

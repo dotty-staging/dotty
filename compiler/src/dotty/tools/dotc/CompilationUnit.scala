@@ -45,6 +45,7 @@ class CompilationUnit protected (val source: SourceFile, val info: CompilationUn
 
   /** Pickled TASTY binaries, indexed by class. */
   var pickled: Map[ClassSymbol, () => Array[Byte]] = Map()
+  var outlinePickled: Map[ClassSymbol, () => Array[Byte]] = Map()
 
   /** The fresh name creator for the current unit.
    *  FIXME(#7661): This is not fine-grained enough to enable reproducible builds,

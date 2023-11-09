@@ -51,9 +51,8 @@ class ExtractAPI extends Phase {
 
   override def description: String = ExtractAPI.description
 
-  override def isRunnable(using Context): Boolean = {
-    super.isRunnable && (ctx.runZincPhases || ctx.settings.XjavaTasty.value)
-  }
+  override def isRunnable(using Context): Boolean =
+    super.isRunnable && (ctx.runZincPhases || ctx.settings.XjavaTasty.value) && !ctx.isOutlineSecondPass
 
   // Check no needed. Does not transform trees
   override def isCheckable: Boolean = false
@@ -66,19 +65,20 @@ class ExtractAPI extends Phase {
   // after `PostTyper` (unlike `ExtractDependencies`, the simplication to trees
   // done by `PostTyper` do not affect this phase because it only cares about
   // definitions, and `PostTyper` does not change definitions).
-  override def runsAfter: Set[String] = Set(transform.Pickler.name)
+  override def runsAfter: Set[String] = Set(transform.Pickler.name) // why pickler - because we need the tasty
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
-    val doZincCallback = ctx.runZincPhases
-    val nonLocalClassSymbols = new mutable.HashSet[Symbol]
     val units0 =
-      if doZincCallback then
+      if ctx.runZincPhases then
+        val nonLocalClassSymbols = new mutable.HashSet[Symbol]
         val ctx0 = ctx.withProperty(NonLocalClassSymbolsInCurrentUnits, Some(nonLocalClassSymbols))
-        super.runOn(units)(using ctx0)
+        val units1 = super.runOn(units)(using ctx0)
+        ctx.withIncCallback(recordNonLocalClasses(nonLocalClassSymbols, _))
+        units1
       else
-        units // still run the phase for the side effects (writing TASTy files to -Yearly-tasty-output)
-    if doZincCallback then
-      ctx.withIncCallback(recordNonLocalClasses(nonLocalClassSymbols, _))
+        units
+    for async <- ctx.run.nn.asyncTasty do
+      async.signalAPIComplete()
     if ctx.settings.XjavaTasty.value then
       units0.filterNot(_.typedAsJava) // remove java sources, this is the terminal phase when `-Xjava-tasty` is set
     else
@@ -90,7 +90,6 @@ class ExtractAPI extends Phase {
       val sourceFile = cls.source
       if sourceFile.exists && cls.isDefinedInCurrentRun then
         recordNonLocalClass(cls, sourceFile, cb)
-    ctx.run.nn.asyncTasty.foreach(_.signalAPIComplete())
 
   private def recordNonLocalClass(cls: Symbol, sourceFile: SourceFile, cb: interfaces.IncrementalCallback)(using Context): Unit =
     def registerProductNames(fullClassName: String, binaryClassName: String) =

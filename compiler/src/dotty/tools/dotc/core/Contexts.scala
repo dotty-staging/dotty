@@ -174,6 +174,14 @@ object Contexts {
       val local = incCallback
       if local != null then op(local)
 
+    def isOutline(using Context): Boolean = settings.Youtline.value
+
+    def isOutlineFirstPass(using Context): Boolean =
+      isOutline && !settings.YsecondPass.value
+
+    def isOutlineSecondPass(using Context): Boolean =
+      isOutline && settings.YsecondPass.value
+
     def runZincPhases: Boolean =
       def forceRun = settings.YdumpSbtInc.value || settings.YforceSbtPhases.value
       val local = incCallback
@@ -687,6 +695,12 @@ object Contexts {
       util.Stats.record("Context.setSource")
       this._source = source
       this
+
+    def setCallbacks(store: Store): this.type =
+      this
+        .updateStore(compilerCallbackLoc, store(compilerCallbackLoc))
+        .updateStore(incCallbackLoc, store(incCallbackLoc))
+        .updateStore(progressCallbackLoc, store(progressCallbackLoc))
 
     private def setMoreProperties(moreProperties: Map[Key[Any], Any]): this.type =
       util.Stats.record("Context.setMoreProperties")
