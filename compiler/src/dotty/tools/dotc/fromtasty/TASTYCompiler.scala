@@ -11,6 +11,9 @@ class TASTYCompiler extends Compiler {
   override protected def frontendPhases: List[List[Phase]] =
     List(new ReadTasty) :: Nil
 
+  override protected def picklerPhases: List[List[Phase]] =
+    List(new sbt.ExtractDependencies) :: super.picklerPhases
+
   override def newRun(using Context): Run = {
     reset()
     new TASTYRun(this, ctx.addMode(Mode.ReadPositions))

@@ -14,6 +14,7 @@ import StdNames.{str, nme}
 import Periods.*
 import Phases.*
 import Symbols.*
+import StdNames.str
 import Flags.Module
 import reporting.{ThrowingReporter, Profile, Message}
 import collection.mutable
@@ -28,11 +29,11 @@ import dotty.tools.dotc.transform.Pickler.writeSigFilesAsync
 import scala.util.chaining.given
 import dotty.tools.io.FileWriters.{EagerReporter, BufferingReporter}
 import dotty.tools.dotc.sbt.interfaces.IncrementalCallback
-import dotty.tools.dotc.sbt.asyncZincPhasesCompleted
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 import java.util.concurrent.atomic.AtomicBoolean
 import java.nio.file.Files
+import dotty.tools.dotc.sbt.{asyncReportAPIPhaseCompleted, asyncReportDepPhaseCompleted}
 
 object Pickler {
   val name: String = "pickler"
@@ -48,7 +49,11 @@ object Pickler {
    * The callbacks should only be called once.
    */
   class AsyncTastyHolder private (
-      val earlyOut: AbstractFile, incCallback: IncrementalCallback | Null)(using @constructorOnly ex: ExecutionContext):
+      val earlyOut: AbstractFile,
+      val localPromises: Boolean,
+      apiWriteable: Boolean,
+      initial: AsyncTastyHolder.State,
+      incCallback: IncrementalCallback | Null)(using @constructorOnly ex: ExecutionContext):
     import scala.concurrent.Future as StdFuture
     import scala.concurrent.Await
     import scala.concurrent.duration.Duration
@@ -60,37 +65,70 @@ object Pickler {
      * This should be done at the end of a run, e.g. background work may be running even though
      * errors in main thread will prevent reaching the backend. */
     def cancel(): Unit =
-      if _cancelled.compareAndSet(false, true) then
-        asyncTastyWritten.trySuccess(None) // cancel the wait for TASTy writing
-        if incCallback != null then
-          asyncAPIComplete.trySuccess(Signal.Cancelled) // cancel the wait for API completion
+      if localPromises && _cancelled.compareAndSet(false, true) then
+        // if localPromises then
+          initial.promises.asyncTastyWritten.trySuccess(None) // cancel the wait for TASTy writing
+          if incCallback != null then
+            initial.promises.asyncAPIComplete.trySuccess(Signal.Cancelled) // cancel the wait for API completion
+            initial.promises.asyncDepsComplete.trySuccess(Signal.Cancelled) // cancel the wait for API completion
       else
         () // nothing else to do
 
     /** check if the work has been cancelled. */
     def cancelled: Boolean = _cancelled.get()
 
-    private val asyncTastyWritten = Promise[Option[AsyncTastyHolder.State]]()
-    private val asyncAPIComplete =
-      if incCallback == null then Promise.successful(Signal.Done) // no need to wait for API completion
-      else Promise[Signal]()
+    private val backendFuture: StdFuture[Option[AsyncTastyHolder.State]] =
+      /* Zinc expects API to be finished first, after TASTy writing */
+      val asyncAPIFuture = initial.promises.asyncAPIComplete.future
 
-    private val backendFuture: StdFuture[Option[BufferingReporter]] =
-      val asyncState = asyncTastyWritten.future
-        .zipWith(asyncAPIComplete.future)((state, api) => state.filterNot(_ => api == Signal.Cancelled))
-      asyncState.map: optState =>
-        optState.flatMap: state =>
-          if incCallback != null && state.done && !state.hasErrors then
-            asyncZincPhasesCompleted(incCallback, state.pending).toBuffered
-          else state.pending
+      /** Next, set up reporting that API phase is complete, after TASTy writing */
+      val asyncAPIReported = asyncAPIFuture
+        .zipWith(initial.promises.asyncTastyWritten.future): (api, state) =>
+          state.filterNot(_ => api == Signal.Cancelled)
+        .map: optState =>
+          optState.map: state =>
+            if incCallback != null && state.tastyDone && !state.apiDone && !state.hasErrors && apiWriteable then
+              val reporter = asyncReportAPIPhaseCompleted(incCallback, state.pending)
+              state.copy(
+                hasErrors = reporter.hasErrors,
+                apiDone = true,
+                pending = reporter.toBuffered
+              )
+            else state
+
+      /* Zinc expects Deps to be finished after API */
+      val asyncDepsFuture = initial.promises.asyncDepsComplete.future.zipWith(asyncAPIFuture)((deps, _) => deps)
+
+      /** Next, set up reporting that Deps phase is complete, after API is reported */
+      val asyncDepsReported = asyncDepsFuture
+        .zipWith(asyncAPIReported): (deps, state) =>
+          state.filterNot(_ => deps == Signal.Cancelled)
+        .map: optState =>
+          optState.map: state =>
+            if incCallback != null && state.apiDone && !state.depsDone && !state.hasErrors then
+              val reporter = asyncReportDepPhaseCompleted(incCallback, state.pending)
+              state.copy(
+                hasErrors = reporter.hasErrors,
+                depsDone = true,
+                pending = reporter.toBuffered
+              )
+            else state
+
+
+      asyncDepsReported
+    end backendFuture
 
     /** awaits the state of async TASTy operations indefinitely, returns optionally any buffered reports. */
-    def sync(): Option[BufferingReporter] =
+    def sync()(using Context): Option[AsyncTastyHolder.State] =
       Await.result(backendFuture, Duration.Inf)
 
     def signalAPIComplete(): Unit =
       if incCallback != null then
-        asyncAPIComplete.trySuccess(Signal.Done)
+        initial.promises.asyncAPIComplete.trySuccess(Signal.Done)
+
+    def signalDepsComplete(): Unit =
+      if incCallback != null then
+        initial.promises.asyncDepsComplete.trySuccess(Signal.Done)
 
     /** should only be called once */
     def signalAsyncTastyWritten()(using ctx: ReadOnlyContext): Unit =
@@ -107,11 +145,11 @@ object Pickler {
           case NonFatal(t) =>
             ctx.reporter.error(em"Error closing early output: ${t}")
 
-      asyncTastyWritten.trySuccess:
+      initial.promises.asyncTastyWritten.trySuccess:
         Some(
-          AsyncTastyHolder.State(
+          initial.copy(
             hasErrors = ctx.reporter.hasErrors,
-            done = done,
+            tastyDone = done,
             pending = ctx.reporter.toBuffered
           )
         )
@@ -119,10 +157,29 @@ object Pickler {
   end AsyncTastyHolder
 
   object AsyncTastyHolder:
+    class Promises private[AsyncTastyHolder] (
+      private[AsyncTastyHolder] val asyncTastyWritten: Promise[Option[State]],
+      private[AsyncTastyHolder] val asyncAPIComplete: Promise[Signal],
+      private[AsyncTastyHolder] val asyncDepsComplete: Promise[Signal]
+    )
+
+
     /** The state after writing async tasty. Any errors should have been reported, or pending.
      *  if suspendedUnits is true, then we can't signal Zinc yet.
      */
-    private class State(val hasErrors: Boolean, val done: Boolean, val pending: Option[BufferingReporter])
+    case class State(
+      promises: AsyncTastyHolder.Promises,
+      hasErrors: Boolean,
+      tastyDone: Boolean,
+      apiDone: Boolean,
+      depsDone: Boolean,
+      pending: Option[BufferingReporter]
+    ):
+
+      override def toString: String = "State(...)"
+
+    end State
+
     private enum Signal:
       case Done, Cancelled
 
@@ -130,8 +187,31 @@ object Pickler {
      * the `ExecutionContext` parameter is used to call into Zinc to signal
      * that API and Dependency phases are complete.
      */
-    def init(using Context, ExecutionContext): AsyncTastyHolder =
-      AsyncTastyHolder(ctx.settings.XearlyTastyOutput.value, ctx.incCallback)
+    def init(pending: Option[State])(using Context, ExecutionContext): AsyncTastyHolder =
+      val localPromises = !ctx.isOutlineFirstPass
+      val apiWriteable = !ctx.isOutlineSecondPass
+      val incCallback = ctx.incCallback
+      val initial = pending.getOrElse(
+        State(
+          promises = Promises(
+            asyncTastyWritten = Promise[Option[AsyncTastyHolder.State]](),
+            asyncAPIComplete = (
+              if incCallback == null then Promise.successful(Signal.Done) // no need to wait for API completion
+              else Promise[Signal]()
+            ),
+            asyncDepsComplete = (
+              if incCallback == null then Promise.successful(Signal.Done) // no need to wait for Deps completion
+              else Promise[Signal]()
+            )
+          ),
+          hasErrors = false,
+          tastyDone = false,
+          apiDone = false,
+          depsDone = false,
+          pending = None
+        )
+      )
+      AsyncTastyHolder(ctx.settings.XearlyTastyOutput.value, localPromises, apiWriteable, initial, incCallback)
 
 
   /** Asynchronously writes TASTy files to the destination -Yearly-tasty-output.
@@ -154,17 +234,20 @@ object Pickler {
    */
   def writeSigFilesAsync(
       tasks: List[(String, Array[Byte])],
-      writer: EarlyFileWriter,
+      writers: List[EarlyFileWriter],
       async: AsyncTastyHolder)(using ctx: ReadOnlyContext): Unit = {
     try
       try
-        for (internalName, pickled) <- tasks do
+        for
+          (internalName, pickled) <- tasks
+          writer <- writers
+        do
           if !async.cancelled then
             val _ = writer.writeTasty(internalName, pickled)
       catch
         case NonFatal(t) => ctx.reporter.exception(em"writing TASTy to early output", t)
       finally
-        writer.close()
+        writers.foreach(_.close())
     catch
       case NonFatal(t) => ctx.reporter.exception(em"closing early output writer", t)
     finally
@@ -183,6 +266,10 @@ class Pickler extends Phase {
 
   private def doAsyncTasty(using Context): Boolean = ctx.run.nn.asyncTasty.isDefined
 
+  private def doAsyncTastyFromTastyCase(using Context): Boolean =
+    assert(ctx.run.nn.asyncTasty.isDefined, "WOW asyncTasty is not set")
+    true
+
   private var fastDoAsyncTasty: Boolean = false
 
   override def phaseName: String = Pickler.name
@@ -193,7 +280,7 @@ class Pickler extends Phase {
   // then we need to run this phase to send the tasty from compilation units to the early-output.
   override def isRunnable(using Context): Boolean =
     (super.isRunnable || ctx.isBestEffort)
-    && (!ctx.settings.fromTasty.value || doAsyncTasty)
+    && (!ctx.settings.fromTasty.value || doAsyncTastyFromTastyCase)
     && (!ctx.usedBestEffortTasty || ctx.isBestEffort)
     // we do not want to pickle `.betasty` if do not plan to actually create the
     // betasty file (as signified by the -Ybest-effort option)
@@ -250,7 +337,7 @@ class Pickler extends Phase {
     if isOutline then ctx.fresh.setPrinterFn(OutlinePrinter(_))
     else ctx
 
-  /** only ran under -Ypickle-write and -from-tasty */
+  /** only ran under -Xpickle-write and -from-tasty */
   private def runFromTasty(unit: CompilationUnit)(using Context): Unit = {
     val pickled = unit.pickled
     for (cls, bytes) <- pickled do
@@ -288,7 +375,7 @@ class Pickler extends Phase {
       if isJavaAttr then
         // assert that Java sources didn't reach Pickler without `-Xjava-tasty`.
         assert(ctx.settings.XjavaTasty.value, "unexpected Java source file without -Xjava-tasty")
-      val isOutline = isJavaAttr // TODO: later we may want outline for Scala sources too
+      val isOutline = isJavaAttr || ctx.isOutlineFirstPass
       val attributes = Attributes(
         sourceFile = sourceRelativePath,
         scala2StandardLibrary = ctx.settings.YcompileScala2Library.value,
@@ -373,7 +460,12 @@ class Pickler extends Phase {
                 printedTasty(cls) = TastyPrinter.showContents(pickled, noColor = true, isBestEffortTasty = false, testPickler = true)
             () => pickled
 
-        unit.pickled += (cls -> demandPickled)
+        if ctx.isOutlineFirstPass then
+          unit.outlinePickled += (cls -> demandPickled)
+        else // either non-outline, or second pass
+          unit.pickled += (cls -> demandPickled)
+        end if
+      end if
     end for
   }
 
@@ -385,8 +477,14 @@ class Pickler extends Phase {
         fastDoAsyncTasty = true
         () =>
           given ReadOnlyContext = if useExecutor then ReadOnlyContext.buffered else ReadOnlyContext.eager
-          val writer = Pickler.EarlyFileWriter(async.earlyOut)
-          writeSigFilesAsync(serialized.result(), writer, async)
+          val base = Pickler.EarlyFileWriter(async.earlyOut) :: Nil
+          val writers =
+            if ctx.isOutlineFirstPass then
+              val extra = Pickler.EarlyFileWriter(ctx.settings.YoutlineClasspath.value)
+              extra :: base
+            else
+              base
+          writeSigFilesAsync(serialized.result(), writers, async)
 
     def runPhase(writeCB: (doWrite: () => Unit) => Unit) =
       super.runOn(units).tap(_ => writeTask.foreach(writeCB))
@@ -398,7 +496,7 @@ class Pickler extends Phase {
           runPhase: doWrite =>
             // unless we redesign executor to have "Unit" schedule overload, we need some sentinel value.
             executor.schedule(() => { doWrite(); Array.emptyByteArray })
-        finally executor.close()
+        finally executor.close() // NOTE: each run will create a new Pickler phase, so safe to close here.
       else
         runPhase(_())
     if ctx.settings.YtestPickler.value then
