@@ -107,7 +107,7 @@ class TreeUnpickler(reader: TastyReader,
   private val unpicklingJava =
     attributeUnpicklerOpt.exists(_.attributes.isJava)
 
-  private val isOutline = attributeUnpicklerOpt.exists(_.attributes.isOutline)
+  private val unpickleOutline = attributeUnpicklerOpt.exists(_.attributes.isOutline)
 
   private def registerSym(addr: Addr, sym: Symbol) =
     symAtAddr(addr) = sym
@@ -1232,7 +1232,7 @@ class TreeUnpickler(reader: TastyReader,
         case IDENT =>
           untpd.Ident(readName()).withType(readType())
         case ELIDED =>
-          if !isOutline then
+          if !unpickleOutline then
             report.error(
               s"Illegal elided tree in unpickler without ${attributeTagToString(OUTLINEattr)}, ${ctx.source}")
           untpd.Ident(nme.WILDCARD).withType(readType())
