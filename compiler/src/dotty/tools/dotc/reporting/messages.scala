@@ -1272,15 +1272,17 @@ extends CyclicMsg(RecursiveValueNeedsResultTypeID) {
         |"""
 }
 
-class CyclicReferenceInvolving(denot: SymDenotation)(using Context)
+class CyclicReferenceInvolving(cycleSym: Symbol)(using Context)
 extends CyclicMsg(CyclicReferenceInvolvingID) {
   def msg(using Context) =
-    val where = if denot.exists then s" involving $denot" else ""
+    val where = if cycleSym.exists then s" involving ${cycleSym.showLocated}" else ""
     i"Cyclic reference$where"
   def explain(using Context) =
-    i"""|$denot is declared as part of a cycle which makes it impossible for the
-        |compiler to decide upon ${denot.name}'s type.
-        |To avoid this error, try giving ${denot.name} an explicit type.
+    val hint =
+      if cycleSym.isConstructor then ""
+      else i"\nTo avoid this error, try giving ${cycleSym} an explicit type."
+    i"""|${cycleSym.showLocated} is declared as part of a cycle which makes it impossible for the
+        |compiler to decide upon ${cycleSym}'s type.$hint
         |"""
 }
 
