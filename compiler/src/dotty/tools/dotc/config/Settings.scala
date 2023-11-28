@@ -5,7 +5,7 @@ import scala.language.unsafeNulls
 
 import core.Contexts.*
 
-import dotty.tools.io.{AbstractFile, Directory, JarArchive, PlainDirectory}
+import dotty.tools.io.{AbstractFile, Directory, JarArchive, PlainDirectory, FileExtension}
 
 import annotation.tailrec
 import collection.mutable.ArrayBuffer
@@ -162,7 +162,7 @@ object Settings:
           else setString(arg2, args2)
         case (OutputTag, arg :: args) =>
           val path = Directory(arg)
-          val isJar = path.extension == "jar"
+          val isJar = path.ext == FileExtension.Jar
           if (!isJar && !path.isDirectory)
             fail(s"'$arg' does not exist or is not a directory or .jar file", args)
           else {

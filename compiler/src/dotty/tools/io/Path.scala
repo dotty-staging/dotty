@@ -33,18 +33,16 @@ import scala.util.Random.alphanumeric
  */
 object Path {
   def isExtensionJarOrZip(jpath: JPath): Boolean = isExtensionJarOrZip(jpath.getFileName.toString)
-  def isExtensionJarOrZip(name: String): Boolean = {
-    val ext = extension(name)
-    ext == "jar" || ext == "zip"
-  }
-  def extension(name: String): String = {
+  def isExtensionJarOrZip(name: String): Boolean = fileExtension(name).isJarOrZip
+  def fileExtension(name: String): FileExtension = {
     var i = name.length - 1
     while (i >= 0 && name.charAt(i) != '.')
       i -= 1
 
-    if (i < 0) ""
-    else name.substring(i + 1).toLowerCase
+    if (i < 0) FileExtension.Empty
+    else FileExtension.from(name.substring(i + 1))
   }
+  def extension(name: String): String = fileExtension(name).toLowerCase
 
   def onlyDirs(xs: Iterator[Path]): Iterator[Directory] = xs.filter(_.isDirectory).map(_.toDirectory)
   def onlyDirs(xs: List[Path]): List[Directory] = xs.filter(_.isDirectory).map(_.toDirectory)
@@ -160,8 +158,17 @@ class Path private[io] (val jpath: JPath) {
     val p = parent
     if (p isSame this) Nil else p :: p.parents
   }
+
+  def ext: FileExtension = Path.fileExtension(name)
+
   // if name ends with an extension (e.g. "foo.jpg") returns the extension ("jpg"), otherwise ""
-  def extension: String = Path.extension(name)
+  def extension: String = ext.toLowerCase
+
+  def hasExtension(ext: FileExtension, exts: FileExtension*): Boolean = {
+    val myExt = this.ext
+    ext == myExt || exts.exists(_ == myExt)
+  }
+
   // compares against extensions in a CASE INSENSITIVE way.
   def hasExtension(ext: String, exts: String*): Boolean = {
     val lower = extension.toLowerCase
@@ -171,6 +178,14 @@ class Path private[io] (val jpath: JPath) {
   def stripExtension: String = name stripSuffix ("." + extension)
   // returns the Path with the extension.
   def addExtension(ext: String): Path = new Path(jpath.resolveSibling(name + ext))
+  // returns the Path with the extension.
+  def addExtension(ext: FileExtension): Path = addExtension(ext.toLowerCase)
+
+  // changes the existing extension out for a new one, or adds it
+  // if the current path has none.
+  def changeExtension(ext: FileExtension): Path =
+    changeExtension(ext.toLowerCase)
+
   // changes the existing extension out for a new one, or adds it
   // if the current path has none.
   def changeExtension(ext: String): Path =

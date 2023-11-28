@@ -6,7 +6,7 @@ import scala.language.unsafeNulls
 
 import scala.util.control.NonFatal
 
-import dotty.tools.io.Directory
+import dotty.tools.io.{Directory, FileExtension}
 
 import java.io.{File => JFile}
 import java.nio.file.{Files, Paths}
@@ -40,7 +40,7 @@ object Debug {
 
     val tastyFiles =
       Directory(fromSourcesOut).walk
-        .filter(x => x.isFile && "tasty".equalsIgnoreCase(x.extension))
+        .filter(x => x.isFile && x.ext == FileExtension.Tasty)
         .map(_.toString)
         .toList
 
