@@ -1,0 +1,3 @@
+# in this example we force the parallelism to be 1,
+# so the suspension will see the macro dependency is in the same run
+> a/run

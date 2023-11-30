@@ -67,33 +67,34 @@ class Driver {
         else ceiling
 
       // NOTE: sbt will delete this potentially as soon as you call `apiPhaseCompleted`
-      val pickleWriteOutput = ictx.settings.YearlyTastyOutput.valueIn(ictx.settingsState)
+      // val pickleWriteOutput = ictx.settings.YearlyTastyOutput.valueIn(ictx.settingsState)
       val profileDestination = ictx.settings.YprofileDestination.valueIn(ictx.settingsState)
 
-      val pickleWriteSource =
-        pickleWriteOutput.underlyingSource match
-          case Some(source) =>
-            source.file.asInstanceOf[java.io.File | Null] match
-              case f: java.io.File => Some(source)
-              case null =>
-                report.warning(s"Could not resolve file of ${source} (of class ${source.getClass.getName})")
-                None
-          case None =>
-            if pickleWriteOutput.isInstanceOf[dotty.tools.io.JarArchive] then
-              report.warning(s"Could not resolve underlying source of jar ${pickleWriteOutput} (of class ${pickleWriteOutput.getClass.getName})")
-              None
-            else
-              report.warning(s"Could not resolve underlying source of ${pickleWriteOutput} (of class ${pickleWriteOutput.getClass.getName})")
-              Some(pickleWriteOutput)
+      // val pickleWriteSource =
+      //   pickleWriteOutput.underlyingSource match
+      //     case Some(source) =>
+      //       source.file.asInstanceOf[java.io.File | Null] match
+      //         case f: java.io.File => Some(source)
+      //         case null =>
+      //           report.warning(s"Could not resolve file of ${source} (of class ${source.getClass.getName})")
+      //           None
+      //     case None =>
+      //       if pickleWriteOutput.isInstanceOf[dotty.tools.io.JarArchive] then
+      //         report.warning(s"Could not resolve underlying source of jar ${pickleWriteOutput} (of class ${pickleWriteOutput.getClass.getName})")
+      //         None
+      //       else
+      //         report.warning(s"Could not resolve underlying source of ${pickleWriteOutput} (of class ${pickleWriteOutput.getClass.getName})")
+      //         Some(pickleWriteOutput)
 
-      val outlineOutput = new VirtualDirectory("<outline-classpath>") {
-        override def underlyingSource: Option[AbstractFile] = pickleWriteSource
-      }
+      // val outlineOutput = new VirtualDirectory("<outline-classpath>") {
+      //   override def underlyingSource: Option[AbstractFile] = pickleWriteSource
+      // }
+      val outlineOutput = new VirtualDirectory("<outline-classpath>")
 
-      if pickleWriteOutput == NoAbstractFile then
-        report.error("Requested outline compilation with `-Youtline` " +
-          "but no output directory for TASTY files was specified with `-Ypickle-write`.")(using ictx)
-        return ictx.reporter
+      // if pickleWriteOutput == NoAbstractFile then
+      //   report.error("Requested outline compilation with `-Youtline` " +
+      //     "but no output directory for TASTY files was specified with `-Ypickle-write`.")(using ictx)
+      //   return ictx.reporter
 
       val firstPassCtx = ictx.fresh
         .setSetting(ictx.settings.YoutlineClasspath, outlineOutput)
@@ -113,7 +114,7 @@ class Driver {
           .setSetting(ictx.settings.YsecondPass, true)
           .setSetting(ictx.settings.YoutlineClasspath, outlineOutput)
           .setCallbacks(ictx.store)
-          .setDepsFinishPromise(promise)
+          .setDepsFinishPromise(DepFinishSignal.Ready(promise))
           .setReporter(if isParallel then new StoreReporter(ictx.reporter) else ictx.reporter)
 
         if profileDestination0.nonEmpty then
@@ -234,7 +235,10 @@ class Driver {
         val run = compiler.newRun
         runOrNull = run
         run.compile(files)
-        finish(compiler, run)
+        val finishCtx =
+          if ctx.isOutlineSecondPass then ctx.fresh.setDepsFinishPromise(DepFinishSignal.Finished)
+          else ctx
+        finish(compiler, run)(using finishCtx)
       catch
         case ex: FatalError =>
           report.error(ex.getMessage.nn) // signals that we should fail compilation.

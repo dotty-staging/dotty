@@ -43,6 +43,10 @@ import java.nio.file.InvalidPathException
 
 object Contexts {
 
+  enum DepFinishSignal:
+    case Ready(promise: scala.concurrent.Promise[Unit])
+    case Finished
+
   private val (compilerCallbackLoc,  store1) = Store.empty.newLocation[CompilerCallback]()
   private val (incCallbackLoc,       store2) = store1.newLocation[IncrementalCallback | Null]()
   private val (printerFnLoc,         store3) = store2.newLocation[Context => Printer](new RefinedPrinter(_))
@@ -54,7 +58,7 @@ object Contexts {
   private val (importInfoLoc,        store9) = store8.newLocation[ImportInfo | Null]()
   private val (typeAssignerLoc,     store10) = store9.newLocation[TypeAssigner](TypeAssigner)
   private val (progressCallbackLoc, store11) = store10.newLocation[ProgressCallback | Null]()
-  private val (depsFinishPromiseLoc, store12) = store11.newLocation[scala.concurrent.Promise[Unit]]()
+  private val (depsFinishPromiseLoc, store12) = store11.newLocation[DepFinishSignal | Null]()
 
   private val initialStore = store12
 
@@ -182,7 +186,9 @@ object Contexts {
     def isOutlineSecondPass(using Context): Boolean =
       isOutline && settings.YsecondPass.value
 
-    def depsFinishPromiseOpt: Option[scala.concurrent.Promise[Unit]] = Option(store(depsFinishPromiseLoc))
+    def depsFinishPromiseOpt: Option[DepFinishSignal] =
+      val local = store(depsFinishPromiseLoc)
+      if local == null then None else Some(local)
 
     def runZincPhases: Boolean =
       def forceRun = settings.YdumpSbtInc.value || settings.YforceSbtPhases.value
@@ -701,7 +707,7 @@ object Contexts {
 
     def setCompilerCallback(callback: CompilerCallback): this.type = updateStore(compilerCallbackLoc, callback)
     def setIncCallback(callback: IncrementalCallback): this.type = updateStore(incCallbackLoc, callback)
-    def setDepsFinishPromise(promise: scala.concurrent.Promise[Unit]): this.type =
+    def setDepsFinishPromise(promise: DepFinishSignal): this.type =
       updateStore(depsFinishPromiseLoc, promise)
     def setProgressCallback(callback: ProgressCallback): this.type = updateStore(progressCallbackLoc, callback)
     def setPrinterFn(printer: Context => Printer): this.type = updateStore(printerFnLoc, printer)

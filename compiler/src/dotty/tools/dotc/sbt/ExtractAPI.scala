@@ -154,8 +154,8 @@ object ExtractAPI:
 
     ctx.withIncCallback: cb =>
       ctx.depsFinishPromiseOpt match
-        case Some(promise) =>
-          assert(ctx.isOutlineSecondPass, "promise should only be set in the second pass")
+        case Some(DepFinishSignal.Ready(promise)) =>
+          assert(ctx.isOutlineSecondPass, "dep finish signal should only be set in the second pass")
           // suspended units could cause this to be completed twice
           // TODO: instead of promise, we have a stream?
           // the problem is that suspension is not always going to be the same,
@@ -165,6 +165,9 @@ object ExtractAPI:
           // suspended units kills the purpose, so do we warn if it occurs, or expect the user to
           // turn on -Yno-suspended-units? (or we forbid supension in typer phase with -Ypickle-write)
           promise.success(())
+        case Some(DepFinishSignal.Finished) =>
+          assert(ctx.isOutlineSecondPass, "dep finish signal should only be set in the second pass")
+          () // do nothing, already signalled
         case _ =>
           assert(!ctx.isOutlineSecondPass, s"in -Youtline second pass must have deps finish promise set")
           cb.apiPhaseCompleted()
