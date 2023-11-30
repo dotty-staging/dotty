@@ -5690,16 +5690,11 @@ object Types extends TypeUtils {
                   foldOver(vmap, t)
             val vmap = accu(VarianceMap.empty, samMeth.info)
             val tparams = tycon.typeParamSymbols
-            def boundFollowingVariance(lo: Type, hi: Type, tparam: TypeSymbol) =
-              val v = vmap.computedVariance(tparam)
-              if v.uncheckedNN < 0 then lo
-              else hi
             val args1 = args.zipWithConserve(tparams):
               case (arg @ TypeBounds(lo, hi), tparam) =>
-                boundFollowingVariance(lo, hi, tparam)
-              // TODO: why do we need this?
-              case (arg: FlexibleType, tparam) =>
-                boundFollowingVariance(arg.lo, arg.hi, tparam)
+                val v = vmap.computedVariance(tparam)
+                if v.uncheckedNN < 0 then lo
+                else hi
               case (arg, _) => arg
             tp.derivedAppliedType(tycon, args1)
           case tp: RefinedType =>

@@ -863,8 +863,6 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
             false
         }
         compareClassInfo
-      // tp1 <: Flex(T) = T|N..T
-      // iff  tp1 <: T|N
       case tp2: FlexibleType =>
         recur(tp1, tp2.lo)
       case _ =>
@@ -1062,8 +1060,6 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
       case tp1: ExprType if ctx.phaseId > gettersPhase.id =>
         // getters might have converted T to => T, need to compensate.
         recur(tp1.widenExpr, tp2)
-      // invariant: tp2 is NOT a FlexibleType
-      // is Flex(T) <: tp2?
       case tp1: FlexibleType =>
         recur(tp1.hi, tp2)
       case _ =>
