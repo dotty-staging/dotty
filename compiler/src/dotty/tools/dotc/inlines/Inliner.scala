@@ -1069,6 +1069,9 @@ class Inliner(val call: tpd.Tree)(using Context):
    */
   private def macroDependencies(tree: Tree)(using Context) =
     new TreeAccumulator[List[Symbol]] {
+      private def treeIsSuspendable(tree: Tree): Boolean =
+        tree.symbol.isDefinedInCurrentRun || ctx.isOutlineSecondPass && tree.symbol.isDefinedInFirstPass
+
       override def apply(syms: List[Symbol], tree: tpd.Tree)(using Context): List[Symbol] =
         tree match {
           case tree: RefTree if tree.isTerm && level == -1 && tree.symbol.isDefinedInCurrentRun && !tree.symbol.isLocal =>

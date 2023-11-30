@@ -83,11 +83,11 @@ object DottyJSPlugin extends AutoPlugin {
 object Build {
   import ScaladocConfigs._
 
-  val referenceVersion = "3.4.0-RC1-outline-stable-bin-SNAPSHOT"
-  // val referenceVersion = "3.3.1"
+  // val referenceVersion = "3.4.0-RC1-outline-stable-bin-SNAPSHOT"
+  val referenceVersion = "3.3.1"
 
-  // val baseVersion = "3.4.0-RC1-outline-stable"
-  val baseVersion = "3.4.0-RC2-outline-stable"
+  val baseVersion = "3.4.0-RC1-outline-stable"
+  // val baseVersion = "3.4.0-RC2-outline-stable"
 
   // Versions used by the vscode extension to create a new project
   // This should be the latest published releases.
@@ -391,8 +391,8 @@ object Build {
     bspEnabled := false,
     (Compile / unmanagedSourceDirectories) += baseDirectory.value / "src-bootstrapped",
 
-    scalacOptions += "-Yexperimental-outline",
-    scalacOptions ++= Seq("-Ymax-parallelism", "3"),
+    // scalacOptions += "-Yexperimental-outline",
+    // scalacOptions ++= Seq("-Ymax-parallelism", "3"),
     // scalacOptions ++= Seq("-Yprofile-enabled", "-Yprofile-destination", s"out/compile-${name.value}-profile.csv"),
     // scalacOptions += "-Ylog-classpath",
 

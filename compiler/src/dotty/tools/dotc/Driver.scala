@@ -90,6 +90,7 @@ class Driver {
       //   override def underlyingSource: Option[AbstractFile] = pickleWriteSource
       // }
       val outlineOutput = new VirtualDirectory("<outline-classpath>")
+      val outlineCollector = new FirstPassCollector
 
       // if pickleWriteOutput == NoAbstractFile then
       //   report.error("Requested outline compilation with `-Youtline` " +
@@ -98,10 +99,11 @@ class Driver {
 
       val firstPassCtx = ictx.fresh
         .setSetting(ictx.settings.YoutlineClasspath, outlineOutput)
+        .setFirstPassFilesCollect(outlineCollector)
       inContext(firstPassCtx):
         doCompile(newCompiler, files)
 
-      def secondPassCtx(id: Int, group: List[AbstractFile], promise: scala.concurrent.Promise[Unit]): Context =
+      def secondPassCtx(id: Int, group: List[AbstractFile], firstPassFiles: Set[AbstractFile], promise: scala.concurrent.Promise[Unit]): Context =
         val profileDestination0 =
           if profileDestination.nonEmpty then
             val ext = dotty.tools.io.Path.fileExtension(profileDestination)
@@ -113,6 +115,7 @@ class Driver {
           .setSettings(ictx.settingsState) // copy over the classpath arguments also
           .setSetting(ictx.settings.YsecondPass, true)
           .setSetting(ictx.settings.YoutlineClasspath, outlineOutput)
+          .setFirstPassFiles(firstPassFiles)
           .setCallbacks(ictx.store)
           .setDepsFinishPromise(DepFinishSignal.Ready(promise))
           .setReporter(if isParallel then new StoreReporter(ictx.reporter) else ictx.reporter)
@@ -139,6 +142,8 @@ class Driver {
         val maxGroupSize = Math.ceil(scalaFiles.length.toDouble / parallelism).toInt
         val fileGroups = scalaFiles.grouped(maxGroupSize).toList
         val compilers = fileGroups.length
+
+        val firstPassFiles = outlineCollector.files
 
 
 
@@ -181,7 +186,7 @@ class Driver {
         ): Reporter = {
           if ctx.settings.verbose.value then
             report.echo("#Compiling: " + fileGroup.take(3).mkString("", ", ", "..."))
-          val secondCtx = secondPassCtx(id, fileGroup, promise)
+          val secondCtx = secondPassCtx(id, fileGroup, firstPassFiles, promise)
           val reporter = inContext(secondCtx):
             doCompile(newCompiler, fileGroup) // second pass
           if !secondCtx.reporter.hasErrors then
@@ -198,7 +203,7 @@ class Driver {
         )(using ExecutionContext): Future[Reporter] =
           Future {
             // println("#Compiling: " + fileGroup.mkString(" "))
-            val secondCtx = secondPassCtx(id, fileGroup, promise)
+            val secondCtx = secondPassCtx(id, fileGroup, firstPassFiles, promise)
             val reporter = inContext(secondCtx):
               doCompile(newCompiler, fileGroup) // second pass
             // println("#Done: " + fileGroup.mkString(" "))
@@ -235,8 +240,16 @@ class Driver {
         val run = compiler.newRun
         runOrNull = run
         run.compile(files)
-        val finishCtx =
-          if ctx.isOutlineSecondPass then ctx.fresh.setDepsFinishPromise(DepFinishSignal.Finished)
+        val finishCtx: Context =
+          if ctx.isOutlineSecondPass then
+            ctx.depsFinishPromiseOpt match
+              case None => ctx
+              case Some(DepFinishSignal.Ready(promise)) =>
+                assert(promise.isCompleted, s"promise was not completed in outline second pass")
+                ctx.fresh.setDepsFinishPromise(DepFinishSignal.Finished)
+              case Some(DepFinishSignal.Finished) =>
+                assert(false, s"second pass should not be called twice")
+                ctx
           else ctx
         finish(compiler, run)(using finishCtx)
       catch

@@ -1,3 +1,9 @@
 # in this example we force the parallelism to be 1,
 # so the suspension will see the macro dependency is in the same run
 > a/run
+# in this example we force the parallelism to be 2,
+# so the callsite will be in a parallel run to the macro definition.
+# what should we do here? we will have to suspend, but we can only run the suspension after
+# that macro is finished compiling, which may take several runs, its probably best to identify
+# just that suspension is required and forbid it (only forbidden in this parallel case, but as this is non-deterministic the user should probably enable the Yno-suspended-units option)
+> b/run

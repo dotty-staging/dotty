@@ -21,6 +21,7 @@ import collection.mutable
 import util.concurrent.{Executor, Future}
 import compiletime.uninitialized
 import dotty.tools.io.JarArchive
+import dotty.tools.io.VirtualFile
 
 object Pickler {
   val name: String = "pickler"
@@ -96,7 +97,11 @@ object Pickler {
         val binaryClassName = if (cls.is(Module)) binaryName.stripSuffix(str.MODULE_SUFFIX).nn else binaryName
         pickling.println(s"writing class ${binaryClassName} to early tasty")
         val bytes = pickled()
-        writers.foreach(_.writeTasty(binaryClassName, bytes))
+        val commit: VirtualFile => Unit = ctx.firstPassFilesCollector.map(_.commit).getOrElse(_ => ())
+        for writer <- writers do
+          writer.writeTasty(binaryClassName, bytes) match
+            case file: VirtualFile => commit(file)
+            case _ => ()
     finally
       writers.foreach(_.close())
       if ctx.settings.verbose.value then

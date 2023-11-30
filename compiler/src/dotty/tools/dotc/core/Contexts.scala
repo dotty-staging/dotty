@@ -47,6 +47,11 @@ object Contexts {
     case Ready(promise: scala.concurrent.Promise[Unit])
     case Finished
 
+  class FirstPassCollector:
+    private val _files = mutable.Set.empty[AbstractFile]
+    def commit(vf: AbstractFile): Unit = _files += vf
+    def files: Set[AbstractFile] = _files.toSet
+
   private val (compilerCallbackLoc,  store1) = Store.empty.newLocation[CompilerCallback]()
   private val (incCallbackLoc,       store2) = store1.newLocation[IncrementalCallback | Null]()
   private val (printerFnLoc,         store3) = store2.newLocation[Context => Printer](new RefinedPrinter(_))
@@ -59,8 +64,10 @@ object Contexts {
   private val (typeAssignerLoc,     store10) = store9.newLocation[TypeAssigner](TypeAssigner)
   private val (progressCallbackLoc, store11) = store10.newLocation[ProgressCallback | Null]()
   private val (depsFinishPromiseLoc, store12) = store11.newLocation[DepFinishSignal | Null]()
+  private val (firstPassFilesLoc, store13) = store12.newLocation[Set[AbstractFile] | Null]()
+  private val (firstPassFilesCollectLoc, store14) = store13.newLocation[FirstPassCollector | Null]()
 
-  private val initialStore = store12
+  private val initialStore = store14
 
   /** The current context */
   inline def ctx(using ctx: Context): Context = ctx
@@ -188,6 +195,14 @@ object Contexts {
 
     def depsFinishPromiseOpt: Option[DepFinishSignal] =
       val local = store(depsFinishPromiseLoc)
+      if local == null then None else Some(local)
+
+    def firstPassFiles: Set[AbstractFile] =
+      val local = store(firstPassFilesLoc)
+      if local == null then Set.empty else local
+
+    def firstPassFilesCollector: Option[FirstPassCollector] =
+      val local = store(firstPassFilesCollectLoc)
       if local == null then None else Some(local)
 
     def runZincPhases: Boolean =
@@ -709,6 +724,10 @@ object Contexts {
     def setIncCallback(callback: IncrementalCallback): this.type = updateStore(incCallbackLoc, callback)
     def setDepsFinishPromise(promise: DepFinishSignal): this.type =
       updateStore(depsFinishPromiseLoc, promise)
+    def setFirstPassFiles(files: Set[AbstractFile]): this.type =
+      updateStore(firstPassFilesLoc, files)
+    def setFirstPassFilesCollect(collector: FirstPassCollector): this.type =
+      updateStore(firstPassFilesCollectLoc, collector)
     def setProgressCallback(callback: ProgressCallback): this.type = updateStore(progressCallbackLoc, callback)
     def setPrinterFn(printer: Context => Printer): this.type = updateStore(printerFnLoc, printer)
     def setSettings(settingsState: SettingsState): this.type = updateStore(settingsStateLoc, settingsState)

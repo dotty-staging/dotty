@@ -33,7 +33,6 @@ import config.Printers.typr
 import dotty.tools.dotc.classpath.FileUtils.isScalaBinary
 
 import scala.compiletime.uninitialized
-import dotty.tools.tasty.TastyVersion
 
 object Symbols extends SymUtils {
 
@@ -148,6 +147,9 @@ object Symbols extends SymUtils {
     /** Does this symbol come from a currently compiled source file? */
     final def isDefinedInCurrentRun(using Context): Boolean =
       span.exists && defRunId == ctx.runId && associatedFileMatches(ctx.run.nn.files.contains)
+
+    final def isDefinedInFirstPass(using Context): Boolean =
+      span.exists && defRunId == ctx.runId && associatedFileMatches(ctx.firstPassFiles.contains)
 
     /** Is this symbol valid in the current run and has an associated file that is
       * not a binary file. e.g. This will return true for

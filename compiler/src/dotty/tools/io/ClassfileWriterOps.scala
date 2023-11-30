@@ -11,7 +11,6 @@ import java.nio.channels.ClosedByInterruptException
 import scala.language.unsafeNulls
 import scala.annotation.constructorOnly
 
-
 class ClassfileWriterOps(val outputDir: AbstractFile)(using @constructorOnly ictx: Context) {
 
   type InternalName = String
@@ -79,7 +78,7 @@ class ClassfileWriterOps(val outputDir: AbstractFile)(using @constructorOnly ict
     }
   }
 
-  def writeTasty(className: InternalName, bytes: Array[Byte]): Unit =
+  def writeTasty(className: InternalName, bytes: Array[Byte]): AbstractFile | Null =
     writeToJarOrFile(className, bytes, ".tasty")
 
   private def writeToJarOrFile(className: InternalName, bytes: Array[Byte], suffix: String): AbstractFile | Null = {
