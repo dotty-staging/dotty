@@ -91,13 +91,9 @@ val experimentalDefinitionInLibrary = Set(
   "scala.quoted.Quotes.reflectModule.TermParamClauseMethods.erasedArgs",
   "scala.quoted.Quotes.reflectModule.TermParamClauseMethods.hasErasedArgs",
 
-  // New feature: reverse method on Tuple
-  "scala.Tuple.reverse",
-  "scala.Tuple$.Helpers",
-  "scala.Tuple$.Helpers$",
-  "scala.Tuple$.Helpers$.ReverseImpl",
-  "scala.Tuple$.Reverse",
-  "scala.runtime.Tuples$.reverse"
+  // New feature: named tuples
+  "scala.NamedTuple",
+  "scala.NamedTuple$",
 )
 
 

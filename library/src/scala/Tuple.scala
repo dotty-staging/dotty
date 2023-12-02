@@ -1,6 +1,6 @@
 package scala
 
-import annotation.{experimental, showAsInfix}
+import annotation.showAsInfix
 import compiletime.*
 import compiletime.ops.int.*
 
@@ -65,7 +65,6 @@ sealed trait Tuple extends Product {
   inline def take[This >: this.type <: Tuple](n: Int): Take[This, n.type] =
     runtime.Tuples.take(this, n).asInstanceOf[Take[This, n.type]]
 
-
   /** Given a tuple `(a1, ..., am)`, returns the tuple `(an+1, ..., am)` consisting
    *  all its elements except the first n ones.
    */
@@ -82,9 +81,22 @@ sealed trait Tuple extends Product {
   /** Given a tuple `(a1, ..., am)`, returns the reversed tuple `(am, ..., a1)`
    *  consisting all its elements.
    */
-  @experimental
   inline def reverse[This >: this.type <: Tuple]: Reverse[This] =
     runtime.Tuples.reverse(this).asInstanceOf[Reverse[This]]
+
+  /** A tuple with the fields of this tuple in reversed order added in front of `acc` */
+  inline def reverseOnto[This >: this.type <: Tuple, Acc <: Tuple](acc: Acc): ReverseOnto[This, Acc] =
+    (this.reverse ++ acc).asInstanceOf[ReverseOnto[This, Acc]]
+
+  /** A tuple consisting of all elements of this tuple that have types
+   *  for which the given predicate `P` evaluates to truye.
+   */
+  inline def filter[This >: this.type <: Tuple, P[_] <: Boolean]: Filter[This, P] =
+    val toInclude = constValueTuple[IndicesWhere[This, P]].toArray
+    val arr = new Array[Object](toInclude.length)
+    for i <- 0 until toInclude.length do
+      arr(i) = this.productElement(toInclude(i).asInstanceOf[Int]).asInstanceOf[Object]
+    Tuple.fromArray(arr).asInstanceOf[Filter[This, P]]
 }
 
 object Tuple {
@@ -133,6 +145,14 @@ object Tuple {
       }
   }
 
+  /** The index of `Y` in tuple `X` as a literal constant Int,
+   *  or `Size[X]` if `Y` does not occur in `X`
+   */
+  type IndexOf[X <: Tuple, Y] <: Int = X match
+    case Y *: _ => 0
+    case x *: xs => S[IndexOf[xs, Y]]
+    case EmptyTuple => 0
+
   /** Literal constant Int size of a tuple */
   type Size[X <: Tuple] <: Int = X match {
     case EmptyTuple => 0
@@ -175,6 +195,12 @@ object Tuple {
     }
   }
 
+  /** A tuple consisting of those indices `N` of tuple `X` where the predicate `P`
+   *  is true for `Elem[X, N]`. Indices are type level values <: Int.
+   */
+  type IndicesWhere[X <: Tuple, P[_] <: Boolean] =
+    helpers.IndicesWhereHelper[X, P, 0]
+
   /** Given two tuples, `A1 *: ... *: An * At` and `B1 *: ... *: Bn *: Bt`
    *  where at least one of `At` or `Bt` is `EmptyTuple` or `Tuple`,
    *  returns the tuple type `(A1, B1) *: ... *: (An, Bn) *: Ct`
@@ -200,18 +226,13 @@ object Tuple {
    */
   type IsMappedBy[F[_]] = [X <: Tuple] =>> X =:= Map[InverseMap[X, F], F]
 
-  /** Type of the reversed tuple */
-  @experimental
-  type Reverse[X <: Tuple] = Helpers.ReverseImpl[EmptyTuple, X]
+  /** A tuple with the fields of tuple `X` in reversed order */
+  type Reverse[X <: Tuple] = ReverseOnto[X, EmptyTuple]
 
-  @experimental
-  object Helpers:
-
-    /** Type of the reversed tuple */
-    @experimental
-    type ReverseImpl[Acc <: Tuple, X <: Tuple] <: Tuple = X match
-      case x *: xs => ReverseImpl[x *: Acc, xs]
-      case EmptyTuple => Acc
+  /** A tuple with the fields of tuple `X` in reversed order added in front of `Acc` */
+  type ReverseOnto[X <: Tuple, Acc <: Tuple] <: Tuple = X match
+    case x *: xs => ReverseOnto[xs, x *: Acc]
+    case EmptyTuple => Acc
 
   /** Transforms a tuple `(T1, ..., Tn)` into `(T1, ..., Ti)`. */
   type Take[T <: Tuple, N <: Int] <: Tuple = N match {
@@ -241,6 +262,42 @@ object Tuple {
    */
   type Union[T <: Tuple] = Fold[T, Nothing, [x, y] =>> x | y]
 
+  /** A type level Boolean indicating whether the tuple `X` conforms
+   *  to the tuple `Y`. This means:
+   *   - the two tuples have the same number of elements
+   *   - for corresponding elements `x` in `X` and `y` in `Y`, `x` matches `y`.
+   *  @pre  The elements of `X` are assumed to be singleton types
+   */
+  type Conforms[X <: Tuple, Y <: Tuple] <: Boolean = Y match
+    case EmptyTuple =>
+      X match
+        case EmptyTuple => true
+        case _ => false
+    case y *: ys =>
+      X match
+        case `y` *: xs => Conforms[xs, ys]
+        case _ => false
+
+  /** A type level Boolean indicating whether the tuple `X` has an element
+   *  that matches `Y`.
+   *  @pre  The elements of `X` are assumed to be singleton types
+   */
+  type Contains[X <: Tuple, Y] <: Boolean = X match
+    case Y *: _ => true
+    case x *: xs => Contains[xs, Y]
+    case EmptyTuple => false
+
+  /** A type level Boolean indicating whether the type `Y` contains
+   *  none of the elements of `X`.
+   *  @pre  The elements of `X` and `Y` are assumed to be singleton types
+   */
+  type Disjoint[X <: Tuple, Y <: Tuple] <: Boolean = X match
+    case x *: xs =>
+      Contains[Y, x] match
+        case true => false
+        case false => Disjoint[xs, Y]
+    case EmptyTuple => true
+
   /** Empty tuple */
   def apply(): EmptyTuple = EmptyTuple
 
@@ -251,12 +308,16 @@ object Tuple {
   def unapply(x: EmptyTuple): true = true
 
   /** Convert an array into a tuple of unknown arity and types */
-  def fromArray[T](xs: Array[T]): Tuple = {
+  def fromArray[T](xs: Array[T]): Tuple =
+    fromArray(xs, xs.length)
+
+  /** Convert the first `n` elements of an array into a tuple of unknown arity and types */
+  def fromArray[T](xs: Array[T], n: Int): Tuple = {
     val xs2 = xs match {
       case xs: Array[Object] => xs
       case xs => xs.map(_.asInstanceOf[Object])
     }
-    runtime.Tuples.fromArray(xs2)
+    runtime.Tuples.fromArray(xs2, n)
   }
 
   /** Convert an immutable array into a tuple of unknown arity and types */
@@ -273,6 +334,31 @@ object Tuple {
   def fromProduct(product: Product): Tuple =
     runtime.Tuples.fromProduct(product)
 
+  extension [X <: Tuple](inline x: X)
+
+    /** The index (starting at 0) of the first element in the type `X` of `x`
+     *  that matches type `Y`.
+     */
+    inline def indexOfType[Y] = constValue[IndexOf[X, Y]]
+
+    /** A boolean indicating whether there is an element in the type `X` of `x`
+     *  that matches type `Y`.
+     */
+
+    inline def containsType[Y] = constValue[Contains[X, Y]]
+
+    /* Note: It would be nice to add the following two extension methods:
+
+      inline def indexOf[Y: Precise](y: Y) = constValue[IndexOf[X, Y]]
+      inline def containsType[Y: Precise](y: Y) = constValue[Contains[X, Y]]
+
+    because we could then move indexOf/contains completely to the value level.
+    But this requires `Y` to be inferred precisely, and therefore a mechanism
+    like the `Precise` context bound used above, which does not yet exist.
+    */
+
+  end extension
+
   def fromProductTyped[P <: Product](p: P)(using m: scala.deriving.Mirror.ProductOf[P]): m.MirroredElemTypes =
     runtime.Tuples.fromProduct(p).asInstanceOf[m.MirroredElemTypes]
 
@@ -280,6 +366,17 @@ object Tuple {
   given canEqualTuple[H1, T1 <: Tuple, H2, T2 <: Tuple](
     using eqHead: CanEqual[H1, H2], eqTail: CanEqual[T1, T2]
   ): CanEqual[H1 *: T1, H2 *: T2] = CanEqual.derived
+
+  object helpers:
+
+    /** Used to implement IndicesWhere */
+    type IndicesWhereHelper[X <: Tuple, P[_] <: Boolean, N <: Int] <: Tuple = X match
+      case EmptyTuple => EmptyTuple
+      case h *: t => P[h] match
+        case true => N *: IndicesWhereHelper[t, P, S[N]]
+        case false => IndicesWhereHelper[t, P, S[N]]
+
+  end helpers
 }
 
 /** A tuple of 0 elements */
