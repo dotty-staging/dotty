@@ -1640,6 +1640,9 @@ trait Applications extends Compatibility {
   def compare(alt1: TermRef, alt2: TermRef, preferGeneral: Boolean = false)(using Context): Int = trace(i"compare($alt1, $alt2)", overload) {
     record("resolveOverloaded.compare")
 
+    val newGivenRules =
+      ctx.mode.is(Mode.NewGivenRules) && alt1.symbol.is(Given)
+
     /** Is alternative `alt1` with type `tp1` as specific as alternative
      *  `alt2` with type `tp2` ?
      *
@@ -1726,7 +1729,7 @@ trait Applications extends Compatibility {
         // Normal specificity test for overloading resultion (where `preferGeneral` is false)
         // and in mode Scala3-migration when we compare with the old Scala 2 rules.
         isCompatible(tp1, tp2)
-      else {
+      else
         val flip = new TypeMap {
           def apply(t: Type) = t match {
             case t @ AppliedType(tycon, args) =>
@@ -1737,13 +1740,20 @@ trait Applications extends Compatibility {
             case _ => mapOver(t)
           }
         }
-        def prepare(tp: Type) = tp.stripTypeVar match {
+
+        def prepare(tp: Type) = tp.stripTypeVar match
           case tp: NamedType if tp.symbol.is(Module) && tp.symbol.sourceModule.is(Given) =>
-            flip(tp.widen.widenToParents)
-          case _ => flip(tp)
-        }
-        (prepare(tp1) relaxed_<:< prepare(tp2)) || viewExists(tp1, tp2)
-      }
+            tp.widen.widenToParents
+          case _ =>
+            tp
+
+        val tp1p = prepare(tp1)
+        val tp2p = prepare(tp2)
+        if newGivenRules then
+          (tp2p relaxed_<:< tp1p) || viewExists(tp2, tp1)
+        else
+          (flip(tp1p) relaxed_<:< flip(tp2p)) || viewExists(tp1, tp2)
+    end isAsSpecificValueType
 
     /** Widen the result type of synthetic given methods from the implementation class to the
      *  type that's implemented. Example
@@ -1776,7 +1786,7 @@ trait Applications extends Compatibility {
 
     def compareWithTypes(tp1: Type, tp2: Type) = {
       val ownerScore = compareOwner(alt1.symbol.maybeOwner, alt2.symbol.maybeOwner)
-      def winsType1 = isAsSpecific(alt1, tp1, alt2, tp2)
+      val winsType1 = isAsSpecific(alt1, tp1, alt2, tp2)
       def winsType2 = isAsSpecific(alt2, tp2, alt1, tp1)
 
       overload.println(i"compare($alt1, $alt2)? $tp1 $tp2 $ownerScore $winsType1 $winsType2")

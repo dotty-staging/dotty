@@ -1291,7 +1291,12 @@ trait Implicits:
       def compareAlternatives(alt1: RefAndLevel, alt2: RefAndLevel): Int =
         if alt1.ref eq alt2.ref then 0
         else if alt1.level != alt2.level then alt1.level - alt2.level
-        else explore(compare(alt1.ref, alt2.ref, preferGeneral = true))(using searchContext())
+        else
+          val was = explore(compare(alt1.ref, alt2.ref, preferGeneral = true))(using searchContext())
+          val now = explore(compare(alt1.ref, alt2.ref, preferGeneral = true))(using searchContext().addMode(Mode.NewGivenRules))
+          if was != now then
+            println(i"change in preference for $pt between ${alt1.ref} and ${alt2.ref}, was: $was, now: $now at $srcPos")
+          now
 
       /** If `alt1` is also a search success, try to disambiguate as follows:
        *    - If alt2 is preferred over alt1, pick alt2, otherwise return an
