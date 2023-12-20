@@ -1291,7 +1291,7 @@ trait Implicits:
       def compareAlternatives(alt1: RefAndLevel, alt2: RefAndLevel): Int =
         if alt1.ref eq alt2.ref then 0
         else if alt1.level != alt2.level then alt1.level - alt2.level
-        else explore(compare(alt1.ref, alt2.ref))(using searchContext())
+        else explore(compare(alt1.ref, alt2.ref, preferGeneral = true))(using searchContext())
 
       /** If `alt1` is also a search success, try to disambiguate as follows:
        *    - If alt2 is preferred over alt1, pick alt2, otherwise return an
@@ -1327,7 +1327,7 @@ trait Implicits:
                     ctx.typerState
 
                 diff = inContext(searchContext().withTyperState(comparisonState)) {
-                  compare(ref1, ref2)
+                  compare(ref1, ref2, preferGeneral = true)
                 }
               case _ =>
           if diff < 0 then alt2

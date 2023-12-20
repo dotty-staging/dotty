@@ -1637,7 +1637,7 @@ trait Applications extends Compatibility {
    *  an alternative that takes more implicit parameters wins over one
    *  that takes fewer.
    */
-  def compare(alt1: TermRef, alt2: TermRef)(using Context): Int = trace(i"compare($alt1, $alt2)", overload) {
+  def compare(alt1: TermRef, alt2: TermRef, preferGeneral: Boolean = false)(using Context): Int = trace(i"compare($alt1, $alt2)", overload) {
     record("resolveOverloaded.compare")
 
     /** Is alternative `alt1` with type `tp1` as specific as alternative
@@ -1722,7 +1722,9 @@ trait Applications extends Compatibility {
      *  the intersection of its parent classes instead.
      */
     def isAsSpecificValueType(tp1: Type, tp2: Type)(using Context) =
-      if (ctx.mode.is(Mode.OldOverloadingResolution))
+      if !preferGeneral || ctx.mode.is(Mode.OldOverloadingResolution) then
+        // Normal specificity test for overloading resultion (where `preferGeneral` is false)
+        // and in mode Scala3-migration when we compare with the old Scala 2 rules.
         isCompatible(tp1, tp2)
       else {
         val flip = new TypeMap {
