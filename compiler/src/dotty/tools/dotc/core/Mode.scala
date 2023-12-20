@@ -133,8 +133,6 @@ object Mode {
   /** We are typing the body of an inline method */
   val InlineableBody: Mode = newMode(21, "InlineableBody")
 
-  val NewGivenRules: Mode = newMode(22, "NewGivenRules")
-
   /** We are synthesizing the receiver of an extension method */
   val SynthesizeExtMethodReceiver: Mode = newMode(23, "SynthesizeExtMethodReceiver")
 

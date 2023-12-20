@@ -26,7 +26,7 @@ import Scopes.newScope
 import Typer.BindingPrec, BindingPrec.*
 import Hashable.*
 import util.{EqHashMap, Stats}
-import config.{Config, Feature}
+import config.{Config, Feature, SourceVersion}
 import Feature.migrateTo3
 import config.Printers.{implicits, implicitsDetailed}
 import collection.mutable
@@ -1289,14 +1289,29 @@ trait Implicits:
        *           0              if neither alternative is preferred over the other
        */
       def compareAlternatives(alt1: RefAndLevel, alt2: RefAndLevel): Int =
+        def comp(using Context) = explore(compare(alt1.ref, alt2.ref, preferGeneral = true))
+        def oldCompare() = comp(using searchContext().addMode(Mode.OldOverloadingResolution))
+        def newCompare() = comp(using searchContext())
+
         if alt1.ref eq alt2.ref then 0
         else if alt1.level != alt2.level then alt1.level - alt2.level
-        else
-          val was = explore(compare(alt1.ref, alt2.ref, preferGeneral = true))(using searchContext())
-          val now = explore(compare(alt1.ref, alt2.ref, preferGeneral = true))(using searchContext().addMode(Mode.NewGivenRules))
+        else if Feature.sourceVersion.isAtMost(SourceVersion.`3.3`) then // !!! change to 3.4
+          oldCompare()
+        else if Feature.sourceVersion == SourceVersion.`3.5-migration` || true then // !!! drop
+          val was = oldCompare()
+          val now = newCompare()
           if was != now then
-            println(i"change in preference for $pt between ${alt1.ref} and ${alt2.ref}, was: $was, now: $now at $srcPos")
+            def choice(cmp: Int) = cmp match
+              case -1 => "the second alternative"
+              case  1 => "the first alternative"
+              case _  => "none - it's ambiguous"
+            report.warning(
+              em"""Change in given search preference for $pt between alternatives ${alt1.ref} and ${alt2.ref}
+                  |Previous choice: ${choice(was)}
+                  |New choice     : ${choice(now)}""", srcPos)
           now
+        else newCompare()
+      end compareAlternatives
 
       /** If `alt1` is also a search success, try to disambiguate as follows:
        *    - If alt2 is preferred over alt1, pick alt2, otherwise return an

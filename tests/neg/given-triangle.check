@@ -1,0 +1,6 @@
+-- Error: tests/neg/given-triangle.scala:16:18 -------------------------------------------------------------------------
+16 |@main def Test = f  // error
+   |                  ^
+   |                  Change in given search preference for A between alternatives (given_A : A) and (given_B : B)
+   |                  Previous choice: the second alternative
+   |                  New choice     : the first alternative
