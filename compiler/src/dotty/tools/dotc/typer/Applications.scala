@@ -1749,12 +1749,13 @@ trait Applications extends Compatibility {
         val tp1p = prepare(tp1)
         val tp2p = prepare(tp2)
 
-        if Feature.sourceVersion.isAtMost(SourceVersion.`3.3`) // !!! change to 3.4
+        if Feature.sourceVersion.isAtMost(SourceVersion.`3.4`)
             || oldResolution
             || !compareGivens
         then
           // Intermediate rules: better means specialize, but map all type arguments downwards
-          // These are enabled for 3.0-3.4, and in 3.5-migration when we compare with previous rules
+          // These are enabled for 3.0-3.4, and for all comparisons between old-style implicits,
+          // and in 3.5-migration when we compare with previous rules.
           val flip = new TypeMap:
             def apply(t: Type) = t match
               case t @ AppliedType(tycon, args) =>

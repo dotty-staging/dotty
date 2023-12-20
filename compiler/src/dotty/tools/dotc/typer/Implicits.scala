@@ -1290,27 +1290,22 @@ trait Implicits:
        */
       def compareAlternatives(alt1: RefAndLevel, alt2: RefAndLevel): Int =
         def comp(using Context) = explore(compare(alt1.ref, alt2.ref, preferGeneral = true))
-        def oldCompare() = comp(using searchContext().addMode(Mode.OldOverloadingResolution))
-        def newCompare() = comp(using searchContext())
-
         if alt1.ref eq alt2.ref then 0
         else if alt1.level != alt2.level then alt1.level - alt2.level
-        else if Feature.sourceVersion.isAtMost(SourceVersion.`3.3`) then // !!! change to 3.4
-          oldCompare()
-        else if Feature.sourceVersion == SourceVersion.`3.5-migration` || true then // !!! drop
-          val was = oldCompare()
-          val now = newCompare()
-          if was != now then
-            def choice(cmp: Int) = cmp match
-              case -1 => "the second alternative"
-              case  1 => "the first alternative"
-              case _  => "none - it's ambiguous"
-            report.warning(
-              em"""Change in given search preference for $pt between alternatives ${alt1.ref} and ${alt2.ref}
-                  |Previous choice: ${choice(was)}
-                  |New choice     : ${choice(now)}""", srcPos)
-          now
-        else newCompare()
+        else
+          val cmp = comp(using searchContext())
+          if Feature.sourceVersion == SourceVersion.`3.5-migration` then
+            val prev = comp(using searchContext().addMode(Mode.OldOverloadingResolution))
+            if cmp != prev then
+              def choice(c: Int) = c match
+                case -1 => "the second alternative"
+                case  1 => "the first alternative"
+                case _  => "none - it's ambiguous"
+              report.warning(
+                em"""Change in given search preference for $pt between alternatives ${alt1.ref} and ${alt2.ref}
+                    |Previous choice: ${choice(prev)}
+                    |New choice     : ${choice(cmp)}""", srcPos)
+          cmp
       end compareAlternatives
 
       /** If `alt1` is also a search success, try to disambiguate as follows:
