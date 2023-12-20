@@ -1220,7 +1220,7 @@ trait Implicits:
     assert(argument.isEmpty || argument.tpe.isValueType || argument.tpe.isInstanceOf[ExprType],
         em"found: $argument: ${argument.tpe}, expected: $pt")
 
-    private def nestedContext() =
+    private def searchContext() =
       ctx.fresh.setMode(ctx.mode &~ Mode.ImplicitsEnabled)
 
     private def isCoherent = pt.isRef(defn.CanEqualClass)
@@ -1264,7 +1264,7 @@ trait Implicits:
       else
         val history = ctx.searchHistory.nest(cand, pt)
         val typingCtx =
-          nestedContext().setNewTyperState().setFreshGADTBounds.setSearchHistory(history)
+          searchContext().setNewTyperState().setFreshGADTBounds.setSearchHistory(history)
         val result = typedImplicit(cand, pt, argument, span)(using typingCtx)
         result match
           case res: SearchSuccess =>
@@ -1291,7 +1291,7 @@ trait Implicits:
       def compareAlternatives(alt1: RefAndLevel, alt2: RefAndLevel): Int =
         if alt1.ref eq alt2.ref then 0
         else if alt1.level != alt2.level then alt1.level - alt2.level
-        else explore(compare(alt1.ref, alt2.ref))(using nestedContext())
+        else explore(compare(alt1.ref, alt2.ref))(using searchContext())
 
       /** If `alt1` is also a search success, try to disambiguate as follows:
        *    - If alt2 is preferred over alt1, pick alt2, otherwise return an
@@ -1326,7 +1326,7 @@ trait Implicits:
                   else
                     ctx.typerState
 
-                diff = inContext(ctx.withTyperState(comparisonState)) {
+                diff = inContext(searchContext().withTyperState(comparisonState)) {
                   compare(ref1, ref2)
                 }
               case _ =>
