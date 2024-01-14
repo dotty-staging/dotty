@@ -54,7 +54,7 @@ requires that `Ordering` is a trait or class with a single type parameter (which
 
   trait Monoid extends SemiGroup:
     def unit: Self
-  object Monoid
+  object Monoid:
     def unit(using m: Monoid): m.Self = m.unit
 
   trait Functor:
@@ -77,7 +77,10 @@ requires that `Ordering` is a trait or class with a single type parameter (which
     extension (self: Self)
       def parse(input: Input): Option[Result] = ...
 
-  def combine[A: ParserCombinator, B: ParserCombinator { type Input = A.Input }] = ...
+  def combine[A: ParserCombinator, B: ParserCombinator { type Input = A.Result }](
+    pc1: A,
+    pc2: B,
+  ): ParserCombinator { type Input = A.Input; type Result = B.Result } = ...
 ```
 
 **Advantages**
