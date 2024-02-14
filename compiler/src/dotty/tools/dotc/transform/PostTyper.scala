@@ -319,7 +319,7 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
                       Checking.checkRealizable(arg.tpe, arg.srcPos, "erased argument")
                     if (methType.isImplicitMethod && arg.span.isSynthetic)
                       arg match
-                        case _: RefTree | _: Apply | _: TypeApply if arg.symbol.is(Erased) =>
+                        case _: RefTree | _: Apply | _: TypeApply if arg.symbol.is(Erased) || arg.symbol.info.widenExpr.derivesFrom(defn.PhantomClass) =>
                           dropInlines.transform(arg)
                         case _ =>
                           PruneErasedDefs.trivialErasedTree(arg)

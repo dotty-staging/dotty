@@ -592,9 +592,11 @@ object Erasure {
 
     def erasedDef(sym: Symbol)(using Context): Tree =
       if sym.isClass then
-      	// We cannot simply drop erased classes, since then they would not generate classfiles
+        // We cannot simply drop erased classes, since then they would not generate classfiles
       	// and would not be visible under separate compilation. So we transform them to
       	// empty interfaces instead.
+        if sym.derivesFrom(defn.PhantomClass) then // TODO remove this when we stop supporting `erased` keyword
+          sym.info = sym.info.asInstanceOf[ClassInfo].derivedClassInfo(declaredParents = defn.ObjectType :: Nil)
         tpd.ClassDef(sym.asClass, DefDef(sym.primaryConstructor.asTerm), Nil)
       else
         if sym.owner.isClass then sym.dropAfter(erasurePhase)
@@ -905,7 +907,7 @@ object Erasure {
       }
 
     override def typedValDef(vdef: untpd.ValDef, sym: Symbol)(using Context): Tree =
-      if (sym.isEffectivelyErased) erasedDef(sym)
+      if sym.isEffectivelyErased || atPhase(erasurePhase)(sym.info.derivesFrom(defn.PhantomClass)) then erasedDef(sym)
       else
         checkNotErasedClass(sym.info, vdef)
         super.typedValDef(untpd.cpy.ValDef(vdef)(
@@ -916,7 +918,7 @@ object Erasure {
      *  parameter of type `[]Object`.
      */
     override def typedDefDef(ddef: untpd.DefDef, sym: Symbol)(using Context): Tree =
-      if sym.isEffectivelyErased || sym.name.is(BodyRetainerName) then
+      if sym.isEffectivelyErased || sym.name.is(BodyRetainerName) || (atPhase(erasurePhase)(sym.info.finalResultType.derivesFrom(defn.PhantomClass)) && !sym.isConstructor) then
         erasedDef(sym)
       else
         checkNotErasedClass(sym.info.finalResultType, ddef)
@@ -924,8 +926,7 @@ object Erasure {
         var vparams = outerParamDefs(sym)
             ::: ddef.paramss.collect {
               case untpd.ValDefs(vparams) => vparams
-            }.flatten.filterConserve(vdef => !vdef.symbol.is(Flags.Erased) && !vdef.symbol.info.derivesFrom(defn.PhantomClass))
-
+            }.flatten.filterConserve(vdef => !vdef.symbol.is(Flags.Erased) && !atPhase(erasurePhase)(vdef.symbol.info.derivesFrom(defn.PhantomClass)))
         def skipContextClosures(rhs: Tree, crCount: Int)(using Context): Tree =
           if crCount == 0 then rhs
           else rhs match
@@ -1043,7 +1044,7 @@ object Erasure {
       EmptyTree
 
     override def typedClassDef(cdef: untpd.TypeDef, cls: ClassSymbol)(using Context): Tree =
-      if cls.is(Flags.Erased) then erasedDef(cls)
+      if cls.is(Flags.Erased) || cls.derivesFrom(defn.PhantomClass) then erasedDef(cls)
       else super.typedClassDef(cdef, cls)
 
     override def typedAnnotated(tree: untpd.Annotated, pt: Type)(using Context): Tree =

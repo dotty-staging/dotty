@@ -1,8 +1,10 @@
 //> using options -language:experimental.erasedDefinitions
 
+class Ev extends Phantom
+
 object Test {
-  def foo0(a: Int): Int = a
-  def foo1(erased a: Int): Int = {
+  def foo0(a: Any): Any = a
+  def foo1(a: Ev): Any = {
     foo0(
       a // error
     )
@@ -19,14 +21,14 @@ object Test {
     )
     a // error
   }
-  erased def foo2(a: Int): Int = {
+  def foo2(a: Ev): Ev = {
     foo0(a) // OK
     foo1(a) // OK
     foo2(a) // OK
     foo3(a) // OK
     a // OK
   }
-  erased def foo3(erased a: Int): Int = {
+  def foo3(a: Ev): Ev = {
     foo0(a) // OK
     foo1(a) // OK
     foo2(a) // OK

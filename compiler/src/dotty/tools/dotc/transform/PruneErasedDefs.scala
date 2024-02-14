@@ -41,14 +41,22 @@ class PruneErasedDefs extends MiniPhase with SymTransformer { thisTransform =>
   override def transformApply(tree: Apply)(using Context): Tree =
     tree.fun.tpe.widen match
       case mt: MethodType if mt.hasErasedParams =>
-        cpy.Apply(tree)(tree.fun, tree.args.zip(mt.erasedParams).map((a, e) => if e then trivialErasedTree(a) else a))
+        cpy.Apply(tree)(tree.fun, tree.args.zip(mt.erasedParams).map { (arg, isErasedParam) =>
+          if isErasedParam then
+            checkPhantomIsPureRealizable(arg)
+            trivialErasedTree(arg)
+          else arg
+        })
       case _ =>
         tree
 
   override def transformValDef(tree: ValDef)(using Context): Tree =
     checkErasedInExperimental(tree.symbol)
     if !tree.symbol.isEffectivelyErased || tree.rhs.isEmpty then tree
-    else cpy.ValDef(tree)(rhs = trivialErasedTree(tree.rhs))
+    else
+      if tree.symbol.info.derivesFrom(defn.PhantomClass) then
+        checkPhantomIsPureRealizable(tree.rhs)
+      cpy.ValDef(tree)(rhs = trivialErasedTree(tree.rhs))
 
   override def transformDefDef(tree: DefDef)(using Context): Tree =
     checkErasedInExperimental(tree.symbol)
@@ -70,6 +78,10 @@ object PruneErasedDefs {
 
   val name: String = "pruneErasedDefs"
   val description: String = "drop erased definitions and simplify erased expressions"
+
+  def checkPhantomIsPureRealizable(tree: Tree)(using Context): Unit =
+    if isPureExpr(tree) then
+      report.error(em"phantom expression is not pure: $tree", tree.sourcePos)
 
   def trivialErasedTree(tree: Tree)(using Context): Tree =
     ref(defn.Compiletime_erasedValue).appliedToType(tree.tpe).withSpan(tree.span)

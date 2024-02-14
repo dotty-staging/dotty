@@ -1,11 +1,13 @@
 //> using options -language:experimental.erasedDefinitions
 
+class Ev extends Phantom
+
 object Test {
 
-  fun // error
+  fun // error because evImplicit is not provably realizable
 
-  def fun(implicit a: Double): Int = 42
+  def fun(implicit a: Ev): Int = 42
 
-  erased implicit def doubleImplicit: Double = 42.0
+  implicit def evImplicit: Ev = new Ev
 
 }

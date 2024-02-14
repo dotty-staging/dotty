@@ -459,7 +459,9 @@ class Namer { typer: Typer =>
         val pcls = parents.foldLeft(defn.ObjectClass)(improve)
         typr.println(i"ensure first is class $parents%, % --> ${parents map (_ baseType pcls)}%, %")
         val bases = parents.map(_.baseType(pcls))
-        var first = TypeComparer.glb(defn.ObjectType :: bases)
+        val isPhantom = parents.exists(_.derivesFrom(defn.PhantomClass))
+        val top = if isPhantom then defn.PhantomType else defn.ObjectType
+        var first = TypeComparer.glb(top :: bases)
         val isProvisional = parents.exists(!_.baseType(defn.AnyClass).exists)
         if isProvisional then
           typr.println(i"provisional superclass $first for $cls")

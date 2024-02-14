@@ -456,7 +456,8 @@ class Definitions {
   def AnyKindType: TypeRef = AnyKindClass.typeRef
 
   lazy val PhantomClass: ClassSymbol =
-    val cls = newCompleteClassSymbol(ScalaPackageClass, tpnme.Phantom, NoInitsTrait, Nil, newScope(0))
+    val cls = newCompleteClassSymbol(ScalaPackageClass, tpnme.Phantom, Abstract | NoInits, Nil, newScope(0))
+    newConstructor(cls, EmptyFlags, Nil, Nil).entered
     if true then // !ctx.settings.YnoPhantomTypes.value
       // Enable phantom types by exposing scala.Phantom
       cls.entered
