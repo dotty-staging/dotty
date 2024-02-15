@@ -80,7 +80,7 @@ object PruneErasedDefs {
   val description: String = "drop erased definitions and simplify erased expressions"
 
   def checkPhantomIsPureRealizable(tree: Tree)(using Context): Unit =
-    if isPureExpr(tree) then
+    if !isPureExpr(tree) then
       report.error(em"phantom expression is not pure: $tree", tree.sourcePos)
 
   def trivialErasedTree(tree: Tree)(using Context): Tree =
