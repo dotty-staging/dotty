@@ -2596,6 +2596,9 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
       else if !sym.isPrimaryConstructor then
         linkConstructorParams(sym, tparamSyms, rhsCtx)
 
+    if sym.is(Method) && !sym.isConstructor && sym.info.finalResultType.derivesFrom(defn.PhantomClass) then
+      sym.setFlag(Erased | Inline)
+
     if sym.isInlineMethod then rhsCtx.addMode(Mode.InlineableBody)
     if sym.is(ExtensionMethod) then rhsCtx.addMode(Mode.InExtensionMethod)
     val rhs1 = PrepareInlineable.dropInlineIfError(sym,
