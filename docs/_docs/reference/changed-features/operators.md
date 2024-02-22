@@ -135,7 +135,8 @@ A _leading infix operator_ is
  - a symbolic identifier such as `+`, or `approx_==`, or an identifier in backticks that
  - starts a new line, and
  - is not following a blank line, and
- - is followed by at least one whitespace character and a token that can start an expression.
+ - is followed by at least one whitespace character and a token that can start an expression,
+   where this token is not a symbolic operator other than a prefix operator.
  - Furthermore, if the operator appears on its own line, the next line must have at least
    the same indentation width as the operator.
 
