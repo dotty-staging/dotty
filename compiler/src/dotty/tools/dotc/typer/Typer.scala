@@ -2948,7 +2948,7 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
                 cpy.Select(id)(This(cls), id.name)
               case _ =>
                 super.transform(tree)
-          ValDef(impl, anchorParams.transform(rhs))
+          ValDef(impl, anchorParams.transform(rhs)).withSpan(impl.span.endPos)
         end givenImpl
 
         val givenImpls =
