@@ -79,6 +79,9 @@ val experimentalDefinitionInLibrary = Set(
 
   // New feature: fromNullable for explicit nulls
   "scala.Predef$.fromNullable",
+
+  // New feature: Precise trait
+  "scala.Precise",
 )
 
 
