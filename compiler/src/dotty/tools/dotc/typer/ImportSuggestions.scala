@@ -56,7 +56,7 @@ trait ImportSuggestions:
    *   - Any members of the java or java.lang packages. These are
    *     skipped as an optimization, since they won't contain implicits anyway.
    */
-  private def suggestionRoots(using Context) =
+  private def suggestionRoots(using Context): List[TermRef] =
     val seen = mutable.Set[TermRef]()
 
     def lookInside(root: Symbol)(using Context): Boolean =
@@ -253,7 +253,7 @@ trait ImportSuggestions:
         match
           case (Nil, partials) => (extensionImports, partials)
           case givenImports => givenImports
-    catch case NonFatal(ex) =>
+    catch case ex: Throwable => // also catch Stackoverflows here
       if ctx.settings.Ydebug.value then
         println("caught exception when searching for suggestions")
         ex.printStackTrace()
