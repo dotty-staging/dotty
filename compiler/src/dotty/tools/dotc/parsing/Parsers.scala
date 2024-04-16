@@ -1524,14 +1524,21 @@ object Parsers {
     /** CaptureRef  ::=  ident | `this` | `cap` [`[` ident `]`]
      */
     def captureRef(): Tree =
-      if in.token == THIS then simpleRef()
-      else
-        val id = termIdent()
-        if isIdent(nme.raw.STAR) then
-          in.nextToken()
-          atSpan(startOffset(id)):
-            PostfixOp(id, Ident(nme.CC_REACH))
-        else id
+      // if in.token == THIS then simpleRef()
+      // else
+      //   val id = termIdent()
+      //   if isIdent(nme.raw.STAR) then
+      //     in.nextToken()
+      //     atSpan(startOffset(id)):
+      //       PostfixOp(id, Ident(nme.CC_REACH))
+      //   else id
+      val ref = singleton()
+      if isIdent(nme.raw.STAR) then
+        in.nextToken()
+        atSpan(startOffset(ref)) {
+          PostfixOp(ref, Ident(nme.CC_REACH))
+        }
+      else ref
 
     /**  CaptureSet ::=  `{` CaptureRef {`,` CaptureRef} `}`    -- under captureChecking
      */

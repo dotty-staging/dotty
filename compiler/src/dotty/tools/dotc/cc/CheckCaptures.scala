@@ -425,8 +425,17 @@ class CheckCaptures extends Recheck, SymTransformer:
         selType
       else
         val qualCs = qualType.captureSet
-        capt.println(i"pick one of $qualType, ${selType.widen}, $qualCs, $selCs in $tree")
-        if qualCs.mightSubcapture(selCs)
+        val selCs2 = selType.captureSet
+        // println(i"pick one of $qualType, ${selType.widen}, $qualCs, $selCs ${selCs2} in $tree")
+
+        if selCs2.mightSubcapture(selCs)
+            && !selCs.mightSubcapture(selCs2)
+            && !pt.stripCapturing.isInstanceOf[SingletonType]
+        then
+          // println(i"pick selCs2 $selCs2")
+          selType.widen.stripCapturing.capturing(selCs2)
+            .showing(i"alternate type for select $tree: $selType --> $result, $selCs2 / $selCs", capt)
+        else if qualCs.mightSubcapture(selCs)
             && !selCs.mightSubcapture(qualCs)
             && !pt.stripCapturing.isInstanceOf[SingletonType]
         then
@@ -524,6 +533,8 @@ class CheckCaptures extends Recheck, SymTransformer:
           SubstParamsBiMap(mt, argTypes)(mt.resType)
         else
           SubstParamsMap(mt, argTypes)(mt.resType)
+
+      // println(i"inst $sym: $ownType, $argTypes")
 
       if sym.isConstructor then
         val cls = sym.owner.asClass

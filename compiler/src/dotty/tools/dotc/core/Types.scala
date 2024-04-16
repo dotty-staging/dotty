@@ -2284,6 +2284,7 @@ object Types extends TypeUtils {
 
     override def captureSet(using Context): CaptureSet =
       val cs = captureSetOfInfo
+      // println(i"captureSet of $this: $cs ${isTrackableRef} ${cs.isAlwaysEmpty}")
       if isTrackableRef && !cs.isAlwaysEmpty then singletonCaptureSet else cs
 
   end CaptureRef
@@ -2990,8 +2991,11 @@ object Types extends TypeUtils {
      *  TODO: ^^^ What about call-by-name?
      */
     override def isTrackableRef(using Context) =
+      // println(i"checking trackable $this")
+      // println(i"prefix = $prefix ${prefix.isTrackableRef}")
+      // println(i"symbol = $symbol ${symbol.is(ParamAccessor)} ${symbol.isOneOf(UnstableValueFlags)}")
       ((prefix eq NoPrefix)
-      || symbol.is(ParamAccessor) && prefix.isThisTypeOf(symbol.owner)
+      || prefix.isTrackableRef // symbol.is(ParamAccessor) && prefix.isThisTypeOf(symbol.owner)
       || isRootCapability
       ) && !symbol.isOneOf(UnstableValueFlags)
 
@@ -2999,7 +3003,8 @@ object Types extends TypeUtils {
       name == nme.CAPTURE_ROOT && symbol == defn.captureRoot
 
     override def normalizedRef(using Context): CaptureRef =
-      if isTrackableRef then symbol.termRef else this
+      // if isTrackableRef then symbol.termRef else this
+      this
   }
 
   abstract case class TypeRef(override val prefix: Type,
