@@ -2574,7 +2574,7 @@ class QuotesImpl private (using val ctx: Context) extends Quotes, QuoteUnpickler
         val cls = dotc.core.Symbols.newNormalizedClassSymbol(
           owner,
           name.toTypeName,
-          dotc.core.Flags.EmptyFlags,
+          dotc.core.Flags.Invisible,
           parents,
           selfType.getOrElse(Types.NoType),
           dotc.core.Symbols.NoSymbol)
