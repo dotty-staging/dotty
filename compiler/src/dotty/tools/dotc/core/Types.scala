@@ -1654,7 +1654,7 @@ object Types extends TypeUtils {
      *
      *    P { ... type T = / += / -= U ... } # T
      *
-     *  to just U. Analogously, `P { val x: S} # x` is reduced tp `S` is `S`
+     *  to just U. Analogously, `P { val x: S} # x` is reduced tp `S` if `S`
      *  is a singleton type.
      *
      *  Does not perform the reduction if the resulting type would contain
@@ -4935,6 +4935,7 @@ object Types extends TypeUtils {
    *  @param  origin           the parameter that's tracked by the type variable.
    *  @param  creatorState     the typer state in which the variable was created.
    *  @param  initNestingLevel the initial nesting level of the type variable. (c.f. nestingLevel)
+   *  @param  precise          whether we should use instantiation without widening for this TypeVar.
    */
   final class TypeVar private(
       initOrigin: TypeParamRef,
@@ -5044,6 +5045,9 @@ object Types extends TypeUtils {
       else
         instantiateWith(tp)
 
+    /** Should we suppress widening? True if this TypeVar is precise
+     *  or if it has as an upper bound a precise TypeVar.
+     */
     def isPrecise(using Context) =
       precise
       || {
@@ -5054,7 +5058,9 @@ object Types extends TypeUtils {
             case _ => false
       }
 
-    /** Widen unions when instantiating this variable in the current context? */
+    /** The policy used for widening singletons or unions when instantiating
+     *  this variable in the current context.
+     */
     def widenPolicy(using Context): Widen =
       if isPrecise then Widen.None
       else if ctx.typerState.constraint.isHard(this) then Widen.Singletons
@@ -5106,6 +5112,7 @@ object Types extends TypeUtils {
         precise: Boolean = false) =
       new TypeVar(initOrigin, creatorState, nestingLevel, precise)
 
+  /** The three possible widening policies */
   enum Widen:
     case None        // no widening
     case Singletons  // widen singletons but not unions
