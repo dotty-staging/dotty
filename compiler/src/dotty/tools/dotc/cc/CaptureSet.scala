@@ -152,8 +152,12 @@ sealed abstract class CaptureSet extends Showable:
      private def subsumes(y: CaptureRef)(using Context): Boolean =
       (x eq y)
       || x.isRootCapability
+      || y.isInstanceOf[SingletonCaptureRef]
+        && x.isInstanceOf[SingletonCaptureRef]
+        && withMode(Mode.IgnoreCaptures)(y frozen_=:= x)
       || y.match
-          case y: TermRef => y.prefix eq x
+          case TermRef(prefix: CaptureRef, _) => x.subsumes(prefix)
+          // case y: TermRef => y.prefix eq x
           case MaybeCapability(y1) => x.stripMaybe.subsumes(y1)
           case _ => false
       || x.match
