@@ -19,7 +19,7 @@ extension [X <: Tuple](inline x: X)
 
   inline def indexOf[Y: Precise](y: Y) = constValue[IndexOf[X, Y]]
 
-// Note: without the Precise, the index calcularion would go wrong. For instance,
+// Note: without the Precise, the index calculation would go wrong. For instance,
 //  (1, 2, "hello", true).indexOf(2) would be 0, the same as  (1, 2, "hello", true).indexOTypef[Int]
 //  (1, 2, "hello", true).indexOf("foo") would be 2, the same as  (1, 2, "hello", true).indexOTypef[String]
 // But we could alternatively pick Singleton
