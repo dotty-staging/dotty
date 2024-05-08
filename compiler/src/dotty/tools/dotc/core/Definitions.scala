@@ -831,6 +831,9 @@ class Definitions {
     @tu lazy val TypeTest_unapply: Symbol = TypeTestClass.requiredMethod(nme.unapply)
   @tu lazy val TypeTestModule_identity: Symbol = TypeTestClass.companionModule.requiredMethod(nme.identity)
 
+  @tu lazy val AnyContainingClass: ClassSymbol = requiredClass("scala.Containing")
+    @tu lazy val AnyContaining_value: Symbol = AnyContainingClass.requiredValue(nme.value)
+
   @tu lazy val QuotedExprClass: ClassSymbol = requiredClass("scala.quoted.Expr")
 
   @tu lazy val QuotesClass: ClassSymbol = requiredClass("scala.quoted.Quotes")
