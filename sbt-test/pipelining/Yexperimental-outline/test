@@ -2,4 +2,8 @@
 # manually setting -Youtline-classpath from sbt
 $ touch a-early.jar
 > a/compile
+# compile a sources again, checking pickler is correct
+# TODO: Currently a LOT more can probably be elided - including synthetic code
+# TODO: such as rhs of module val, anything from SyntheticMembers in posttyper, etc.
+> aCheck/compile
 > b/compile

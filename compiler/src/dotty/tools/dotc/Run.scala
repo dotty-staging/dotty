@@ -235,20 +235,19 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
         if !progress.isCancelled() then
           progress.tickSubphase()
 
-  /** if true, then we are done writing pipelined TASTy files (i.e. finished in a previous run.) */
-  private var myAsyncTastyWritten = false
-  private var myPendingPromises = Option.empty[AsyncTastyHolder.State]
+  /** if true, then we don't need to set up async tasty holder (i.e. finished in a previous run.) */
+  private var myShouldAsyncTasty = true
 
   private var _asyncTasty: Option[AsyncTastyHolder] = None
 
   /** populated when this run needs to write pipeline TASTy files. */
   def asyncTasty: Option[AsyncTastyHolder] = _asyncTasty
 
-  private def initializeAsyncTasty(pending: Option[AsyncTastyHolder.State])(using Context): () => Unit =
+  private def initializeAsyncTasty()(using Context): () => Unit =
     // should we provide a custom ExecutionContext?
     // currently it is just used to call the `apiPhaseCompleted` and `dependencyPhaseCompleted` callbacks in Zinc
     import scala.concurrent.ExecutionContext.Implicits.global
-    val async = AsyncTastyHolder.init(pending)
+    val async = AsyncTastyHolder.init
     _asyncTasty = Some(async)
     () => async.cancel()
 
@@ -263,10 +262,6 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
   var ccEnabledSomewhere = Feature.enabledBySetting(Feature.captureChecking)(using ictx)
 
   private var myEnrichedErrorMessage = false
-
-  def compile(files: List[AbstractFile], pending: Option[AsyncTastyHolder.State]): Unit =
-    myPendingPromises = pending
-    compile(files)
 
   def compile(files: List[AbstractFile]): Unit =
     try compileSources(files.map(runContext.getSource(_)))
@@ -384,8 +379,8 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
     runCtx.withProgressCallback: cb =>
       _progress = Progress(cb, this, fusedPhases.map(_.traversals).sum)
     val cancelAsyncTasty: () => Unit =
-      if !myAsyncTastyWritten && Phases.picklerPhase.exists && !ctx.settings.XearlyTastyOutput.isDefault then
-        initializeAsyncTasty(myPendingPromises)
+      if myShouldAsyncTasty && Phases.picklerPhase.exists && !ctx.settings.XearlyTastyOutput.isDefault then
+        initializeAsyncTasty()
       else () => {}
 
     runPhases(allPhases = fusedPhases)(using runCtx)
@@ -410,10 +405,9 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
   /** Compile units `us` which were suspended in a previous run,
    *  also signal if all necessary async tasty files were written in a previous run.
    */
-  def compileSuspendedUnits(us: List[CompilationUnit], asyncTastyWritten: Boolean, pending: Option[AsyncTastyHolder.State]): Unit =
+  def compileSuspendedUnits(us: List[CompilationUnit], asyncTastyWritten: Boolean): Unit =
     myCompilingSuspended = true
-    myAsyncTastyWritten = asyncTastyWritten
-    myPendingPromises = pending
+    myShouldAsyncTasty = !asyncTastyWritten
     for unit <- us do unit.suspended = false
     compileUnits(us)
 

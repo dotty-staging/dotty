@@ -495,7 +495,7 @@ private sealed trait YSettings:
   // Additional *experimental* compilation options for use with pipelining
   val Youtline: Setting[Boolean] = BooleanSetting(ForkSetting, "Yexperimental-outline", "Run typechecking in two passes, a prior outline pass, and a subsequent full pass. This may be useful in combination with pipelining.")
   val YsecondPass: Setting[Boolean] = BooleanSetting(ForkSetting, "Ysecond-pass", "Internal use only, signal that the compiler is in the second pass after outlining.")
+  val YbatchWorkerId: Setting[Int] = IntSetting(ForkSetting, "Ybatch-worker-id", "Internal use only, identifier for a batch compiler worker.", default = -1)
   val YoutlineClasspath: Setting[AbstractFile] = OutputSetting(ForkSetting, "Youtline-classpath", "directory|jar", "Destination for outline classfiles.", NoAbstractFile)
-  val YmaxParallelism: Setting[Int] = IntSetting(ForkSetting, "Ymax-parallelism", "When combined with -Yexperimental-outline, maximum number of parallel threads to use, 0 means all available processors", 0)
 end YSettings
 

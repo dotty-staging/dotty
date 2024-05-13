@@ -9,7 +9,7 @@ import NameOps.*
 import StdNames.*
 import Contexts.*
 import Symbols.*
-import ast.{Trees, untpd}
+import ast.{Trees, untpd, tpd}
 import Trees.*
 
 object OutlinePrinter:
@@ -41,8 +41,9 @@ class OutlinePrinter private (_ctx: Context) extends RefinedPrinter(_ctx) {
     case tree: Select[T] if tree.symbol == defn.Predef_undefined => true // e.g. `Predef.???`
     case Apply(Select(tree: New[T], nme.CONSTRUCTOR), Nil)
     if tree.tpt.typeOpt.typeSymbol.is(Module) => true // e.g. `new foo.Foo$()` (rhs of a module val)
+    case tpd.ElidedTree() => true
     case _ =>
-      sys.error(s"Unexpected tree in OutlinePrinter: ${tree.show}, $tree")
+      // sys.error(s"Unexpected tree in OutlinePrinter: ${tree.show}, $tree")
       false
   }
 

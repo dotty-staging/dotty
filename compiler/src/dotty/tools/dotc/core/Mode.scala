@@ -105,7 +105,7 @@ object Mode {
 
   /** Use previous Scheme for implicit resolution. Currently significant
    *  in 3.0-migration where we use Scala-2's scheme instead and in 3.5 and 3.6-migration
-   *  where we use the previous scheme up to 3.4 for comparison with the new scheme. 
+   *  where we use the previous scheme up to 3.4 for comparison with the new scheme.
    */
   val OldImplicitResolution: Mode = newMode(15, "OldImplicitResolution")
 
@@ -133,11 +133,8 @@ object Mode {
   /** We are in the IDE */
   val Interactive: Mode = newMode(20, "Interactive")
 
-  // /** We are typing the body of an inline method */
-  // val InlineableBody: Mode = newMode(21, "InlineableBody") // TODO unused?
-
-  /** We are in the rhs of an inline definition */
-  val InlineRHS = newMode(21, "InlineRHS")
+  /** We are typing the body of an inline method/val */
+  val InlineableBody: Mode = newMode(21, "InlineableBody")
 
   val NewGivenRules: Mode = newMode(22, "NewGivenRules")
 

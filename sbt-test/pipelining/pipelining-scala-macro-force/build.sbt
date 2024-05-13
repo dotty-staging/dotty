@@ -14,7 +14,6 @@ lazy val a = project.in(file("a"))
   .dependsOn(macros)
   .settings(
     scalacOptions += "-Youtline",
-    scalacOptions += "-Ymax-parallelism:1",
     scalacOptions += "-Ycheck:all",
     scalacOptions += "-Yno-suspended-units",
     scalacOptions += "-Xprint-suspension",

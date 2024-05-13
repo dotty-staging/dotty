@@ -16,7 +16,7 @@ import java.io.{InputStream, OutputStream}
  * ''Note:  This library is considered experimental and should not be used unless you know what you are doing.''
  */
 class VirtualDirectory(val name: String, maybeContainer: Option[VirtualDirectory] = None)
-extends AbstractFile { outer =>
+extends AbstractFile {
   def path: String =
     maybeContainer match {
       case None => name
@@ -50,18 +50,14 @@ extends AbstractFile { outer =>
 
   override def fileNamed(name: String): AbstractFile =
     Option(lookupName(name, directory = false)) getOrElse {
-      val newFile = new VirtualFile(name, s"$path/$name", Some(this)) {
-        override val underlyingSource: Option[AbstractFile] = outer.underlyingSource
-      }
+      val newFile = new VirtualFile(name, s"$path/$name", Some(this))
       files(name) = newFile
       newFile
     }
 
   override def subdirectoryNamed(name: String): AbstractFile =
     Option(lookupName(name, directory = true)) getOrElse {
-      val dir = new VirtualDirectory(name, Some(this)) {
-        override val underlyingSource: Option[AbstractFile] = outer.underlyingSource
-      }
+      val dir = new VirtualDirectory(name, Some(this))
       files(name) = dir
       dir
     }

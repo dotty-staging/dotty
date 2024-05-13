@@ -2767,7 +2767,7 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
       // Lambdas cannot be skipped, because typechecking them may constrain type variables.
       definition.name == nme.ANON_FUN ||
       // The body of inline defs, and inline/final vals are part of the public API.
-      sym.isOneOf(bodyNeededFlags) || ctx.mode.is(Mode.InlineRHS) ||
+      sym.isOneOf(bodyNeededFlags) || ctx.mode.is(Mode.InlineableBody) ||
       // Super accessors are part of the public API (subclasses need to implement them).
       mayNeedSuperAccessor)
   end canDropBody
@@ -2785,7 +2785,7 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
       case rhs =>
         excludeDeferredGiven(rhs, sym): rhs =>
           if ctx.isOutlineFirstPass && canDropBody(vdef, sym) then
-            if ctx.mode.is(Mode.InlineRHS) then
+            if ctx.mode.is(Mode.InlineableBody) then
               report.error(i"unexpected elided body in rhs of $sym", rhs.srcPos)
             // defn.Predef_undefinedElidedTree()
             ElidedTree.from(cpy.Ident(rhs)(nme.WILDCARD).withType(tpt1.tpe.widenExpr))
@@ -2849,14 +2849,13 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
       else if !sym.isPrimaryConstructor then
         linkConstructorParams(sym, tparamSyms, rhsCtx)
 
-    // if sym.isInlineMethod then rhsCtx.addMode(Mode.InlineableBody) // TODO: remove because it's unused
-    if sym.is(Inline) then rhsCtx.addMode(Mode.InlineRHS)
+    if sym.is(Inline) then rhsCtx.addMode(Mode.InlineableBody)
     if sym.is(ExtensionMethod) then rhsCtx.addMode(Mode.InExtensionMethod)
     val rhs1 = excludeDeferredGiven(ddef.rhs, sym): rhs =>
       PrepareInlineable.dropInlineIfError(sym,
         if sym.isScala2Macro then typedScala2MacroBody(rhs)(using rhsCtx)
         else if ctx.isOutlineFirstPass && canDropBody(ddef, sym) then
-          if ctx.mode.is(Mode.InlineRHS) then
+          if ctx.mode.is(Mode.InlineableBody) then
             report.error(i"unexpected elided body in rhs of $sym", rhs.srcPos)
           // defn.Predef_undefinedElidedTree() // span needed?
           ElidedTree.from(cpy.Ident(rhs)(nme.WILDCARD).withType(tpt1.tpe))
@@ -3656,14 +3655,14 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
         def isOutlinedTemplateStat = ctx.isOutlineFirstPass && exprOwner.isLocalDummy
 
         val stat1 =
-          if !isOutlinedTemplateStat || ctx.mode.is(Mode.InlineRHS) then
+          if !isOutlinedTemplateStat || ctx.mode.is(Mode.InlineableBody) then
             val stat1 = typed(stat)(using ctx.exprContext(stat, exprOwner))
             if !Linter.warnOnInterestingResultInStatement(stat1) then checkStatementPurity(stat1)(stat, exprOwner)
             buf += stat1
             stat1
           else
             // With -Ypickle-write, we skip the statements in a class that are not definitions.
-            if ctx.mode.is(Mode.InlineRHS) then
+            if ctx.mode.is(Mode.InlineableBody) then
               report.error(i"unexpected elided statement of ${exprOwner.enclosingMethodOrClass}", stat.srcPos)
             EmptyTree
         traverse(rest)(using stat1.nullableContext)

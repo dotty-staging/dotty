@@ -130,7 +130,16 @@ object FileWriters {
     def relayReports(toReporting: BackendReporting)(using Context): Unit =
       handleReports(_.iterator.foreach(_.relay(toReporting)))
 
-    def handleReports(f: IterableOnce[Report] => Unit)(using Context): Unit =
+    /** Should only be called from main compiler thread. */
+    def syncReports()(using Context): Unit =
+      handleReports: rs =>
+        rs.iterator.foreach({
+          case Report.Log(message) => report.echo(message)
+          case Report.Warning(msg, pos) => report.warning(msg(summon[Context]), pos)
+          case Report.Error(msg, pos) => report.error(msg(summon[Context]), pos)
+        })
+
+    private def handleReports(f: IterableOnce[Report] => Unit)(using Context): Unit =
       val reports = resetReports()
       if reports.nonEmpty then
         f(reports.reverse)

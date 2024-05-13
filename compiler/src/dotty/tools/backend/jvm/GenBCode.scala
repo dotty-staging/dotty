@@ -99,8 +99,7 @@ class GenBCode extends Phase { self =>
       try
         for
           async <- ctx.run.nn.asyncTasty
-          state <- async.sync()
-          bufferedReporter <- state.pending
+          bufferedReporter <- async.sync()
         do
           bufferedReporter.relayReports(frontendAccess.backendReporting)
       catch

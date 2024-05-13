@@ -206,16 +206,7 @@ public class CompilerBridgeDriver extends Driver {
 
   private String infoOnCachedCompiler() {
     String compilerId = Integer.toHexString(hashCode());
-    String compilerVersion;
-    try {
-      compilerVersion = Properties.versionString();
-    } catch (Throwable t) {
-      if (scala.util.control.NonFatal.apply(t)) {
-        compilerVersion = "unknown";
-      } else {
-        throw t;
-      }
-    };
+    String compilerVersion = Properties.versionString();
     return String.format("[zinc] Running cached compiler %s for Scala Compiler %s", compilerId, compilerVersion);
   }
 

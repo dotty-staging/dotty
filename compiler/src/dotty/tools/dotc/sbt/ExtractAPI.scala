@@ -74,11 +74,23 @@ class ExtractAPI extends Phase {
         val ctx0 = ctx.withProperty(NonLocalClassSymbolsInCurrentUnits, Some(nonLocalClassSymbols))
         val units1 = super.runOn(units)(using ctx0)
         ctx.withIncCallback(recordNonLocalClasses(nonLocalClassSymbols, _))
+        for async <- ctx.run.nn.asyncTasty do
+          async.signalAPIComplete(done = !ctx.run.nn.suspendedAtTyperPhase)
         units1
       else
         units
-    for async <- ctx.run.nn.asyncTasty do
-      async.signalAPIComplete()
+    if ctx.isOutlineFirstPass then
+      // in first pass let's sync with async tasty
+      try
+        for
+          async <- ctx.run.nn.asyncTasty
+          bufferedReporter <- async.sync()
+        do
+          bufferedReporter.syncReports()
+      catch
+        case ex: Exception =>
+          report.error(s"exception from future: $ex, (${Option(ex.getCause())})")
+    end if
     if ctx.settings.XjavaTasty.value then
       units0.filterNot(_.typedAsJava) // remove java sources, this is the terminal phase when `-Xjava-tasty` is set
     else

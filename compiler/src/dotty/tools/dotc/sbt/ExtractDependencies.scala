@@ -53,14 +53,12 @@ import scala.compiletime.uninitialized
 class ExtractDependencies extends Phase {
   import ExtractDependencies.*
 
-  private def doAsyncTasty(using Context): Boolean = ctx.run.nn.asyncTasty.isDefined
-
   override def phaseName: String = ExtractDependencies.name
 
   override def description: String = ExtractDependencies.description
 
   override def isRunnable(using Context): Boolean = {
-    super.isRunnable && (ctx.runZincPhases || doAsyncTasty)
+    super.isRunnable && ctx.runZincPhases
   }
 
   // Check no needed. Does not transform trees
@@ -70,7 +68,16 @@ class ExtractDependencies extends Phase {
   override def skipIfJava(using Context): Boolean = false
 
   override def runOn(units: List[CompilationUnit])(using runCtx: Context): List[CompilationUnit] =
-    val units0 = if ctx.runZincPhases then super.runOn(units) else units
+    val units0 =
+      if ctx.isOutlineFirstPass then
+        // only run on the java units in outline first pass
+        val (javaUnits, scalaUnits) = units.partition(_.isJava)
+        if javaUnits.nonEmpty then
+          (super.runOn(javaUnits) ::: scalaUnits).sortBy(_.source.file.absolutePath)
+        else
+          units
+      else
+        super.runOn(units) // run on all units in either normal mode, or second pass
     for async <- ctx.run.nn.asyncTasty do
       // OLD COMMENT HERE BEFORE PR scala/scala3#17582
       // suspended units could cause this to be completed twice
@@ -81,7 +88,9 @@ class ExtractDependencies extends Phase {
       // agree upon reentrancy of writing early-tasty/signalling to sbt, because waiting for
       // suspended units kills the purpose, so do we warn if it occurs, or expect the user to
       // turn on -Yno-suspended-units? (or we forbid supension in typer phase with -Ypickle-write)
-      async.signalDepsComplete()
+      if !ctx.isOutlineFirstPass then
+        async.signalDepsComplete(done = !ctx.run.nn.suspendedAtTyperPhase)
+    end for
     units0
 
   // This phase should be run directly after `Frontend`, if it is run after

@@ -1,13 +1,10 @@
 package dotty.tools.dotc.sbt
 
 import dotty.tools.dotc.core.Contexts.Context
-import dotty.tools.dotc.core.Contexts.ctx
 import dotty.tools.dotc.core.Symbols.Symbol
 import dotty.tools.dotc.core.NameOps.stripModuleClassSuffix
 import dotty.tools.dotc.core.Names.Name
 import dotty.tools.dotc.core.Names.termName
-
-import dotty.tools.dotc.transform.Pickler.AsyncTastyHolder.Promises
 
 import interfaces.IncrementalCallback
 import dotty.tools.io.FileWriters.BufferingReporter
@@ -19,18 +16,6 @@ import scala.util.control.NonFatal
 inline val TermNameHash = 1987 // 300th prime
 inline val TypeNameHash = 1993 // 301st prime
 inline val InlineParamHash = 1997 // 302nd prime
-
-// def asyncZincPhasesCompleted(cb: IncrementalCallback, pending: Option[BufferingReporter]): BufferingReporter =
-//   val zincReporter = pending match
-//     case Some(buffered) => buffered
-//     case None => BufferingReporter()
-//   try
-//     cb.apiPhaseCompleted()
-//     cb.dependencyPhaseCompleted()
-//   catch
-//     case NonFatal(t) =>
-//       zincReporter.exception(em"signaling API and Dependencies phases completion", t)
-//   zincReporter
 
 def asyncReportAPIPhaseCompleted(cb: IncrementalCallback, pending: Option[BufferingReporter]): BufferingReporter =
   val zincReporter = pending match

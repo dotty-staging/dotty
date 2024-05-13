@@ -16,11 +16,18 @@ import dotty.tools.io.AbstractFile
 import annotation.internal.sharable
 
 object Profiler {
+
+  private def mainEventType(using Context): EventType =
+    ctx.settings.YbatchWorkerId.value match
+      case id if id >= 0 => EventType.mainWorker(id).ensuring(ctx.isOutlineSecondPass, "unexpected -Ybatch-worker-id")
+      case _ => EventType.MAIN
+
   def apply()(using Context): Profiler =
     if (!ctx.settings.YprofileEnabled.value) NoOpProfiler
     else {
       val reporter = if (ctx.settings.YprofileDestination.value != "")
-        new StreamProfileReporter(new PrintWriter(new FileWriter(ctx.settings.YprofileDestination.value, true)))
+        new StreamProfileReporter(
+          mainEventType, new PrintWriter(new FileWriter(ctx.settings.YprofileDestination.value, true)))
       else ConsoleProfileReporter
       new RealProfiler(reporter)
     }
@@ -205,6 +212,8 @@ object EventType {
   val BACKGROUND: EventType = EventType("background")
   //total for compile
   val GC: EventType = EventType("GC")
+  // worker thread but main task
+  def mainWorker(id: Int): EventType = EventType(s"main-worker-$id")
 }
 
 sealed trait ProfileReporter {
@@ -238,17 +247,21 @@ object ConsoleProfileReporter extends ProfileReporter {
     println(s"Profiler GC reported ${data.gcEndMillis - data.gcStartMillis}ms")
 }
 
-class StreamProfileReporter(out:PrintWriter) extends ProfileReporter {
+class StreamProfileReporter(mainEvent: EventType, out:PrintWriter) extends ProfileReporter {
+
+  // version 3 indicates that now there can be EventKind(main-worker-N) for some positive integer N.
+  val headerVersion = if mainEvent == EventType.MAIN then "2" else "3"
+
   override def header(profiler: RealProfiler): Unit = {
-    out.println(s"info, ${profiler.id}, version, 2, output, ${profiler.outDir}")
-    out.println(s"header(main/background),startNs,endNs,runId,phaseId,phaseName,purpose,task-count,threadId,threadName,runNs,idleNs,cpuTimeNs,userTimeNs,allocatedByte,heapSize")
+    out.println(s"info, ${profiler.id}, version, $headerVersion, output, ${profiler.outDir}")
+    out.println(s"header(${mainEvent.name}/background),startNs,endNs,runId,phaseId,phaseName,purpose,task-count,threadId,threadName,runNs,idleNs,cpuTimeNs,userTimeNs,allocatedByte,heapSize")
     out.println(s"header(GC),startNs,endNs,startMs,endMs,name,action,cause,threads")
   }
 
   override def reportBackground(profiler: RealProfiler, threadRange: ProfileRange): Unit =
     reportCommon(EventType.BACKGROUND, profiler, threadRange)
   override def reportForeground(profiler: RealProfiler, threadRange: ProfileRange): Unit =
-    reportCommon(EventType.MAIN, profiler, threadRange)
+    reportCommon(mainEvent, profiler, threadRange)
   @nowarn("cat=deprecation")
   private def reportCommon(tpe:EventType, profiler: RealProfiler, threadRange: ProfileRange): Unit =
     out.println(s"$tpe,${threadRange.start.snapTimeNanos},${threadRange.end.snapTimeNanos},${profiler.id},${threadRange.phase.id},${threadRange.phase.phaseName.replace(',', ' ')},${threadRange.purpose},${threadRange.taskCount},${threadRange.thread.getId},${threadRange.thread.getName},${threadRange.runNs},${threadRange.idleNs},${threadRange.cpuNs},${threadRange.userNs},${threadRange.allocatedBytes},${threadRange.end.heapBytes} ")

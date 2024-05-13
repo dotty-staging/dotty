@@ -43,7 +43,7 @@ object DottyJSPlugin extends AutoPlugin {
   override def requires: Plugins = ScalaJSPlugin
 
   override def projectSettings: Seq[Setting[_]] = Def.settings(
-    // commonBootstrappedSettings, // instead apply bootstrapped at each use site
+    commonBootstrappedSettings,
 
     /* #11709 Remove the dependency on scala3-library that ScalaJSPlugin adds.
      * Instead, in this build, we use `.dependsOn` relationships to depend on
@@ -1437,7 +1437,6 @@ object Build {
    *  useful, as that would not provide the linker and JS runners.
    */
   lazy val sjsSandbox = project.in(file("sandbox/scalajs")).
-    withCommonSettings(Bootstrapped).
     enablePlugins(DottyJSPlugin).
     dependsOn(`scala3-library-bootstrappedJS`).
     settings(
@@ -1455,7 +1454,6 @@ object Build {
    *  It will grow in the future, as more stuff is confirmed to be supported.
    */
   lazy val sjsJUnitTests = project.in(file("tests/sjs-junit")).
-    withCommonSettings(Bootstrapped).
     enablePlugins(DottyJSPlugin).
     dependsOn(`scala3-library-bootstrappedJS`).
     settings(
@@ -1700,13 +1698,11 @@ object Build {
    *                   Made as an indepented project to be scaladoc-agnostic.
    */
   lazy val `scaladoc-js-common` = project.in(file("scaladoc-js/common")).
-    withCommonSettings(Bootstrapped).
     enablePlugins(DottyJSPlugin).
     dependsOn(`scala3-library-bootstrappedJS`).
     settings(libraryDependencies += ("org.scala-js" %%% "scalajs-dom" % "2.8.0"))
 
   lazy val `scaladoc-js-main` = project.in(file("scaladoc-js/main")).
-    withCommonSettings(Bootstrapped).
     enablePlugins(DottyJSPlugin).
     dependsOn(`scaladoc-js-common`).
     settings(
@@ -1715,7 +1711,6 @@ object Build {
     )
 
   lazy val `scaladoc-js-contributors` = project.in(file("scaladoc-js/contributors")).
-    withCommonSettings(Bootstrapped).
     enablePlugins(DottyJSPlugin).
     dependsOn(`scaladoc-js-common`).
     settings(
