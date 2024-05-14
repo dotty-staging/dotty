@@ -3,7 +3,7 @@ Header:
   tooling: <elided>
      UUID: <elided>
 
-Names (314 bytes, starting from <elided base index>):
+Names (255 bytes, starting from <elided base index>):
      0: ASTs
      1: a
      2: AModule
@@ -23,31 +23,24 @@ Names (314 bytes, starting from <elided base index>):
     16: scala
     17: writeReplace
     18: AnyRef
-    19: runtime
-    20: scala[Qualified . runtime]
-    21: ModuleSerializationProxy
-    22: scala[Qualified . runtime][Qualified . ModuleSerializationProxy]
-    23: Class
-    24: java[Qualified . lang][Qualified . Class]
-    25: <init>[Signed Signature(List(java.lang.Class),scala.runtime.ModuleSerializationProxy) @<init>]
-    26: foo
-    27: Tuple3
-    28: SourceFile
-    29: annotation
-    30: scala[Qualified . annotation]
-    31: internal
-    32: scala[Qualified . annotation][Qualified . internal]
-    33: scala[Qualified . annotation][Qualified . internal][Qualified . SourceFile]
-    34: String
-    35: java[Qualified . lang][Qualified . String]
-    36: <init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]
-    37: <elided source file name>
-    38: Positions
-    39: Comments
-    40: Attributes
+    19: foo
+    20: Tuple3
+    21: SourceFile
+    22: annotation
+    23: scala[Qualified . annotation]
+    24: internal
+    25: scala[Qualified . annotation][Qualified . internal]
+    26: scala[Qualified . annotation][Qualified . internal][Qualified . SourceFile]
+    27: String
+    28: java[Qualified . lang][Qualified . String]
+    29: <init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]
+    30: <elided source file name>
+    31: Positions
+    32: Comments
+    33: Attributes
 
-Trees (129 bytes, starting from <elided base index>):
-     0: PACKAGE(127)
+Trees (117 bytes, starting from <elided base index>):
+     0: PACKAGE(115)
      2:   TERMREFpkg 1 [a]
      4:   VALDEF(18) 2 [AModule]
      7:     IDENTtpt 3 [AModule[ModuleClass]]
@@ -59,8 +52,8 @@ Trees (129 bytes, starting from <elided base index>):
     19:           SHAREDterm 7
     21:         SHAREDtype 9
     23:     OBJECT
-    24:   TYPEDEF(103) 3 [AModule[ModuleClass]]
-    27:     TEMPLATE(81)
+    24:   TYPEDEF(91) 3 [AModule[ModuleClass]]
+    27:     TEMPLATE(69)
     29:       APPLY(10)
     31:         SELECTin(8) 13 [<init>[Signed Signature(List(),java.lang.Object) @<init>]]
     34:           NEW
@@ -75,49 +68,43 @@ Trees (129 bytes, starting from <elided base index>):
     51:         EMPTYCLAUSE
     52:         TYPEREF 15 [Unit]
     54:           TERMREFpkg 16 [scala]
-    56:       DEFDEF(23) 17 [writeReplace]
+    56:       DEFDEF(11) 17 [writeReplace]
     59:         EMPTYCLAUSE
     60:         TYPEREF 18 [AnyRef]
     62:           SHAREDtype 54
-    64:         APPLY(13)
-    66:           SELECTin(8) 25 [<init>[Signed Signature(List(java.lang.Class),scala.runtime.ModuleSerializationProxy) @<init>]]
-    69:             NEW
-    70:               TYPEREF 21 [ModuleSerializationProxy]
-    72:                 TERMREFpkg 20 [scala[Qualified . runtime]]
-    74:             SHAREDtype 70
-    76:           CLASSconst
-    77:             SHAREDtype 44
-    79:         PRIVATE
-    80:         SYNTHETIC
-    81:       VALDEF(27) 26 [foo]
-    84:         APPLIEDtpt(13)
-    86:           TYPEREF 27 [Tuple3]
-    88:             SHAREDtype 54
-    90:           SINGLETONtpt
-    91:             INTconst 1
-    93:           SINGLETONtpt
+    64:         ELIDED
+    65:           SHAREDtype 60
+    67:         PRIVATE
+    68:         SYNTHETIC
+    69:       VALDEF(27) 19 [foo]
+    72:         APPLIEDtpt(13)
+    74:           TYPEREF 20 [Tuple3]
+    76:             SHAREDtype 54
+    78:           SINGLETONtpt
+    79:             INTconst 1
+    81:           SINGLETONtpt
+    82:             INTconst 2
+    84:           SINGLETONtpt
+    85:             INTconst 3
+    87:         ELIDED
+    88:           APPLIEDtype(8)
+    90:             SHAREDtype 74
+    92:             INTconst 1
     94:             INTconst 2
-    96:           SINGLETONtpt
-    97:             INTconst 3
-    99:         ELIDED
-   100:           APPLIEDtype(8)
-   102:             SHAREDtype 86
-   104:             INTconst 1
-   106:             INTconst 2
-   108:             INTconst 3
-   110:     OBJECT
-   111:     ANNOTATION(16)
-   113:       TYPEREF 28 [SourceFile]
-   115:         TERMREFpkg 32 [scala[Qualified . annotation][Qualified . internal]]
-   117:       APPLY(10)
-   119:         SELECTin(6) 36 [<init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]]
-   122:           NEW
-   123:             SHAREDtype 113
-   125:           SHAREDtype 113
-   127:         STRINGconst 37 [<elided source file name>]
-   129:
+    96:             INTconst 3
+    98:     OBJECT
+    99:     ANNOTATION(16)
+   101:       TYPEREF 21 [SourceFile]
+   103:         TERMREFpkg 25 [scala[Qualified . annotation][Qualified . internal]]
+   105:       APPLY(10)
+   107:         SELECTin(6) 29 [<init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]]
+   110:           NEW
+   111:             SHAREDtype 101
+   113:           SHAREDtype 101
+   115:         STRINGconst 30 [<elided source file name>]
+   117:
 
-Positions (72 bytes, starting from <elided base index>):
+Positions (70 bytes, starting from <elided base index>):
   lines: 6
   line sizes:
      9, 0, 16, 28, 1, 0
@@ -133,21 +120,19 @@ Positions (72 bytes, starting from <elided base index>):
     52: 30 .. 30
     56: 18 .. 18
     60: 18 .. 18
-    70: 18 .. 18
-    76: 18 .. 18
-    81: 30 .. 56
-    84: 39 .. 46
-    86: 40 .. 40
-    91: 40 .. 41
-    94: 42 .. 43
-    97: 44 .. 45
-   117: 11 .. 58
-   123: 11 .. 11
-   127: 11 .. 11
+    69: 30 .. 56
+    72: 39 .. 46
+    74: 40 .. 40
+    79: 40 .. 41
+    82: 42 .. 43
+    85: 44 .. 45
+   105: 11 .. 58
+   111: 11 .. 11
+   115: 11 .. 11
 
   source paths:
-     0: 37 [<elided source file name>]
+     0: 30 [<elided source file name>]
 
 Attributes (3 bytes, starting from <elided base index>):
   OUTLINEattr
-  SOURCEFILEattr 37 [<elided source file name>]
+  SOURCEFILEattr 30 [<elided source file name>]

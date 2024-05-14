@@ -18,7 +18,6 @@ import dotty.tools.dotc.core.Phases.*
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Denotations.StaleSymbol
 import dotty.tools.dotc.core.Types.*
-import dotty.tools.dotc.transform.Pickler
 import dotty.tools.dotc.util.{SrcPos, NoSourcePosition}
 import dotty.tools.io
 import dotty.tools.io.{AbstractFile, PlainFile, ZipArchive, NoAbstractFile, FileExtension}

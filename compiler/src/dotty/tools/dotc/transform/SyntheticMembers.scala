@@ -9,7 +9,7 @@ import Decorators.*
 import NameOps.*
 import Annotations.Annotation
 import typer.ProtoTypes.constrained
-import ast.untpd
+import ast.{untpd, tpd}
 
 import util.Property
 import util.Spans.Span
@@ -458,12 +458,17 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       && !hasWriteReplace(clazz)
       && ctx.platform.shouldReceiveJavaSerializationMethods(clazz)
     then
+      def rhs =
+        if ctx.isOutlineFirstPass then
+          tpd.ElidedTree.forType(defn.AnyRefType)
+        else
+          New(defn.ModuleSerializationProxyClass.typeRef,
+            defn.ModuleSerializationProxyConstructor,
+            List(Literal(Constant(clazz.sourceModule.termRef))))
+
       List(
-        DefDef(writeReplaceDef(clazz),
-          _ => New(defn.ModuleSerializationProxyClass.typeRef,
-                   defn.ModuleSerializationProxyConstructor,
-                   List(Literal(Constant(clazz.sourceModule.termRef)))))
-          .withSpan(ctx.owner.span.focus))
+        DefDef(writeReplaceDef(clazz), _ => rhs).withSpan(ctx.owner.span.focus)
+      )
     else
       Nil
 
