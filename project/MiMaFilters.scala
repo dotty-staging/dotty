@@ -22,6 +22,24 @@ object MiMaFilters {
         ProblemFilters.exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$experimental$modularity$"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.compiletime.package#package.deferred"),
         ProblemFilters.exclude[MissingClassProblem]("scala.annotation.internal.WitnessNames"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule.MethodTypeKind"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule.FlexibleTypeTypeTest"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule.FlexibleType"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule.FlexibleTypeMethods"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.quoted.Quotes$reflectModule$FlexibleTypeMethods"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.quoted.Quotes$reflectModule$FlexibleTypeModule"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.quoted.Quotes$reflectModule$MethodTypeKind"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.quoted.Quotes$reflectModule$MethodTypeKind$"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule#MethodTypeMethods.isContextual"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule#MethodTypeMethods.methodTypeKind"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule#MethodTypeModule.apply"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.quoted.Quotes#reflectModule#SymbolMethods.isSuperAccessor"),
+        ProblemFilters.exclude[MissingFieldProblem]("scala.runtime.stdLibPatches.language.3.6-migration"),
+        ProblemFilters.exclude[MissingFieldProblem]("scala.runtime.stdLibPatches.language.3.6"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$3$u002E6$"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$3$u002E6$minusmigration$"),
+        ProblemFilters.exclude[MissingFieldProblem]("scala.runtime.stdLibPatches.language#experimental.betterMatchTypeExtractors"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$experimental$betterMatchTypeExtractors$")
       ),
 
       // Additions since last LTS
@@ -100,6 +118,14 @@ object MiMaFilters {
       Build.mimaPreviousDottyVersion -> Seq(
         ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.FLEXIBLEtype"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.TRACKED"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.QUOTE"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.QUOTEPATTERN"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.SPLICE"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.SPLICEPATTERN"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.QUOTE"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.SPLICE"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.QUOTEPATTERN"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("dotty.tools.tasty.TastyFormat.SPLICEPATTERN")
       ),
 
       // Additions since last LTS
