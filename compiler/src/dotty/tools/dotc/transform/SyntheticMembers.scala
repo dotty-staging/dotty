@@ -61,8 +61,11 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
   private var myEnumValueSymbols: List[Symbol] = Nil
   private var myNonJavaEnumValueSymbols: List[Symbol] = Nil
 
+  private var knownOutlineFirstPass = false
+
   private def initSymbols(using Context) =
     if (myValueSymbols.isEmpty) {
+      knownOutlineFirstPass = ctx.isOutlineFirstPass
       myValueSymbols = List(defn.Any_hashCode, defn.Any_equals)
       myCaseSymbols = defn.caseClassSynthesized
       myCaseModuleSymbols = myCaseSymbols.filter(_ ne defn.Any_equals)
@@ -165,8 +168,12 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
           else productElementBody(accessors.length, vrefss.head.head)
         case nme.productElementName => productElementNameBody(accessors.length, vrefss.head.head)
       }
+
+      def syntheticRHSOrElided(vrefss: List[List[Tree]])(using Context): Tree =
+        if knownOutlineFirstPass then tpd.ElidedTree.make()
+        else syntheticRHS(vrefss)
       report.log(s"adding $synthetic to $clazz at ${ctx.phase}")
-      synthesizeDef(synthetic, syntheticRHS)
+      synthesizeDef(synthetic, syntheticRHSOrElided)
     }
 
     /** The class
@@ -460,7 +467,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
     then
       def rhs =
         if ctx.isOutlineFirstPass then
-          tpd.ElidedTree.forType(defn.AnyRefType)
+          tpd.ElidedTree.make()
         else
           New(defn.ModuleSerializationProxyClass.typeRef,
             defn.ModuleSerializationProxyConstructor,
@@ -542,14 +549,17 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
           (baseRef, extractParams(methTpe))
     end computeFromCaseClass
 
-    val (classRefApplied, paramInfos) = computeFromCaseClass
-    val elems =
-      for ((formal, idx) <- paramInfos.zipWithIndex) yield
-        val elem =
-          param.select(defn.Product_productElement).appliedTo(Literal(Constant(idx)))
-            .ensureConforms(formal.translateFromRepeated(toArray = false))
-        if (formal.isRepeatedParam) ctx.typer.seqToRepeated(elem) else elem
-    New(classRefApplied, elems)
+    if ctx.isOutlineFirstPass then
+      tpd.ElidedTree.make()
+    else
+      val (classRefApplied, paramInfos) = computeFromCaseClass
+      val elems =
+        for ((formal, idx) <- paramInfos.zipWithIndex) yield
+          val elem =
+            param.select(defn.Product_productElement).appliedTo(Literal(Constant(idx)))
+              .ensureConforms(formal.translateFromRepeated(toArray = false))
+          if (formal.isRepeatedParam) ctx.typer.seqToRepeated(elem) else elem
+      New(classRefApplied, elems)
   end fromProductBody
 
   /** For an enum T:

@@ -1027,7 +1027,6 @@ class Definitions {
   @tu lazy val IntoAnnot: ClassSymbol = requiredClass("scala.annotation.into")
   @tu lazy val IntoParamAnnot: ClassSymbol = requiredClass("scala.annotation.internal.$into")
   @tu lazy val ErasedParamAnnot: ClassSymbol = requiredClass("scala.annotation.internal.ErasedParam")
-  @tu lazy val ElidedTreeAnnot: ClassSymbol = requiredClass("scala.annotation.internal.ElidedTree")
   @tu lazy val MainAnnot: ClassSymbol = requiredClass("scala.main")
   @tu lazy val MappedAlternativeAnnot: ClassSymbol = requiredClass("scala.annotation.internal.MappedAlternative")
   @tu lazy val MigrationAnnot: ClassSymbol = requiredClass("scala.annotation.migration")
