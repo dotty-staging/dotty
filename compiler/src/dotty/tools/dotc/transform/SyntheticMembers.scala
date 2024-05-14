@@ -579,7 +579,9 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
    *  O is O.type.
    */
   def ordinalBody(cls: Symbol, param: Tree, optInfo: Option[MirrorImpl.OfSum])(using Context): Tree =
-    if cls.is(Enum) then
+    if ctx.isOutlineFirstPass then
+      tpd.ElidedTree.make()
+    else if cls.is(Enum) then
       param.select(nme.ordinal).ensureApplied
     else
       def computeChildTypes: List[Type] =

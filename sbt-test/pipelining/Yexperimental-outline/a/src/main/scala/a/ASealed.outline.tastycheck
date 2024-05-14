@@ -1,0 +1,344 @@
+Header:
+  version: <elided>
+  tooling: <elided>
+     UUID: <elided>
+
+Names (511 bytes, starting from <elided base index>):
+     0: ASTs
+     1: a
+     2: ASealed
+     3: Object
+     4: java
+     5: lang
+     6: java[Qualified . lang]
+     7: <init>
+     8: Unit
+     9: scala
+    10: SourceFile
+    11: annotation
+    12: scala[Qualified . annotation]
+    13: internal
+    14: scala[Qualified . annotation][Qualified . internal]
+    15: scala[Qualified . annotation][Qualified . internal][Qualified . SourceFile]
+    16: String
+    17: java[Qualified . lang][Qualified . String]
+    18: <init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]
+    19: <elided source file name>
+    20: Child
+    21: scala[Qualified . annotation][Qualified . internal][Qualified . Child]
+    22: <init>[Signed Signature(List(1),scala.annotation.internal.Child) @<init>]
+    23: ASealed[ModuleClass]
+    24: a[Qualified . ASealed]
+    25: a[Qualified . ASealed][ModuleClass]
+    26: <init>[Signed Signature(List(),a.ASealed$) @<init>]
+    27: java[Qualified . lang][Qualified . Object]
+    28: <init>[Signed Signature(List(),java.lang.Object) @<init>]
+    29: Sum
+    30: Mirror
+    31: Mirror[ModuleClass]
+    32: deriving
+    33: scala[Qualified . deriving]
+    34: _
+    35: writeReplace
+    36: AnyRef
+    37: A1
+    38: A1[ModuleClass]
+    39: a[Qualified . ASealed][ModuleClass][Qualified . A1]
+    40: a[Qualified . ASealed][ModuleClass][Qualified . A1][ModuleClass]
+    41: <init>[Signed Signature(List(),a.ASealed$.A1$) @<init>]
+    42: Product
+    43: _root_
+    44: Serializable
+    45: Singleton
+    46: hashCode
+    47: Int
+    48: toString
+    49: canEqual
+    50: that
+    51: Any
+    52: Boolean
+    53: productArity
+    54: productPrefix
+    55: Predef
+    56: productElement
+    57: n
+    58: productElementName
+    59: MirroredMonoType
+    60: ordinal
+    61: x$0
+    62: Positions
+    63: Comments
+    64: Attributes
+
+Trees (385 bytes, starting from <elided base index>):
+     0: PACKAGE(382)
+     3:   TERMREFpkg 1 [a]
+     5:   TYPEDEF(62) 2 [ASealed]
+     8:     TEMPLATE(13)
+    10:       TYPEREF 3 [Object]
+    12:         TERMREFpkg 6 [java[Qualified . lang]]
+    14:       DEFDEF(7) 7 [<init>]
+    17:         EMPTYCLAUSE
+    18:         TYPEREF 8 [Unit]
+    20:           TERMREFpkg 9 [scala]
+    22:         STABLE
+    23:     SEALED
+    24:     TRAIT
+    25:     ANNOTATION(16)
+    27:       TYPEREF 10 [SourceFile]
+    29:         TERMREFpkg 14 [scala[Qualified . annotation][Qualified . internal]]
+    31:       APPLY(10)
+    33:         SELECTin(6) 18 [<init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]]
+    36:           NEW
+    37:             SHAREDtype 27
+    39:           SHAREDtype 27
+    41:         STRINGconst 19 [<elided source file name>]
+    43:     ANNOTATION(24)
+    45:       TYPEREF 20 [Child]
+    47:         SHAREDtype 29
+    49:       APPLY(18)
+    51:         TYPEAPPLY(16)
+    53:           SELECTin(6) 22 [<init>[Signed Signature(List(1),scala.annotation.internal.Child) @<init>]]
+    56:             NEW
+    57:               SHAREDtype 45
+    59:             SHAREDtype 45
+    61:           TERMREFsymbol 138
+    64:             THIS
+    65:               TYPEREFsymbol 87
+    67:                 TERMREFpkg 1 [a]
+    69:   VALDEF(16) 2 [ASealed]
+    72:     IDENTtpt 23 [ASealed[ModuleClass]]
+    74:       SHAREDtype 65
+    76:     APPLY(8)
+    78:       SELECTin(6) 26 [<init>[Signed Signature(List(),a.ASealed$) @<init>]]
+    81:         NEW
+    82:           SHAREDterm 72
+    84:         SHAREDtype 65
+    86:     OBJECT
+    87:   TYPEDEF(295) 23 [ASealed[ModuleClass]]
+    91:     TEMPLATE(274)
+    94:       APPLY(8)
+    96:         SELECTin(6) 28 [<init>[Signed Signature(List(),java.lang.Object) @<init>]]
+    99:           NEW
+   100:             SHAREDtype 10
+   102:           SHAREDtype 10
+   104:       TYPEREF 29 [Sum]
+   106:         THIS
+   107:           TYPEREF 31 [Mirror[ModuleClass]]
+   109:             TERMREFpkg 33 [scala[Qualified . deriving]]
+   111:       SELFDEF 34 [_]
+   113:         SINGLETONtpt
+   114:           TERMREFsymbol 69
+   116:             SHAREDtype 67
+   118:       DEFDEF(4) 7 [<init>]
+   121:         EMPTYCLAUSE
+   122:         SHAREDtype 18
+   124:       DEFDEF(12) 35 [writeReplace]
+   127:         EMPTYCLAUSE
+   128:         TYPEREF 36 [AnyRef]
+   130:           SHAREDtype 20
+   132:         ELIDED
+   133:           SHAREDtype 128
+   136:         PRIVATE
+   137:         SYNTHETIC
+   138:       VALDEF(22) 37 [A1]
+   141:         IDENTtpt 38 [A1[ModuleClass]]
+   143:           TYPEREFsymbol 162
+   146:             SHAREDtype 64
+   148:         APPLY(10)
+   150:           SELECTin(8) 41 [<init>[Signed Signature(List(),a.ASealed$.A1$) @<init>]]
+   153:             NEW
+   154:               SHAREDterm 141
+   157:             SHAREDtype 143
+   160:         CASE
+   161:         OBJECT
+   162:       TYPEDEF(175) 38 [A1[ModuleClass]]
+   166:         TEMPLATE(169)
+   169:           APPLY(8)
+   171:             SELECTin(6) 28 [<init>[Signed Signature(List(),java.lang.Object) @<init>]]
+   174:               NEW
+   175:                 SHAREDtype 10
+   177:               SHAREDtype 10
+   179:           IDENTtpt 2 [ASealed]
+   181:             TYPEREFsymbol 5
+   183:               SHAREDtype 67
+   185:           SELECTtpt 42 [Product]
+   187:             SELECT 9 [scala]
+   189:               TERMREFpkg 43 [_root_]
+   191:           SELECTtpt 44 [Serializable]
+   193:             SELECT 9 [scala]
+   195:               SHAREDtype 189
+   198:           TYPEREF 45 [Singleton]
+   200:             SHAREDtype 106
+   202:           SELFDEF 34 [_]
+   204:             SINGLETONtpt
+   205:               SHAREDtype 61
+   207:           DEFDEF(5) 7 [<init>]
+   210:             EMPTYCLAUSE
+   211:             SHAREDtype 18
+   213:             STABLE
+   214:           DEFDEF(11) 35 [writeReplace]
+   217:             EMPTYCLAUSE
+   218:             SHAREDtype 128
+   221:             ELIDED
+   222:               SHAREDtype 128
+   225:             PRIVATE
+   226:             SYNTHETIC
+   227:           DEFDEF(12) 46 [hashCode]
+   230:             EMPTYCLAUSE
+   231:             TYPEREF 47 [Int]
+   233:               SHAREDtype 20
+   235:             ELIDED
+   236:               SHAREDtype 231
+   239:             OVERRIDE
+   240:             SYNTHETIC
+   241:           DEFDEF(12) 48 [toString]
+   244:             EMPTYCLAUSE
+   245:             TYPEREF 16 [String]
+   247:               SHAREDtype 12
+   249:             ELIDED
+   250:               SHAREDtype 245
+   253:             OVERRIDE
+   254:             SYNTHETIC
+   255:           DEFDEF(18) 49 [canEqual]
+   258:             PARAM(5) 50 [that]
+   261:               TYPEREF 51 [Any]
+   263:                 SHAREDtype 20
+   265:             TYPEREF 52 [Boolean]
+   267:               SHAREDtype 20
+   269:             ELIDED
+   270:               SHAREDtype 265
+   273:             OVERRIDE
+   274:             SYNTHETIC
+   275:           DEFDEF(10) 53 [productArity]
+   278:             SHAREDtype 231
+   281:             ELIDED
+   282:               SHAREDtype 231
+   285:             OVERRIDE
+   286:             SYNTHETIC
+   287:           DEFDEF(13) 54 [productPrefix]
+   290:             TYPEREF 16 [String]
+   292:               TERMREF 55 [Predef]
+   294:                 SHAREDtype 20
+   296:             ELIDED
+   297:               SHAREDtype 290
+   300:             OVERRIDE
+   301:             SYNTHETIC
+   302:           DEFDEF(16) 56 [productElement]
+   305:             PARAM(4) 57 [n]
+   308:               SHAREDtype 231
+   311:             SHAREDtype 261
+   314:             ELIDED
+   315:               SHAREDtype 261
+   318:             OVERRIDE
+   319:             SYNTHETIC
+   320:           DEFDEF(16) 58 [productElementName]
+   323:             PARAM(4) 57 [n]
+   326:               SHAREDtype 231
+   329:             SHAREDtype 290
+   332:             ELIDED
+   333:               SHAREDtype 290
+   336:             OVERRIDE
+   337:             SYNTHETIC
+   338:         CASE
+   339:         OBJECT
+   340:       TYPEDEF(7) 59 [MirroredMonoType]
+   343:         TYPEBOUNDS(3)
+   345:           SHAREDtype 181
+   348:         SYNTHETIC
+   349:       DEFDEF(17) 60 [ordinal]
+   352:         PARAM(6) 61 [x$0]
+   355:           TYPEREFsymbol 340
+   358:             SHAREDtype 64
+   360:         SHAREDtype 231
+   363:         ELIDED
+   364:           SHAREDtype 231
+   367:         SYNTHETIC
+   368:     OBJECT
+   369:     ANNOTATION(14)
+   371:       SHAREDtype 27
+   373:       APPLY(10)
+   375:         SELECTin(6) 18 [<init>[Signed Signature(List(java.lang.String),scala.annotation.internal.SourceFile) @<init>]]
+   378:           NEW
+   379:             SHAREDtype 27
+   381:           SHAREDtype 27
+   383:         STRINGconst 19 [<elided source file name>]
+   385:
+
+Positions (147 bytes, starting from <elided base index>):
+  lines: 7
+  line sizes:
+     9, 0, 20, 16, 32, 1, 0
+  positions:
+     0: 0 .. 83
+     5: 11 .. 31
+     8: 11 .. 11
+    10: 24 .. 24
+    14: 11 .. 11
+    18: 11 .. 11
+    31: 11 .. 31
+    37: 11 .. 11
+    41: 11 .. 11
+    57: 24 .. 24
+    61: 24 .. 24
+    69: 32 .. 32
+    72: 32 .. 32
+    87: 32 .. 83
+    91: 51 .. 81
+   100: 39 .. 39
+   104: 51 .. 51
+   114: 51 .. 51
+   118: 51 .. 51
+   122: 51 .. 51
+   124: 39 .. 39
+   128: 39 .. 39
+   138: 51 .. 51
+   141: 51 .. 51
+   162: 51 .. 81
+   166: 74 .. 81
+   175: 63 .. 63
+   179: 74 .. 81
+   189: 81 .. 81
+   195: 81 .. 81
+   198: 81 .. 81
+   205: 74 .. 74
+   207: 74 .. 74
+   211: 74 .. 74
+   214: 63 .. 63
+   218: 63 .. 63
+   227: 63 .. 63
+   231: 63 .. 63
+   241: 63 .. 63
+   245: 63 .. 63
+   255: 63 .. 63
+   258: 63 .. 63
+   261: 63 .. 63
+   265: 63 .. 63
+   275: 63 .. 63
+   278: 63 .. 63
+   287: 63 .. 63
+   290: 63 .. 63
+   302: 63 .. 63
+   305: 63 .. 63
+   308: 63 .. 63
+   311: 63 .. 63
+   320: 63 .. 63
+   323: 63 .. 63
+   326: 63 .. 63
+   329: 63 .. 63
+   340: 39 .. 39
+   343: 39 .. 39
+   349: 39 .. 39
+   352: 39 .. 39
+   355: 39 .. 39
+   360: 39 .. 39
+   373: 32 .. 83
+   379: 32 .. 32
+   383: 32 .. 32
+
+  source paths:
+     0: 19 [<elided source file name>]
+
+Attributes (3 bytes, starting from <elided base index>):
+  OUTLINEattr
+  SOURCEFILEattr 19 [<elided source file name>]
