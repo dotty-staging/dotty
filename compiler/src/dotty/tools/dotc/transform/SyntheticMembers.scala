@@ -61,11 +61,14 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
   private var myEnumValueSymbols: List[Symbol] = Nil
   private var myNonJavaEnumValueSymbols: List[Symbol] = Nil
 
+  /** Elide rhs of synthetic definitions when true */
   private var knownOutlineFirstPass = false
+
+  private def initOutline()(using Context): Unit =
+    knownOutlineFirstPass = ctx.isOutlineFirstPass
 
   private def initSymbols(using Context) =
     if (myValueSymbols.isEmpty) {
-      knownOutlineFirstPass = ctx.isOutlineFirstPass
       myValueSymbols = List(defn.Any_hashCode, defn.Any_equals)
       myCaseSymbols = defn.caseClassSynthesized
       myCaseModuleSymbols = myCaseSymbols.filter(_ ne defn.Any_equals)
@@ -466,7 +469,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       && ctx.platform.shouldReceiveJavaSerializationMethods(clazz)
     then
       def rhs =
-        if ctx.isOutlineFirstPass then
+        if knownOutlineFirstPass then
           tpd.ElidedTree.make()
         else
           New(defn.ModuleSerializationProxyClass.typeRef,
@@ -498,12 +501,16 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       && !hasReadResolve(clazz)
       && ctx.platform.shouldReceiveJavaSerializationMethods(clazz)
     then
+      def rhs =
+        if knownOutlineFirstPass then
+          tpd.ElidedTree.make()
+        else
+          ref(clazz.owner.owner.sourceModule)
+            .select(nme.fromOrdinal)
+            .appliedTo(This(clazz).select(nme.ordinal).ensureApplied)
       List(
-        DefDef(readResolveDef(clazz),
-          _ => ref(clazz.owner.owner.sourceModule)
-                .select(nme.fromOrdinal)
-                .appliedTo(This(clazz).select(nme.ordinal).ensureApplied))
-          .withSpan(ctx.owner.span.focus))
+        DefDef(readResolveDef(clazz), _ => rhs).withSpan(ctx.owner.span.focus)
+      )
     else
       Nil
 
@@ -549,7 +556,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
           (baseRef, extractParams(methTpe))
     end computeFromCaseClass
 
-    if ctx.isOutlineFirstPass then
+    if knownOutlineFirstPass then
       tpd.ElidedTree.make()
     else
       val (classRefApplied, paramInfos) = computeFromCaseClass
@@ -579,7 +586,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
    *  O is O.type.
    */
   def ordinalBody(cls: Symbol, param: Tree, optInfo: Option[MirrorImpl.OfSum])(using Context): Tree =
-    if ctx.isOutlineFirstPass then
+    if knownOutlineFirstPass then
       tpd.ElidedTree.make()
     else if cls.is(Enum) then
       param.select(nme.ordinal).ensureApplied
@@ -678,6 +685,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
   }
 
   def addSyntheticMembers(impl: Template)(using Context): Template = {
+    initOutline()
     val clazz = ctx.owner.asClass
     val syntheticMembers = serializableObjectMethod(clazz) ::: serializableEnumValueMethod(clazz) ::: caseAndValueMethods(clazz)
     checkInlining(syntheticMembers)
