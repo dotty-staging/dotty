@@ -67,6 +67,9 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
   private def initOutline()(using Context): Unit =
     knownOutlineFirstPass = ctx.isOutlineFirstPass
 
+  private def doElideBody(clazz: Symbol)(using Context): Boolean =
+    knownOutlineFirstPass && !clazz.ownersIterator.exists(_.is(Inline))
+
   private def initSymbols(using Context) =
     if (myValueSymbols.isEmpty) {
       myValueSymbols = List(defn.Any_hashCode, defn.Any_equals)
@@ -94,6 +97,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
    */
   def caseAndValueMethods(clazz: ClassSymbol)(using Context): List[Tree] = {
     val clazzType = clazz.appliedRef
+    val inOutlineCtx = doElideBody(clazz)
     lazy val accessors =
       if clazz.isDerivedValueClass then clazz.paramAccessors.take(1) // Tail parameters can only be `erased`
       else clazz.caseAccessors
@@ -173,7 +177,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       }
 
       def syntheticRHSOrElided(vrefss: List[List[Tree]])(using Context): Tree =
-        if knownOutlineFirstPass then tpd.ElidedTree.make()
+        if inOutlineCtx then tpd.ElidedTree.make()
         else syntheticRHS(vrefss)
       report.log(s"adding $synthetic to $clazz at ${ctx.phase}")
       synthesizeDef(synthetic, syntheticRHSOrElided)
@@ -469,7 +473,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       && ctx.platform.shouldReceiveJavaSerializationMethods(clazz)
     then
       def rhs =
-        if knownOutlineFirstPass then
+        if doElideBody(clazz) then
           tpd.ElidedTree.make()
         else
           New(defn.ModuleSerializationProxyClass.typeRef,
@@ -502,7 +506,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       && ctx.platform.shouldReceiveJavaSerializationMethods(clazz)
     then
       def rhs =
-        if knownOutlineFirstPass then
+        if doElideBody(clazz) then
           tpd.ElidedTree.make()
         else
           ref(clazz.owner.owner.sourceModule)
@@ -556,7 +560,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
           (baseRef, extractParams(methTpe))
     end computeFromCaseClass
 
-    if knownOutlineFirstPass then
+    if doElideBody(caseClass) then
       tpd.ElidedTree.make()
     else
       val (classRefApplied, paramInfos) = computeFromCaseClass
@@ -586,7 +590,7 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
    *  O is O.type.
    */
   def ordinalBody(cls: Symbol, param: Tree, optInfo: Option[MirrorImpl.OfSum])(using Context): Tree =
-    if knownOutlineFirstPass then
+    if doElideBody(cls) then
       tpd.ElidedTree.make()
     else if cls.is(Enum) then
       param.select(nme.ordinal).ensureApplied
