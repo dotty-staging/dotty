@@ -390,7 +390,10 @@ class CheckCaptures extends Recheck, SymTransformer:
                 if !isVisible && c.isReach then
                   // Reach capabilities that go out of scope have to be approximated
                   // by their underlyiong capture set. See i20503.scala.
-                  checkSubset(CaptureSet.ofInfo(c), env.captured, pos, provenance(env))
+                  val widen = CaptureSet.ofInfo(c)
+                  //println(i"APPROX REACH $c --> $widen")
+                  //checkSubset(widen, env.captured, pos, provenance(env))
+                  report.error(em"Cannot include ${ref.name}*", pos)
                 isVisible
               case ref: ThisType => isVisibleFromEnv(ref.cls)
               case _ => false
@@ -1025,6 +1028,7 @@ class CheckCaptures extends Recheck, SymTransformer:
      *  @param alwaysConst  always make capture set variables constant after adaptation
      */
     def adaptBoxed(actual: Type, expected: Type, pos: SrcPos, covariant: Boolean, alwaysConst: Boolean, boxErrors: BoxErrors)(using Context): Type =
+      //println(i"ADAPT $actual ~~> $expected")
 
       def recur(actual: Type, expected: Type, covariant: Boolean): Type =
 
@@ -1127,6 +1131,7 @@ class CheckCaptures extends Recheck, SymTransformer:
                 report.error(msg, pos)
             if !insertBox then  // unboxing
               //debugShowEnvs()
+              //println(i"UNBOX $criticalSet")
               markFree(criticalSet, pos)
             adaptedType(!actualIsBoxed)
         else
