@@ -186,6 +186,9 @@ object Pickler {
             Option.when(s != Signal.Cancelled):
               if incCallback != null && s == Signal.Effect then
                 val reporter = asyncReportDepPhaseCompleted(incCallback, None)
+                // TODO: when we switch to batch compile - then this thing should further delegate to
+                // another promise that is awaited by the driver. OR - we dont have any effect here -
+                // and the promise is passed in externally.
                 State(hasErrors = reporter.hasErrors, pending = reporter.toBuffered)
               else
                 State(hasErrors = false, pending = None)
