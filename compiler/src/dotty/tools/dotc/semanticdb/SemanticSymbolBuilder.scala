@@ -84,10 +84,15 @@ class SemanticSymbolBuilder:
           decls0
       end decls
       val alts = decls.filter(_.isOneOf(Method | Mutable)).toList.reverse.partition(!_.is(Synthetic)).toList.flatten
-      def find(filter: Symbol => Boolean) = alts match
+      def find(filter: Symbol => Boolean): Unit = alts match
         case notSym :: rest if !filter(notSym) =>
-          val idx = rest.indexWhere(filter).ensuring(_ >= 0)
-          b.append('+').append(idx + 1)
+          val idx = rest.indexWhere(filter)
+          if idx >= 0 then
+            b.append('+').append(idx + 1)
+          else
+            // assume it's actually correct - it could be a patched symbol such as Predef.valueOf,
+            // which changes the signature
+            ()
         case _ =>
       end find
       val sig = sym.signature
