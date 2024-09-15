@@ -162,21 +162,28 @@ class ExpandSAMs extends MiniPhase:
             // And we need to update all references to 'param'
       }
 
+      extension [T <: Tree](tree: T) def adaptOwner(newOwner: Symbol): T =
+        tree.changeOwner(anonSym, newOwner)
+
       def isDefinedAtRhs(paramRefss: List[List[Tree]])(using Context) = {
         val tru = Literal(Constant(true))
-        def translateCase(cdef: CaseDef) =
-          cpy.CaseDef(cdef)(body = tru).changeOwner(anonSym, isDefinedAtFn)
         val paramRef = paramRefss.head.head
         val defaultValue = Literal(Constant(false))
-        translateMatch(pfRHS, paramRef.symbol, pfRHS.cases.map(translateCase), defaultValue)
+        translateMatch(
+          pfRHS.adaptOwner(isDefinedAtFn),
+          paramRef.symbol,
+          pfRHS.cases.map(cpy.CaseDef(_)(body = tru).adaptOwner(isDefinedAtFn)),
+          defaultValue)
       }
 
       def applyOrElseRhs(paramRefss: List[List[Tree]])(using Context) = {
         val List(paramRef, defaultRef) = paramRefss(1)
-        def translateCase(cdef: CaseDef) =
-          cdef.changeOwner(anonSym, applyOrElseFn)
         val defaultValue = defaultRef.select(nme.apply).appliedTo(paramRef)
-        translateMatch(pfRHS, paramRef.symbol, pfRHS.cases.map(translateCase), defaultValue)
+        translateMatch(
+          pfRHS.adaptOwner(applyOrElseFn),
+           paramRef.symbol,
+          pfRHS.cases.map(_.adaptOwner(applyOrElseFn)),
+          defaultValue)
       }
 
       val isDefinedAtDef = transformFollowingDeep(DefDef(isDefinedAtFn, isDefinedAtRhs(_)(using ctx.withOwner(isDefinedAtFn))))
