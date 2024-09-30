@@ -25,6 +25,7 @@ import scala.quoted.runtime.impl.printers.*
 import scala.reflect.TypeTest
 import dotty.tools.dotc.core.NameKinds.ExceptionBinderName
 import dotty.tools.dotc.transform.TreeChecker
+import dotty.tools.dotc.util.NoSource
 
 object QuotesImpl {
 
@@ -2688,9 +2689,10 @@ class QuotesImpl private (using val ctx: Context) extends Quotes, QuoteUnpickler
           if self.exists then
             val symPos = self.sourcePos
             if symPos.exists then Some(symPos)
-            else
+            else if self.source.exists then
               if xCheckMacro then report.warning(s"Missing symbol position (defaulting to position 0): $self\nThis is a compiler bug. Please report it.")
               Some(self.source.atSpan(dotc.util.Spans.Span(0)))
+            else None
           else None
 
         def docstring: Option[String] =
