@@ -264,7 +264,25 @@ class UnrollDefinitions extends MacroTransform, IdentityDenotTransformer {
     ).setDefTree
   }
 
-  def generateSyntheticDefs(tree: Tree, compute: ComputeIndicies)(using Context): Option[(Symbol, Option[Symbol], Seq[DefDef])] = tree match {
+  def generateSyntheticDefs(tree: Tree, compute: ComputeIndicies)(using Context): Option[(Symbol, Option[Symbol], Seq[ValOrDefDef])] = tree match {
+    case valdef: ValDef if valdef.symbol.is(ParamAccessor) && valdef.symbol.owner.is(Trait) =>
+      val ctor = valdef.symbol.owner.primaryConstructor
+      compute(ctor) match {
+        case Nil => None
+        case Seq((paramClauseIndex, annotationIndices)) =>
+          val defaultParams = ctor.paramSymss(paramClauseIndex).drop(annotationIndices.head)
+          // assert(firstAnnotated.hasAnnotation(defn.UnrollAnnot))
+          // report.warning(i"TODO: implemet for $defaultParams")
+
+          if defaultParams.exists(_.name == valdef.name) then
+            val rhs = ref(defn.ScalaPredefModule).select(defn.Predef_undefined).ensureApplied
+            val valdef0 = cpy.ValDef(valdef)(rhs = rhs)
+            Some((valdef.symbol, Some(valdef.symbol), Seq(valdef0)))
+          else
+            None
+        case multiple => sys.error("Cannot have multiple parameter lists containing `@unroll` annotation")
+      }
+
     case defdef: DefDef if defdef.paramss.nonEmpty =>
       import dotty.tools.dotc.core.NameOps.isConstructorName
 
@@ -276,6 +294,8 @@ class UnrollDefinitions extends MacroTransform, IdentityDenotTransformer {
 
       val isCaseFromProduct = defdef.name.toString == "fromProduct" && defdef.symbol.owner.companionClass.is(CaseClass)
 
+      val isTraitConstructor = defdef.name.isConstructorName && defdef.symbol.owner.is(Trait)
+
       val annotated =
         if (isCaseCopy) defdef.symbol.owner.primaryConstructor
         else if (isCaseApply) defdef.symbol.owner.companionClass.primaryConstructor
@@ -286,7 +306,9 @@ class UnrollDefinitions extends MacroTransform, IdentityDenotTransformer {
         case Nil => None
         case Seq((paramClauseIndex, annotationIndices)) =>
           val paramCount = annotated.paramSymss(paramClauseIndex).size
-          if isCaseFromProduct then
+          if isTraitConstructor then
+            None // we must not generate forwarder methods for trait constructors
+          else if isCaseFromProduct then
             Some((defdef.symbol, Some(defdef.symbol), Seq(generateFromProduct(annotationIndices, paramCount, defdef))))
           else
             val (generatedDefs, _) =
