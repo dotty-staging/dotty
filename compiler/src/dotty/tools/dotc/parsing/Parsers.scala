@@ -1293,12 +1293,16 @@ object Parsers {
     /** Singleton    ::=  SimpleRef
      *                 |  SimpleLiteral
      *                 |  Singleton ‘.’ id
-     * -- not yet      |  Singleton ‘(’ Singletons ‘)’
+     *                 |  Singleton ‘(’ Singletons ‘)’
      * -- not yet      |  Singleton ‘[’ Types ‘]’
      */
     def singleton(): Tree =
-      if isSimpleLiteral then simpleLiteral()
-      else dotSelectors(simpleRef())
+      val res =
+        if isSimpleLiteral then simpleLiteral()
+        else dotSelectors(simpleRef())
+      if in.token == LPAREN then
+        AppliedTypeTree(res, inParens(commaSeparated(() => singleton())))
+      else res
 
     /** SimpleLiteral     ::=  [‘-’] integerLiteral
      *                      |  [‘-’] floatingPointLiteral
@@ -1988,7 +1992,7 @@ object Parsers {
     /**  SimpleType      ::=  SimpleLiteral
      *                     |  ‘?’ TypeBounds
      *                     |  SimpleType1
-     *                     |  SimpleType ‘(’ Singletons ‘)’  -- under language.experimental.dependent, checked in Typer
+     *                     |  SimpleType ‘(’ Singletons ‘)’  -- under language.experimental.modularity, checked in Typer
      *   Singletons      ::=  Singleton {‘,’ Singleton}
      */
     def simpleType(): Tree =
@@ -2021,7 +2025,7 @@ object Parsers {
         typeBounds().withSpan(Span(start, in.lastOffset, start))
       else
         def singletonArgs(t: Tree): Tree =
-          if in.token == LPAREN && in.featureEnabled(Feature.dependent)
+          if in.token == LPAREN && in.featureEnabled(Feature.modularity)
           then singletonArgs(AppliedTypeTree(t, inParensWithCommas(commaSeparated(singleton))))
           else t
         singletonArgs(simpleType1())
