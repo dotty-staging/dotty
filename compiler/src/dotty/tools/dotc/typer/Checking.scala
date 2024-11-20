@@ -1307,14 +1307,18 @@ trait Checking {
     }
 
   def checkTrackedInheritance(sym: ClassSymbol, parents: List[Tree])(using Context): Unit =
-    if Feature.enabled(Feature.modularity) && ctx.settings.Whas.lintTrackedParam then
+    if ctx.isTyper && Feature.enabled(Feature.modularity) && ctx.settings.Whas.lintTrackedParam then
       val constr = sym.primaryConstructor
-      val constrParams = constr.paramSymss.flatten.filter(_.isTerm)
+      val constrParams = constr.paramSymss.flatten.filter(_.isTerm).filter(!_.is(Tracked)).flatMap { p =>
+        val accessors = sym.info.decls.lookupAll(p.name).filter(acc => acc.is(ParamAccessor))
+        p +: accessors.toList
+      }
       parents.foreach { p =>
-        val parentConstrArgs = p.symbol.primaryConstructor.paramSymss.filter(_.exists(_.isTerm))
+        val parentConstrArgs = p.symbol.paramSymss.filter(_.exists(_.isTerm))
         termArgss(p).zip(parentConstrArgs).map( (l, r) => l.zip(r)).flatten.foreach { (arg, psym) =>
           constrParams.find(_ == arg.symbol) match {
-            case Some(p) if psym.is(Tracked) => report.warning(em"Parameter $p should be tracked")
+            case Some(p) if psym.is(Tracked) =>
+              report.warning(em"Parameter $p should be tracked, since it is used as a tracked paremeter", arg.srcPos)
             case _ =>
           }
         }
