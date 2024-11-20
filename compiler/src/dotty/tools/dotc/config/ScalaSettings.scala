@@ -164,6 +164,7 @@ private sealed trait WarningSettings:
   private val WenumCommentDiscard = BooleanSetting(WarningSetting, "Wenum-comment-discard", "Warn when a comment ambiguously assigned to multiple enum cases is discarded.")
   private val WimplausiblePatterns = BooleanSetting(WarningSetting, "Wimplausible-patterns", "Warn if comparison with a pattern value looks like it might always fail.")
   private val WunstableInlineAccessors = BooleanSetting(WarningSetting, "WunstableInlineAccessors", "Warn an inline methods has references to non-stable binary APIs.")
+  private val WlintTrackedParam = BooleanSetting(WarningSetting, "Wlint-tracked-param", "Warn if a parameter should be defined as tracked")
   private val Wunused: Setting[List[ChoiceWithHelp[String]]] = MultiChoiceHelpSetting(
     WarningSetting,
     name = "Wunused",
@@ -314,6 +315,7 @@ private sealed trait WarningSettings:
     def enumCommentDiscard(using Context): Boolean = allOr(WenumCommentDiscard)
     def implausiblePatterns(using Context): Boolean = allOr(WimplausiblePatterns)
     def unstableInlineAccessors(using Context): Boolean = allOr(WunstableInlineAccessors)
+    def lintTrackedParam(using Context): Boolean = allOr(WlintTrackedParam)
     def checkInit(using Context): Boolean = allOr(WcheckInit)
 
 /** -X "Extended" or "Advanced" settings */

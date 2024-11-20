@@ -1306,6 +1306,20 @@ trait Checking {
       case _ =>
     }
 
+  def checkTrackedInheritance(sym: ClassSymbol, parents: List[Tree])(using Context): Unit =
+    if Feature.enabled(Feature.modularity) && ctx.settings.Whas.lintTrackedParam then
+      val constr = sym.primaryConstructor
+      val constrParams = constr.paramSymss.flatten.filter(_.isTerm)
+      parents.foreach { p =>
+        val parentConstrArgs = p.symbol.primaryConstructor.paramSymss.filter(_.exists(_.isTerm))
+        termArgss(p).zip(parentConstrArgs).map( (l, r) => l.zip(r)).flatten.foreach { (arg, psym) =>
+          constrParams.find(_ == arg.symbol) match {
+            case Some(p) if psym.is(Tracked) => report.warning(em"Parameter $p should be tracked")
+            case _ =>
+          }
+        }
+      }
+
   /** Check that method parameter types do not reference their own parameter
    *  or later parameters in the same parameter section.
    */

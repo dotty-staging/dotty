@@ -3187,6 +3187,8 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
       // check value class constraints
       checkDerivedValueClass(cls, body1)
 
+      checkTrackedInheritance(cls, parents1)
+
       val effectiveOwner = cls.owner.skipWeakOwner
       if cls.is(ModuleClass)
          && effectiveOwner.is(Trait)
