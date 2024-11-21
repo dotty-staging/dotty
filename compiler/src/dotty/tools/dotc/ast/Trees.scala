@@ -823,6 +823,9 @@ object Trees {
     def forwardTo: Tree[T] = tpt
   }
 
+  /** tpt(args) */
+  class AppliedTermTree[+T <: Untyped] private[ast] (tpt: Tree[T], args: List[Tree[T]])(implicit @constructorOnly src: SourceFile) extends AppliedTypeTree(tpt, args)
+
   /** [typeparams] -> tpt
    *
    *  Note: the type of such a tree is not necessarily a `HKTypeLambda`, it can
@@ -1191,6 +1194,7 @@ object Trees {
     type SingletonTypeTree = Trees.SingletonTypeTree[T]
     type RefinedTypeTree = Trees.RefinedTypeTree[T]
     type AppliedTypeTree = Trees.AppliedTypeTree[T]
+    type AppliedTermTree = Trees.AppliedTermTree[T]
     type LambdaTypeTree = Trees.LambdaTypeTree[T]
     type TermLambdaTypeTree = Trees.TermLambdaTypeTree[T]
     type MatchTypeTree = Trees.MatchTypeTree[T]

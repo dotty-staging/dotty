@@ -2049,8 +2049,8 @@ object Parsers {
         typeBounds().withSpan(Span(start, in.lastOffset, start))
       else
         def singletonArgs(t: Tree): Tree =
-          if in.token == LPAREN && in.featureEnabled(Feature.dependent)
-          then singletonArgs(AppliedTypeTree(t, inParensWithCommas(commaSeparated(singleton))))
+          if in.token == LPAREN && in.featureEnabled(Feature.modularity)
+          then singletonArgs(AppliedTermTree(t, inParensWithCommas(commaSeparated(() => typ()))))
           else t
         singletonArgs(simpleType1())
 

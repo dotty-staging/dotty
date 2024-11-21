@@ -2490,22 +2490,35 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
   }
 
   def typedAppliedTypeTree(tree: untpd.AppliedTypeTree)(using Context): Tree = {
-    tree.args match
-      case arg :: _ if arg.isTerm =>
-        if Feature.dependentEnabled then
-          return errorTree(tree, em"Not yet implemented: T(...)")
-        else
-          return errorTree(tree, dependentMsg)
-      case _ =>
-
     val tpt1 = withoutMode(Mode.Pattern) {
       typed(tree.tpt, AnyTypeConstructorProto)
     }
+
+    if Feature.enabled(Feature.modularity) && tree.isInstanceOf[untpd.AppliedTermTree] then
+      def applyTypeArguments(fun: Tree): Type =
+        fun match
+          case AppliedTypeTree(tpt, args) =>
+            applyTypeArguments(tpt).appliedTo(args.map(_.tpe))
+          case Ident(_) =>
+            fun.tpe.typeSymbol.primaryConstructor.typeRef.underlying
+          case _ =>
+            fun.tpe
+
+      applyTypeArguments(tpt1) match
+        case mt: MethodType =>
+          val args1 = tree.args.mapconserve(typedType(_))
+          val resTp = mt.instantiate(args1.map(_.tpe))
+          return TypeTree(resTp)
+          //assignType(cpy.AppliedTypeTree(tree)(tpt1, args1), tpt1, args1)
+        case tp =>
+          assert(false, s"Expected method type, found ${tp}")
+
+
     val tparams = tpt1.tpe.typeParams
-     if tpt1.tpe.isError then
-       val args1 = tree.args.mapconserve(typedType(_))
-       assignType(cpy.AppliedTypeTree(tree)(tpt1, args1), tpt1, args1)
-     else if (tparams.isEmpty) {
+    if tpt1.tpe.isError then
+      val args1 = tree.args.mapconserve(typedType(_))
+      assignType(cpy.AppliedTypeTree(tree)(tpt1, args1), tpt1, args1)
+    else if (tparams.isEmpty) {
       report.error(TypeDoesNotTakeParameters(tpt1.tpe, tree.args), tree.srcPos)
       tpt1
     }
