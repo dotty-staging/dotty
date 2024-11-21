@@ -1,4 +1,12 @@
--- Warning: tests/warn/lint-tracked.scala:13:37 ------------------------------------------------------------------------
-13 |class G(override val x: C) extends F(x) // warn
-   |                                     ^
+-- Warning: tests/warn/lint-tracked.scala:16:30 ------------------------------------------------------------------------
+16 |class G0(val y: C) extends F0(y) // warn
+   |                              ^
+   |                              Parameter value y should be tracked, since it is used as a tracked paremeter
+-- Warning: tests/warn/lint-tracked.scala:18:40 ------------------------------------------------------------------------
+18 |class G00(override val x: C) extends F0(x) // warn
+   |                                        ^
+   |                                    Parameter value x should be tracked, since it is used as a tracked paremeter
+-- Warning: tests/warn/lint-tracked.scala:20:39 ------------------------------------------------------------------------
+20 |class G1(override val x: C) extends F1(x) // warn
+   |                                       ^
    |                                    Parameter value x should be tracked, since it is used as a tracked paremeter
