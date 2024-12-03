@@ -385,6 +385,12 @@ extension (tp: Type)
     case _ =>
       false
 
+  /** Is this a type extending `Mutable` that has update methods? */
+  def isMutableType(using Context): Boolean =
+    tp.derivesFrom(defn.Caps_Mutable)
+    && tp.membersBasedOnFlags(Mutable | Method, EmptyFlags)
+      .exists(_.hasAltWith(_.symbol.isUpdateMethod))
+
   /** Tests whether the type derives from `caps.Capability`, which means
    *  references of this type are maximal capabilities.
    */
