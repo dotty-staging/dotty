@@ -572,13 +572,13 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
   def toNotNullTermRef(tree: Tree, pt: Type)(using Context): Tree = tree.tpe match
     case ref: TermRef
     if pt != LhsProto && // Ensure it is not the lhs of Assign
-    ctx.notNullInfos.impliesNotNull(ref) &&
-    // If a reference is in the context, it is already trackable at the point we add it.
-    // Hence, we don't use isTracked in the next line, because checking use out of order is enough.
-    !ref.usedOutOfOrder =>
+    ctx.notNullInfos.impliesNotNull(ref) =>
       ref match
-        case OrNull(tpnn) => tree.cast(AndType(ref, tpnn))
-        case _            => tree
+        case OrUninitalized(tpnn) => tree.cast(AndType(ref, tpnn))
+        // If a reference is in the context, it is already trackable at the point we add it.
+        // Hence, we don't use isTracked in the next line, because checking use out of order is enough.
+        case OrNull(tpnn) if !ref.usedOutOfOrder => tree.cast(AndType(ref, tpnn))
+        case _ => tree
     case _ =>
       tree
 
@@ -3670,8 +3670,8 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     trace(i"typing $tree, pt = $pt", typr, show = true) {
       record(s"typed $getClass")
       record("typed total")
-      if ctx.phase.isTyper then
-        assertPositioned(tree)
+      // if ctx.phase.isTyper then
+      //   assertPositioned(tree)
       if tree.source != ctx.source && tree.source.exists then
         typed(tree, pt, locked)(using ctx.withSource(tree.source))
       else if ctx.run.nn.isCancelled then

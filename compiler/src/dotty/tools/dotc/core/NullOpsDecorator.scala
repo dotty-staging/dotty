@@ -50,6 +50,42 @@ object NullOpsDecorator:
       val stripped = self.stripNull()
       stripped ne self
     }
+
+    def stripUninitalized(stripFlexibleTypes: Boolean = true)(using Context): Type = {
+      def strip(tp: Type): Type =
+        val tpWiden = tp.widenDealias
+        val tpStripped = tpWiden match {
+          case tp @ OrType(lhs, rhs) =>
+            val llhs = strip(lhs)
+            val rrhs = strip(rhs)
+            if rrhs.isUninitalized then llhs
+            else if llhs.isUninitalized then rrhs
+            else tp.derivedOrType(llhs, rrhs)
+          case tp @ AndType(tp1, tp2) =>
+            // We cannot `tp.derivedAndType(strip(tp1), strip(tp2))` directly,
+            // since `stripNull((A | Null) & B)` would produce the wrong
+            // result `(A & B) | Null`.
+            val tp1s = strip(tp1)
+            val tp2s = strip(tp2)
+            if (tp1s ne tp1) && (tp2s ne tp2) then
+              tp.derivedAndType(tp1s, tp2s)
+            else tp
+          case tp: FlexibleType =>
+            val hi1 = strip(tp.hi)
+            if stripFlexibleTypes then hi1 else tp.derivedFlexibleType(hi1)
+          case tp @ TypeBounds(lo, hi) =>
+            tp.derivedTypeBounds(strip(lo), strip(hi))
+          case tp => tp
+        }
+        if tpStripped ne tpWiden then tpStripped else tp
+
+      if ctx.explicitNulls then strip(self) else self
+    }
+
+    def isUninitalizedUnion(using Context): Boolean = {
+      val stripped = self.stripUninitalized()
+      stripped ne self
+    }
   end extension
 
   import ast.tpd.*

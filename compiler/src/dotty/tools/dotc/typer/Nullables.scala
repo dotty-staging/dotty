@@ -188,6 +188,7 @@ object Nullables:
    */
   def isTracked(ref: TermRef)(using Context) =
     ref.isStable
+    || ref.isUninitalizedUnion
     || { val sym = ref.symbol
          val unit = ctx.compilationUnit
          !ref.usedOutOfOrder
