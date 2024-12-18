@@ -1800,7 +1800,7 @@ object Types extends TypeUtils {
     /** Is this (an alias of) the `scala.Nothing` type? */
     final def isNothingType(using Context) = isRef(defn.NothingClass)
 
-    final def isUninitalized(using Context): Boolean = isRef(defn.Predef_UninitializedClass)
+    final def isUninitalized(using Context): Boolean = isRef(defn.Init_UninitializedClass)
 
     /** The resultType of a LambdaType, or ExprType, the type itself for others */
     def resultType(using Context): Type = this
@@ -3718,7 +3718,7 @@ object Types extends TypeUtils {
 
   object OrUninitalized:
     def apply(tp: Type)(using Context): OrType =
-      OrType(tp, defn.Predef_UninitializedType, soft = false)
+      OrType(tp, defn.Init_UninitializedType, soft = false)
     def unapply(tp: Type)(using Context): Option[Type] =
       val tp1 = tp.stripUninitalized()
       if tp1 ne tp then Some(tp1) else None

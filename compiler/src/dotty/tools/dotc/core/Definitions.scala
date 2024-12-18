@@ -480,11 +480,8 @@ class Definitions {
   }
   def NullType: TypeRef = NullClass.typeRef
 
-  // @tu lazy val Predef_UninitializedClass: ClassSymbol = requiredClass("scala.Predef.Uninitialized")
-  @tu lazy val Predef_UninitializedClass: ClassSymbol = requiredClass("scala.runtime.stdLibPatches.Predef.Uninitialized")
-  // @tu lazy val Predef_UninitializedClass: ClassSymbol =
-  //   enterCompleteClassSymbol(ScalaPackageClass, tpnme.Uninitialized, AbstractFinal, List(NullType))
-  def Predef_UninitializedType: TypeRef = Predef_UninitializedClass.typeRef
+  @tu lazy val Init_UninitializedClass: Symbol = requiredModule("scala.Init").requiredType(nme.Uninitialized)
+  def Init_UninitializedType: TypeRef = Init_UninitializedClass.typeRef
 
   @tu lazy val InvokerModule = requiredModule("scala.runtime.coverage.Invoker")
   @tu lazy val InvokedMethodRef = InvokerModule.requiredMethodRef("invoked")
