@@ -63,7 +63,7 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
           pathToRoot() + m.pageLocation.substring(1)
         }
 
-      div(cls := "scaladoc-searchbar-row mono-small-inline", "result" := "", "inkuire-result" := "", "mq" := m.mq.toString)(
+      div(cls := "scaladoc-searchbar-row mono-small-inline hidden", "result" := "", "inkuire-result" := "", "mq" := m.mq.toString)(
         a(href := location)(
           m.functionName,
           span(cls := "pull-right scaladoc-searchbar-inkuire-signature")(m.prettifiedSignature)
@@ -96,12 +96,17 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
         })
       }
 
+  def createKindSection(kind: String, customClass: String = "") =
+    div()(
+      createKindSeparator(kind, customClass)
+    )
+
   def createKindSeparator(kind: String, customClass: String = "") =
     div(cls := "scaladoc-searchbar-row mono-small-inline", "divider" := "")(
       span(cls := s"micon ${kind.take(2)} $customClass"),
       span(kind)
     )
-  def handleNewFluffQuery(query: NameAndKindQuery) =
+  def handleNewByNameQuery(query: NameAndKindQuery) =
     val searchTask: Future[List[MatchResult]] = Future(engine.query(query))
     searchTask.map { result =>
       if result.isEmpty then
@@ -126,16 +131,6 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
         )
         val fragment = document.createDocumentFragment()
 
-        def createLoadMoreElement =
-          div(cls := "scaladoc-searchbar-row mono-small-inline", "loadmore" := "")(
-            a(
-              span("Load more")
-            )
-          ).tap { loadMoreElement =>
-            loadMoreElement
-              .addEventListener("mouseover", _ => handleHover(loadMoreElement))
-          }
-
         val groupedResults = resultWithDocBonus.groupBy(_.pageEntry.kind)
         val groupedResultsSortedByScore = groupedResults.map {
           case (kind, results) => (kind, results.maxByOption(_.score).map(_.score), results)
@@ -147,7 +142,7 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
 
         groupedResultsSortedByScore.map {
           case (kind, results) =>
-            val kindSeparator = createKindSeparator(kind)
+            val kindSection = createKindSection(kind)
             val htmlEntries = results.map(result => result.pageEntry.toHTML(result.indices))
             val loadMoreElement = createLoadMoreElement
 
@@ -159,9 +154,9 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
               }
             }
 
-            fragment.appendChild(kindSeparator)
-            htmlEntries.foreach(fragment.appendChild)
-            fragment.appendChild(loadMoreElement)
+            fragment.appendChild(kindSection)
+            htmlEntries.foreach(kindSection.appendChild)
+            kindSection.appendChild(loadMoreElement)
 
             val nextElems = htmlEntries.drop(initialChunkSize)
             if nextElems.nonEmpty then {
@@ -190,8 +185,9 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
       }.isEmpty
     }
     if matching.nonEmpty then {
-      resultsDiv.appendChild(createKindSeparator("Recently searched", "fas fa-clock re-icon"))
-      matching.map(_.toHTML).foreach(resultsDiv.appendChild)
+      val kindSection = createKindSection("Recently searched", "fas fa-clock re-icon")
+      resultsDiv.appendChild(kindSection)
+      matching.map(_.toHTML).foreach(kindSection.appendChild)
     }
   }
 
@@ -213,26 +209,55 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
     timeoutHandle = setTimeout(300.millisecond) {
       clearResults()
       handleRecentQueries(query)
-      parser.parse(query) match {
+      parser.parse(query).foreach {
         case query: NameAndKindQuery =>
-            handleNewFluffQuery(query)
+          handleNewByNameQuery(query)
         case SignatureQuery(signature) =>
-            val loading = createLoadingAnimation
-            val kindSeparator = createKindSeparator("inkuire")
-            resultsDiv.appendChild(loading)
-            resultsDiv.appendChild(kindSeparator)
-            inkuireEngine.query(query) { (m: InkuireMatch) =>
-              val next = resultsDiv.children
-                .find(child => child.hasAttribute("mq") && Integer.parseInt(child.getAttribute("mq")) > m.mq)
-              next.fold {
-                resultsDiv.appendChild(m.toHTML)
-              } { next =>
-                resultsDiv.insertBefore(m.toHTML, next)
-              }
-            } { (s: String) =>
-              resultsDiv.removeChild(loading)
-              resultsDiv.appendChild(s.toHTMLError)
+          val loading = createLoadingAnimation
+          val kindSection = createKindSection("inkuire")
+          var addedSection = false
+          var showNo = initialChunkSize
+          var hasLoadMore = false
+
+          def addLoadMoreButton(): Unit = {
+            val loadMoreElement = createLoadMoreElement
+            kindSection.appendChild(loadMoreElement)
+            hasLoadMore = true
+            loadMoreElement.onclick = (event: Event) => {
+              kindSection.removeChild(loadMoreElement)
+              hasLoadMore = false
+              showNo += resultsChunkSize
+              adjustShownChildren()
             }
+          }
+
+          def adjustShownChildren(): Unit = {
+            val resultChildren = kindSection.children.filter(_.hasAttribute("mq"))
+            resultChildren.take(showNo).foreach(_.classList.remove("hidden"))
+            resultChildren.drop(showNo).foreach(_.classList.add("hidden"))
+            val hiddenChildren = resultChildren.filter(_.classList.contains("hidden"))
+            if !hiddenChildren.isEmpty && !hasLoadMore then
+              addLoadMoreButton()
+          }
+
+          inkuireEngine.query(query) { (m: InkuireMatch) =>
+            if document.getElementById("no-results-container") != null then {
+              resultsDiv.removeChild(document.getElementById("no-results-container"))
+            }
+            if !addedSection then
+              resultsDiv.appendChild(kindSection)
+              addedSection = true
+            val next = kindSection.children
+              .find(child => child.hasAttribute("mq") && Integer.parseInt(child.getAttribute("mq")) > m.mq)
+            next.fold {
+              kindSection.appendChild(m.toHTML)
+            } { next =>
+              kindSection.insertBefore(m.toHTML, next)
+            }
+            adjustShownChildren()
+          } { (s: String) =>
+            kindSection.appendChild(s.toHTMLError)
+          }
       }
     }
 
@@ -319,7 +344,7 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
       span(cls := "searchbar-footer-left-container")(
         span("Smart search:"),
         span(b("CC "), "to find CamelCase phrases"),
-        span(b("A=>B "), "to find CamelCase signatures"),
+        span(b("A=>B "), "to find by signatures"),
       ),
       span(cls := "searchbar-footer-right-container")(
         span(b("Esc "), "to close"),
@@ -417,6 +442,16 @@ class SearchbarComponent(engine: PageSearchEngine, inkuireEngine: InkuireJSSearc
     }
     elem.setAttribute("selected","")
   }
+
+  private def createLoadMoreElement =
+    div(cls := "scaladoc-searchbar-row mono-small-inline", "loadmore" := "")(
+      a(
+        span("Load more")
+      )
+    ).tap { loadMoreElement =>
+      loadMoreElement
+        .addEventListener("mouseover", _ => handleHover(loadMoreElement))
+    }
 
   private def handleGlobalKeyDown(e: KeyboardEvent) = {
     // if the user presses the "S" key while not focused on an input, open the search

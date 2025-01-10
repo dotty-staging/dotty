@@ -2,6 +2,7 @@ package dotty.tools.scaladoc
 
 import scala.util.matching.Regex._
 import scala.util.matching._
+import java.security.Signature
 
 class QueryParser:
   val kinds = Seq(
@@ -19,7 +20,6 @@ class QueryParser:
   val kindRegex = ("(?i)" + kinds.mkString("(","|",")") + " (.*)").r
   val nameRegex = raw"(.*)".r
   val escapedRegex = raw"`(.*)`".r
-  val signatureRegex = raw"(.*=>.*)".r
 
   def parseMatchers(query: String): EngineQuery = query match {
     case escapedRegex(rest) => NameAndKindQuery(Some(rest), None)
@@ -28,8 +28,6 @@ class QueryParser:
     case _ => NameAndKindQuery(None, None)
   }
 
-  def parse(query: String): EngineQuery = query match {
-    case signatureRegex(signature) => SignatureQuery(signature)
-    case other => parseMatchers(other)
-  }
-  
+  def parse(query: String): List[EngineQuery] =
+    val nameAndKindQuery = parseMatchers(query)
+    List(nameAndKindQuery, SignatureQuery(query))
