@@ -398,6 +398,7 @@ class Objects(using Context @constructorOnly):
       case Some(theValue) =>
         theValue
       case _ =>
+        throw new RuntimeException("valValue")
         report.warning("[Internal error] Value not found " + x.show + "\nenv = " + data.show + ". " + Trace.show, Trace.position)
         Bottom
 
@@ -771,9 +772,9 @@ class Objects(using Context @constructorOnly):
           end if
 
         case _ =>
-          // by-name closure
-          given Env.Data = env
-          extendTrace(code) { eval(code, thisV, klass, cacheResult = true) }
+          // Should be unreachable, by-name closures are handled by readLocal
+          report.warning("[Internal error] Only DefDef should be possible here, but found " + code.show + ". " + Trace.show, Trace.position)
+          Bottom
 
     case ValueSet(vs) =>
       vs.map(v => call(v, meth, args, receiver, superType)).join
@@ -976,12 +977,13 @@ class Objects(using Context @constructorOnly):
    * @param sym          The symbol of the variable.
    * @param value        The value of the initializer.
    */
-  def initLocal(sym: Symbol, value: Value): Contextual[Unit] = log("initialize local " + sym.show + " with " + value.show, printer) {
+  def initLocal(sym: Symbol, value: Value)(using data: Env.Data, ctx: Context): Contextual[Unit] = log("initialize local " + sym.show + " with " + value.show, printer) {
     if sym.is(Flags.Mutable) then
       val addr = Heap.localVarAddr(summon[Regions.Data], sym, State.currentObject)
       Env.setLocalVar(sym, addr)
       Heap.writeJoin(addr, value)
     else
+      System.out.println("initLocal sym: " + sym.show + " val: " + value.show + " data: " + data.show)
       Env.setLocalVal(sym, value)
   }
 
@@ -1015,12 +1017,15 @@ class Objects(using Context @constructorOnly):
           val rhs = sym.defTree.asInstanceOf[ValDef].rhs
           eval(rhs, thisV, sym.enclosingClass.asClass, cacheResult = true)
         else
+          System.out.println("env: " + env.show)
+          System.out.println("sym: " + sym.show)
           // Assume forward reference check is doing a good job
           val value = Env.valValue(sym)
           if isByNameParam(sym) then
             value match
             case fun: Fun =>
               given Env.Data = Env.ofByName(sym, fun.env)
+              System.out.println("created new env " + fun.code.show)
               eval(fun.code, fun.thisV, fun.klass)
             case Cold =>
               report.warning("Calling cold by-name alias. " + Trace.show, Trace.position)
