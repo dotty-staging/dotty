@@ -452,22 +452,34 @@ class Objects(using Context @constructorOnly):
      *
      * @return the environment and value for `this` owned by the given method.
      */
-    def resolveEnv(meth: Symbol, thisV: ThisValue, env: Data)(using Context): Option[(ThisValue, Data)] = log("Resolving env for " + meth.show + ", this = " + thisV.show + ", env = " + env.show, printer) {
+    def resolveEnv(target: Symbol, thisV: ThisValue, env: Data)(using ctx: Context,  trace: Trace): Option[(ThisValue, Data)] = log("Resolving env for " + target.show + ", this = " + thisV.show + ", env = " + env.show, printer) {
       env match
       case localEnv: LocalEnv =>
-        if localEnv.meth == meth then Some(thisV -> env)
-        else resolveEnv(meth, thisV, localEnv.outer)
+        if localEnv.meth == target then
+          Some(thisV -> env)
+        // Check if mutable or immutable
+        else if !target.isOneOf(Flags.Param | Flags.Mutable) then
+          localEnv.getVal(target) match
+            case Some(_) => Some(thisV -> env)
+            case None => resolveEnv(target, thisV, localEnv.outer)
+        else if target.is(Flags.Mutable, butNot = Flags.Param) then
+          localEnv.getVar(target) match
+            case Some(_) => Some(thisV -> env)
+            case None => resolveEnv(target, thisV, localEnv.outer)
+        else
+          // target is a by-name parameter
+          resolveEnv(target, thisV, localEnv.outer)
       case NoEnv =>
         thisV match
-        case ref: OfClass =>
-          ref.outer match
-          case outer : ThisValue =>
-            resolveEnv(meth, outer, ref.env)
+          case ref: OfClass =>
+            ref.outer match
+            case outer : ThisValue =>
+              resolveEnv(target, outer, ref.env)
+            case _ =>
+              // TODO: properly handle the case where ref.outer is ValueSet
+              None
           case _ =>
-            // TODO: properly handle the case where ref.outer is ValueSet
             None
-        case _ =>
-          None
     }
 
     def withEnv[T](env: Data)(fn: Data ?=> T): T = fn(using env)
@@ -983,7 +995,7 @@ class Objects(using Context @constructorOnly):
       Env.setLocalVar(sym, addr)
       Heap.writeJoin(addr, value)
     else
-      System.out.println("initLocal sym: " + sym.show + " val: " + value.show + " data: " + data.show)
+      // System.out.println("initLocal sym: " + sym.show + " val: " + value.show + " data: " + data.show)
       Env.setLocalVal(sym, value)
   }
 
@@ -994,7 +1006,7 @@ class Objects(using Context @constructorOnly):
    */
   def readLocal(thisV: ThisValue, sym: Symbol): Contextual[Value] = log("reading local " + sym.show, printer, (_: Value).show) {
     def isByNameParam(sym: Symbol) = sym.is(Flags.Param) && sym.info.isInstanceOf[ExprType]
-    Env.resolveEnv(sym.enclosingMethod, thisV, summon[Env.Data]) match
+    Env.resolveEnv(sym, thisV, summon[Env.Data]) match
     case Some(thisV -> env) =>
       if sym.is(Flags.Mutable) then
         // Assume forward reference check is doing a good job
@@ -1013,19 +1025,20 @@ class Objects(using Context @constructorOnly):
           Bottom
       else
         given Env.Data = env
+        // println(sym.show)
         if sym.is(Flags.Lazy) then
           val rhs = sym.defTree.asInstanceOf[ValDef].rhs
           eval(rhs, thisV, sym.enclosingClass.asClass, cacheResult = true)
         else
-          System.out.println("env: " + env.show)
-          System.out.println("sym: " + sym.show)
+          // println("env: " + env.show)
+          // println("sym: " + sym.show)
           // Assume forward reference check is doing a good job
           val value = Env.valValue(sym)
           if isByNameParam(sym) then
             value match
             case fun: Fun =>
               given Env.Data = Env.ofByName(sym, fun.env)
-              System.out.println("created new env " + fun.code.show)
+              // println("created new env " + fun.code.show)
               eval(fun.code, fun.thisV, fun.klass)
             case Cold =>
               report.warning("Calling cold by-name alias. " + Trace.show, Trace.position)
@@ -1037,6 +1050,8 @@ class Objects(using Context @constructorOnly):
             value
 
     case None =>
+      println(summon[Env.Data].show)
+      println(sym.show)
       if isByNameParam(sym) then
         report.warning("Calling cold by-name alias. " + Trace.show, Trace.position)
         Bottom
