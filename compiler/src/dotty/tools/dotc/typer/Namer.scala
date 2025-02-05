@@ -1176,25 +1176,25 @@ class Namer { typer: Typer =>
         import CanForward.*
         val sym = mbr.symbol
         /**
-         * Check the export selects an abstract member of the current class (issue #22147).
+         * The export selects a member of the current class (issue #22147).
+         * Assumes that cls.classInfo.selfType.derivesFrom(sym.owner) is true.
          */
-        def isAbstractMember: Boolean = sym.is(Deferred) && (expr match
-          case ths: This if ths.qual.isEmpty => true // access through 'this'
-          case id: Ident => id.denot.info match      // access through self type
-            case cls2: ClassInfo => cls2.cls == cls
-            case _ => false
+        def isCurrentMember: Boolean = expr match
+          case id: (Ident | This) => // Access through self type or this
+            /* Given the usage context below, where cls's self type is a subtype of sym.owner,
+               it suffices to check if the denotation is a ClassInfo */
+            id.denot.info.isInstanceOf[ClassInfo]
           case _ => false
-        )
         if !sym.isAccessibleFrom(pathType) then
           No("is not accessible")
         else if sym.isConstructor || sym.is(ModuleClass) || sym.is(Bridge) || sym.is(ConstructorProxy) || sym.isAllOf(JavaModule) then
           Skip
-        // if the cls is a subclass of the owner of the symbol
+        // if the cls is a subclass or mixes in the owner of the symbol
         // and either
         // * the symbols owner is the cls itself
         // * the symbol is not a deferred symbol
-        // * the symbol is an abstract member #22147
-        else if cls.derivesFrom(sym.owner) && (sym.owner == cls || !sym.is(Deferred) || isAbstractMember) then
+        // * the symbol is a member of the current class (#22147)
+        else if cls.classInfo.selfType.derivesFrom(sym.owner) && (sym.owner == cls || !sym.is(Deferred) || isCurrentMember) then
           No(i"is already a member of $cls")
         else if pathMethod.exists && mbr.isType then
           No("is a type, so it cannot be exported as extension method")
