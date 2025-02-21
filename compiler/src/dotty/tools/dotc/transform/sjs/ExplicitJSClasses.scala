@@ -602,7 +602,7 @@ class ExplicitJSClasses extends MiniPhase with InfoTransformer { thisPhase =>
 
         // Translate x.isInstanceOf[T] for inner and local JS classes
         case TypeApply(fun @ Select(obj, _), tpeArg :: Nil)
-            if sym == defn.Any_isInstanceOf && isTypeTreeForInnerOrLocalJSClass(tpeArg) =>
+            if (sym == defn.Any_isInstanceOf || sym == defn.Any_typeTest) && isTypeTreeForInnerOrLocalJSClass(tpeArg) =>
           val jsCtorOf = genJSConstructorOf(tree, tpeArg.tpe)
           ref(jsdefn.Special_instanceof).appliedTo(obj, jsCtorOf)
 

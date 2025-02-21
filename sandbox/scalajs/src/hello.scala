@@ -1,15 +1,22 @@
-package hello
+package example
 
 import scala.scalajs.js
 
-trait MyTrait {
-  val x = 5
-  def foo(y: Int) = x
+trait JSTrait extends js.Object
+
+
+trait ObjectMixin {
+  class JSTraitImpl extends JSTrait
 }
 
-object HelloWorld extends MyTrait {
+object MyObject extends ObjectMixin
+
+object Program {
   def main(args: Array[String]): Unit = {
-    println("hello dotty.js!")
-    println(foo(4))
+    val x: JSTrait = new MyObject.JSTraitImpl()
+    x match {
+      case x: MyObject.JSTraitImpl => println("Is impl type")
+      case _ => println("Is not impl type")
+    }
   }
 }
