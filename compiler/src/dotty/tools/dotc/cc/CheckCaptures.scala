@@ -21,7 +21,7 @@ import scala.collection.mutable
 import CaptureSet.{withCaptureSetsExplained, IdempotentCaptRefMap, CompareResult, CompareFailure, ExistentialSubsumesFailure}
 import CCState.*
 import StdNames.nme
-import NameKinds.{DefaultGetterName, WildcardParamName, UniqueNameKind}
+import NameKinds.{DefaultGetterName, WildcardParamName, UniqueNameKind, CCSkolemName}
 import reporting.{trace, Message, OverrideError}
 import Annotations.Annotation
 
@@ -129,6 +129,26 @@ object CheckCaptures:
       override def toString = "SubstParamsBiMap.inverse"
       def inverse = thisMap
   end SubstParamsBiMap
+
+  class RhsProto(val pt: Type, owner: Symbol) extends UncachedProxyType, ProtoType, ValueType:
+    def derivedRhsProto(pt1: Type)(using Context): RhsProto =
+      if pt1 eq pt then this
+      else RhsProto(pt1, owner)
+
+    def avoidLocals(tp: Type)(using Context): Type = tp
+
+    def underlying(using Context): Type = pt
+
+    def isMatchedBy(tp: Type, keepConstraint: Boolean)(using Context): Boolean =
+      println(i"isMatchedBy $tp <:< $pt, $keepConstraint")
+      avoidLocals(tp) <:< pt
+
+    def map(tm: TypeMap)(using Context): RhsProto =
+      derivedRhsProto(tm(pt))
+
+    def fold[T](x: T, ta: TypeAccumulator[T])(using Context): T =
+      ta(x, pt)
+  end RhsProto
 
   /** A prototype that indicates selection with an immutable value */
   class PathSelectionProto(val sym: Symbol, val pt: Type)(using Context) extends WildcardSelectionProto
@@ -287,6 +307,8 @@ class CheckCaptures extends Recheck, SymTransformer:
      */
     private val todoAtPostCheck = new mutable.ListBuffer[() => Unit]
 
+    private val localSkolems: mutable.HashMap[Symbol, Set[Symbol]] = mutable.HashMap()
+
     /** Maps trees that need a separation check because they are arguments to
      *  polymorphic parameters. The trees are mapped to the formal parameter type.
      */
@@ -386,6 +408,16 @@ class CheckCaptures extends Recheck, SymTransformer:
         if sym.ownersIterator.exists(_.isTerm)
         then CaptureSet.Var(sym.owner, level = sym.ccLevel)
         else CaptureSet.empty)
+
+    def skolemOf(tp: Type, pos: SrcPos)(using Context): Type =
+      val skolem = newSymbol(
+          ctx.owner, CCSkolemName.fresh(ctx.owner.name.toTermName),
+          Flags.Synthetic, tp, coord = pos.span)
+      localSkolems(ctx.owner) = localSkolems.getOrElse(ctx.owner, Set.empty) + skolem
+      skolem.termRef
+
+    def capsToSkolem(tp: Type, pos: SrcPos)(using Context): Type =
+      if ctx.owner.isTerm && tp.containsCap && false then skolemOf(tp, pos) else tp
 
 // ---- Record Uses with MarkFree ----------------------------------------------------
 
@@ -755,7 +787,7 @@ class CheckCaptures extends Recheck, SymTransformer:
       val argCaptures =
         for (argType, formal) <- argTypes.lazyZip(funType.paramInfos) yield
           if formal.hasAnnotation(defn.UseAnnot) then argType.deepCaptureSet else argType.captureSet
-      appType match
+      val improvedAppType = appType match
         case appType @ CapturingType(appType1, refs)
         if qualType.exists
             && !tree.fun.symbol.isConstructor
@@ -766,6 +798,7 @@ class CheckCaptures extends Recheck, SymTransformer:
             .showing(i"narrow $tree: $appType, refs = $refs, qual-cs = ${qualType.captureSet} = $result", capt)
         case appType =>
           appType
+      capsToSkolem(improvedAppType, tree.srcPos)
 
     private def isDistinct(xs: List[Type]): Boolean = xs match
       case x :: xs1 => xs1.isEmpty || !xs1.contains(x) && isDistinct(xs1)
@@ -928,6 +961,10 @@ class CheckCaptures extends Recheck, SymTransformer:
      */
     override def seqLiteralElemProto(tree: SeqLiteral, pt: Type, declared: Type)(using Context) =
       super.seqLiteralElemProto(tree, pt, declared).boxed
+
+    override def recheckRhs(rhs: Tree, pt: Type, sym: Symbol)(using Context): Type =
+      val rhsProto = if pt.isSingleton then pt else RhsProto(pt, sym)
+      recheck(rhs, rhsProto)
 
     /** Recheck val and var definitions:
      *   - disallow cap in the type of mutable vars.
@@ -1267,6 +1304,11 @@ class CheckCaptures extends Recheck, SymTransformer:
      *  where local capture roots are instantiated to root variables.
      */
     override def checkConformsExpr(actual: Type, expected: Type, tree: Tree, addenda: Addenda)(using Context): Type =
+      expected match
+        case expected: RhsProto =>
+          return checkConformsExpr(expected.avoidLocals(actual), expected.pt, tree, addenda)
+        case _ =>
+
       var expected1 = alignDependentFunction(expected, actual.stripCapturing)
       val actualBoxed = adapt(actual, expected1, tree)
       //println(i"check conforms $actualBoxed <<< $expected1")
