@@ -463,7 +463,7 @@ class RefinedPrinter(_ctx: Context) extends PlainPrinter(_ctx) {
         }
       case id @ Ident(name) =>
         val txt = tree.typeOpt match {
-          case tp: NamedType if name != nme.WILDCARD =>
+          case tp: TermRef if name != nme.WILDCARD =>
             toTextPrefixOf(tp) ~ withPos(selectionString(tp), tree.sourcePos)
           case _ =>
             toText(name)
