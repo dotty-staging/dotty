@@ -738,7 +738,7 @@ class CheckCaptures extends Recheck, SymTransformer:
         // The @use and/or @consume annotation is added to `formal` by `prepareFunction`
         capt.println(i"charging deep capture set of $arg: ${argType} = ${argType.deepCaptureSet}")
         markFree(argType.deepCaptureSet, arg)
-      if formal.containsCap then
+      if formal.containsSet(_.containsCap) then
         sepCheckFormals(arg) = freshenedFormal
       argType
 
@@ -770,7 +770,7 @@ class CheckCaptures extends Recheck, SymTransformer:
       val argCaptures =
         for (argType, formal) <- argTypes.lazyZip(funType.paramInfos) yield
           if formal.hasAnnotation(defn.UseAnnot) then argType.deepCaptureSet else argType.captureSet
-      appType match
+      val improvedAppType = appType match
         case appType @ CapturingType(appType1, refs)
         if qualType.exists
             && !tree.fun.symbol.isConstructor
@@ -781,6 +781,7 @@ class CheckCaptures extends Recheck, SymTransformer:
             .showing(i"narrow $tree: $appType, refs = $refs, qual-cs = ${qualType.captureSet} = $result", capt)
         case appType =>
           appType
+      improvedAppType.skolemized(tree.srcPos)
 
     private def isDistinct(xs: List[Type]): Boolean = xs match
       case x :: xs1 => xs1.isEmpty || !xs1.contains(x) && isDistinct(xs1)
@@ -1326,7 +1327,10 @@ class CheckCaptures extends Recheck, SymTransformer:
         case fail: CompareFailure =>
           capt.println(i"conforms failed for ${tree}: $actual vs $expected")
           inContext(root.printContext(actualBoxed, expected1)):
-            err.typeMismatch(tree.withType(actualBoxed), expected1,
+            val shownType =
+              if ctx.settings.YprintDebug.value then actualBoxed
+              else actualBoxed.avoidSkolems(NoSymbol)
+            err.typeMismatch(tree.withType(shownType), expected1,
                 addApproxAddenda(
                   addenda ++ errorNotes(fail.errorNotes),
                   expected1))

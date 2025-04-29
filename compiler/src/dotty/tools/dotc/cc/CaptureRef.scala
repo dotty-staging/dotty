@@ -15,6 +15,7 @@ import StdNames.nme
 import CaptureSet.VarState
 import Annotations.Annotation
 import config.Printers.capt
+import NameKinds.CCSkolemName
 
 object CaptureRef:
   opaque type Validity = Int
@@ -93,6 +94,12 @@ trait CaptureRef extends TypeProxy, ValueType:
         tp.derivedAnnotatedType(tp1.stripReach, annot)
       else
         this
+    case _ =>
+      this
+
+  final def widenSkolemRef(using Context): CaptureRef = this match
+    case tp: TypeRef if tp.name.is(CCSkolemName) =>
+      tp.info.bounds.hi.captureSet.elems.nth(0)
     case _ =>
       this
 

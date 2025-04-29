@@ -29,10 +29,10 @@ def twoRefs2(): SamePair[Ref^] =
   r3
 
 def twoRefsBad(): Pair[Ref^, Ref^] =
-  Pair(Ref(), Ref()) // error // error: universal capability cannot be included in capture set
-                     // but should work since this is morally equivalent to `twoRefs`
+  Pair(Ref(), Ref()) // ok
 
 def test(io: Object^): Unit =
+  val two0: Pair[Ref^, Ref^] = twoRefs()
   val two = twoRefs()
   val fst: Ref^{two.fst*} = two.fst
   val snd: Ref^{two.snd*} = two.snd

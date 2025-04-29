@@ -1,8 +1,11 @@
-type Person = (name: String, age: Int)
+import collection.immutable.LazyList
 
-trait A:
-  type T
+@main def Test =
+  def foo(x: Int) = ()
 
-class B:
-  type U =:= A { type T = U }
+  foo:
+    1
+  end foo
+
+
 

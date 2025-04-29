@@ -101,6 +101,9 @@ sealed abstract class CaptureSet extends Showable:
   final def containsCap(using Context) =
     elems.exists(_.stripReadOnly.isCap)
 
+  final def containsCapOrFresh(using Context) =
+    elems.exists(_.stripReadOnly.isCapOrFresh)
+
   final def isReadOnly(using Context): Boolean =
     elems.forall(_.isReadOnly)
 

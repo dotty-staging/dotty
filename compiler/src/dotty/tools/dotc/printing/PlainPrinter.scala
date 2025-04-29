@@ -16,6 +16,7 @@ import scala.util.control.NonFatal
 import scala.annotation.switch
 import config.{Config, Feature}
 import cc.*
+import NameKinds.CCSkolemName
 
 class PlainPrinter(_ctx: Context) extends Printer {
 
@@ -198,8 +199,7 @@ class PlainPrinter(_ctx: Context) extends Printer {
       case tp: TermRef if tp.isCap =>
         toTextCaptureRef(tp)
       case tp: TermRef
-      if !tp.denotationIsCurrent
-          && !homogenizedView // always print underlying when testing picklers
+      if !tp.denotationIsCurrent && !homogenizedView // always print underlying when testing picklers
           || tp.symbol.is(Module)
           || tp.symbol.name == nme.IMPORT =>
         toTextRef(tp) ~ ".type"
@@ -252,7 +252,9 @@ class PlainPrinter(_ctx: Context) extends Printer {
       case tp @ CapturingType(parent, refs) =>
         val boxText: Text = Str("box ") provided tp.isBoxed //&& ctx.settings.YccDebug.value
         if parent.derivesFrom(defn.Caps_Capability)
-              && refs.containsRootCapability && refs.isReadOnly && !printDebug
+              && refs.elems.map(_.widenSkolemRef).exists(_.isRootCapability)
+              && refs.isReadOnly
+              && !printDebug
         then
           toText(parent)
         else
@@ -451,6 +453,8 @@ class PlainPrinter(_ctx: Context) extends Printer {
     homogenize(tp) match
       case tp: TermRef if tp.symbol == defn.captureRoot => "cap"
       case tp: SingletonType => toTextRef(tp)
+      case tp: TypeRef if tp.name.is(CCSkolemName) && !printDebug =>
+        toTextCaptureRef(tp.widenSkolemRef)
       case tp: (TypeRef | TypeParamRef) => toText(tp) ~ "^"
       case ReadOnlyCapability(tp1) => toTextCaptureRef(tp1) ~ ".rd"
       case ReachCapability(tp1) => toTextCaptureRef(tp1) ~ "*"

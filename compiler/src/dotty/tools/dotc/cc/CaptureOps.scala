@@ -9,6 +9,8 @@ import ast.{tpd, untpd}
 import Decorators.*, NameOps.*
 import config.Printers.capt
 import util.Property.Key
+import util.{SrcPos, SimpleIdentityMap}
+import NameKinds.CCSkolemName
 import tpd.*
 import CaptureSet.VarState
 
@@ -484,13 +486,15 @@ extension (tp: Type)
         tp
   end withReachCaptures
 
-  /** Does this type contain no-flip covariant occurrences of `cap`? */
-  def containsCap(using Context): Boolean =
+  /** Does this type contain no-flip covariant occurrences of a capture set
+   *  satisfying the given test?
+   */
+  def containsSet(test: CaptureSet => Boolean)(using Context): Boolean =
     val acc = new TypeAccumulator[Boolean]:
       def apply(x: Boolean, t: Type) =
         x
         || variance > 0 && t.dealiasKeepAnnots.match
-          case t @ CapturingType(p, cs) if cs.containsCap =>
+          case t @ CapturingType(p, cs) if test(cs) =>
             true
           case t @ AnnotatedType(parent, ann) =>
             // Don't traverse annotations, which includes capture sets
@@ -499,8 +503,37 @@ extension (tp: Type)
             foldOver(x, t)
     acc(false, tp)
 
-  def level(using Context): CCState.Level =
-    tp match
+  def skolemized(pos: SrcPos)(using Context): Type =
+    if ccConfig.newScheme && ctx.owner.isTerm && tp.containsSet(_.containsCapOrFresh) then
+      def skolemOf(t: CaptureRef)(using Context): TypeRef =
+        val capSet = defn.Caps_CapSet.typeRef
+        val bounds = TypeBounds(capSet, capSet.capturing(t))
+        newSymbol(
+            ctx.owner, CCSkolemName.fresh(ctx.owner.name.toTypeName),
+            Flags.Synthetic, bounds, coord = pos.span).typeRef
+      val skolemize = new TypeMap with FollowAliasesMap:
+        var mapped: SimpleIdentityMap[CaptureRef, TypeRef] = SimpleIdentityMap.empty
+        def apply(t: Type) =
+          if variance <= 0 then t
+          else t match
+            case t: CaptureRef if t.stripReadOnly.isCapOrFresh =>
+              if mapped(t) == null then
+                mapped = mapped.updated(t, skolemOf(t))
+              mapped(t).nn
+            case _ =>
+              mapFollowingAliases(t)
+      skolemize(tp)
+        .showing(i"adapt skolem $result", capt)
+    else tp
+
+  /** Avoid all capture set skolems owned  by `owner` */
+  def avoidSkolems(owner: Symbol)(using Context): Type =
+    val m = new TypeOps.AvoidMap:
+      def toAvoid(tp: NamedType): Boolean =
+        tp.name.is(CCSkolemName) && (!owner.exists || tp.symbol.owner == owner)
+    if ccConfig.newScheme then m(tp) else tp
+
+  def level(using Context): CCState.Level = tp match
     case tp: TermRef => ccState.symLevel(tp.symbol)
     case tp: ThisType => ccState.symLevel(tp.cls).nextInner
     case _ => CCState.undefinedLevel

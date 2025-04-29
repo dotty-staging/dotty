@@ -646,7 +646,6 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
         // If there's a change in the signature, update the info of `sym`
         if sym.exists && signatureChanges then
           val updatedInfo =
-
             val paramSymss = sym.paramSymss
             def newInfo(using Context) = // will be run in this or next phase
               root.toResultInResults(report.error(_, tree.srcPos)):
@@ -662,7 +661,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
                   assert(ctx.phase == thisPhase.next, i"$sym")
                   sym.info = prevInfo // set info provisionally so we can analyze the symbol in recheck
                   completeDef(tree, sym, this)
-                  sym.info = newInfo
+                  sym.info = newInfo.avoidSkolems(sym)
                     .showing(i"new info of $sym = $result", capt)
             else if sym.is(Method) then
               new LazyType:
