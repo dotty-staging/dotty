@@ -10,7 +10,7 @@ Depending on what part of an original type created a map result, the set `v` is 
 
 We can describe the syntax of capture set constraints like this:
 ```
-Capture set a, b, c = ac     // constant, aliases bv, cc
+Capture set a, b, c = ac     // constant, aliases bc, cc
                     | av     // variable, aliases bv, cv
 
 Typemap          tm = B      // bijective on capabilities
