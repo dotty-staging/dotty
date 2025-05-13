@@ -16,7 +16,18 @@ class A
 
     object Y extends Z
 
+    object ZA {
+      trait Z
+      object Inner1 extends A.this.Z
+      object Inner2 extends Z
+      def a: I = ???
+    }
+
     type I = Int
     /*<-*/extension (a: A) /*->*/def extension: String
       = ???
 }
+
+// class New extends A {
+//   trait
+// }

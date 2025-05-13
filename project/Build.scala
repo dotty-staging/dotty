@@ -524,7 +524,7 @@ object Build {
     "scala2-library-tasty"
   )
 
-  val enableBspAllProjects = false
+  val enableBspAllProjects = true
 
   // Settings used when compiling dotty with a non-bootstrapped dotty
   lazy val commonBootstrappedSettings = commonDottySettings ++ Seq(
@@ -1909,6 +1909,7 @@ object Build {
   lazy val scaladoc = project.in(file("scaladoc")).
     configs(SourceLinksIntegrationTest).
     settings(commonBootstrappedSettings).
+    // settings(scalaVersion := dottyVersion).
     dependsOn(`scala3-compiler-bootstrapped`).
     dependsOn(`scala3-tasty-inspector`).
     settings(inConfig(SourceLinksIntegrationTest)(Defaults.testSettings)).
