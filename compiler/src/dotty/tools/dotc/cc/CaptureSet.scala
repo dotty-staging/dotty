@@ -132,6 +132,7 @@ sealed abstract class CaptureSet extends Showable:
     if accountsFor(elem) then CompareResult.OK
     else addNewElem(elem)
 
+
   /** Try to include all element in `refs` to this capture set. */
   protected final def tryInclude(newElems: Refs, origin: CaptureSet)(using Context, VarState): CompareResult =
     (CompareResult.OK /: newElems): (r, elem) =>
@@ -145,6 +146,9 @@ sealed abstract class CaptureSet extends Showable:
    *  capture set.
    */
   protected final def addNewElem(elem: CaptureRef)(using ctx: Context, vs: VarState): CompareResult =
+    addNewElemCount += 1
+    println(i"addNewElem $elem to $this (count=$addNewElemCount)")
+    assert(addNewElemCount <= 100)
     if elem.isRootCapability || !vs.isOpen then
       addThisElem(elem)
     else
@@ -232,8 +236,8 @@ sealed abstract class CaptureSet extends Showable:
     subCaptures(that)(using ctx, vs)
 
   /** The subcapturing test, using a given VarState */
-  final def subCaptures(that: CaptureSet)(using ctx: Context, vs: VarState = VarState()): CompareResult =
-    val result = that.tryInclude(elems, this)
+  final def subCaptures(that: CaptureSet)(using ctx: Context, vs: VarState = VarState()): CompareResult = trace.force(i"> Subcaptures($this, $that)", show = true):
+    val result = trace.force(i">> tryInclude($that, $elems, $this)", show = true) { that.tryInclude(elems, this) }
     if result.isOK then
       addDependent(that)
     else
@@ -420,6 +424,7 @@ sealed abstract class CaptureSet extends Showable:
   def processElems[T](f: Refs => T): T = f(elems)
 
 object CaptureSet:
+  private var addNewElemCount: Int = 0
   type Refs = SimpleIdentitySet[CaptureRef]
   type Vars = SimpleIdentitySet[Var]
   type Deps = SimpleIdentitySet[CaptureSet]
