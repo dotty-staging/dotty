@@ -132,7 +132,6 @@ sealed abstract class CaptureSet extends Showable:
     if accountsFor(elem) then CompareResult.OK
     else addNewElem(elem)
 
-
   /** Try to include all element in `refs` to this capture set. */
   protected final def tryInclude(newElems: Refs, origin: CaptureSet)(using Context, VarState): CompareResult =
     (CompareResult.OK /: newElems): (r, elem) =>
@@ -147,11 +146,13 @@ sealed abstract class CaptureSet extends Showable:
    */
   protected final def addNewElem(elem: CaptureRef)(using ctx: Context, vs: VarState): CompareResult =
     addNewElemCount += 1
-    println(i"addNewElem $elem to $this (count=$addNewElemCount)")
-    assert(addNewElemCount <= 100)
+    //println(i"addNewElem $elem to ${this.identityString} (count=$addNewElemCount)")
+    //assert(addNewElemCount <= 100)
     if elem.isRootCapability || !vs.isOpen then
+      //println(i"addNewElem1 (count=$addNewElemCount)")
       addThisElem(elem)
     else
+      //println(i"addNewElem2 (count=$addNewElemCount)")
       addThisElem(elem).orElse:
         val underlying = elem.captureSetOfInfo
         tryInclude(underlying.elems, this).andAlso:
@@ -236,8 +237,8 @@ sealed abstract class CaptureSet extends Showable:
     subCaptures(that)(using ctx, vs)
 
   /** The subcapturing test, using a given VarState */
-  final def subCaptures(that: CaptureSet)(using ctx: Context, vs: VarState = VarState()): CompareResult = trace.force(i"> Subcaptures($this, $that)", show = true):
-    val result = trace.force(i">> tryInclude($that, $elems, $this)", show = true) { that.tryInclude(elems, this) }
+  final def subCaptures(that: CaptureSet)(using ctx: Context, vs: VarState = VarState()): CompareResult = trace(i"> Subcaptures($this, $that)", show = true):
+    val result = trace(i">> tryInclude($that, $elems, $this)", show = true) { that.tryInclude(elems, this) }
     if result.isOK then
       addDependent(that)
     else
@@ -418,6 +419,8 @@ sealed abstract class CaptureSet extends Showable:
   override def toText(printer: Printer): Text =
     printer.toTextCaptureSet(this) ~~ description
 
+  def identityString: String
+
   /** Apply function `f` to the elements. Typically used for printing.
    *  Overridden in HiddenSet so that we don't run into infinite recursions
    */
@@ -474,6 +477,7 @@ object CaptureSet:
     def isProvisionallySolved(using Context) = false
 
     def addThisElem(elem: CaptureRef)(using Context, VarState): CompareResult =
+      println("Const.addThisElem")
       val res = addIfHiddenOrFail(elem)
       if !res.isOK && this.isProvisionallySolved then
         println(i"Cannot add $elem to provisionally solved $this")
@@ -490,6 +494,8 @@ object CaptureSet:
     def owner = NoSymbol
 
     override def toString = elems.toString
+
+    def identityString = toString
   end Const
 
   case class EmptyWithProvenance(ref: CaptureRef, mapped: Type) extends Const(SimpleIdentitySet.empty):
@@ -548,6 +554,9 @@ object CaptureSet:
     def isAlwaysEmpty(using Context) = isConst && elems.isEmpty
     def isProvisionallySolved(using Context): Boolean = solved > 0 && solved != Int.MaxValue
 
+    def addThisDep(cs: CaptureSet): Unit =
+      deps += cs
+
     def isMaybeSet = false // overridden in BiMapped
 
     /** A handler to be invoked if the root reference `cap` is added to this set */
@@ -599,10 +608,13 @@ object CaptureSet:
 
     final def addThisElem(elem: CaptureRef)(using Context, VarState): CompareResult =
       if isConst || !recordElemsState() then // Fail if variable is solved or given VarState is frozen
+        //println(i"Var.addThisElem1")
         addIfHiddenOrFail(elem)
       else if !levelOK(elem) then
+        //println(i"Var.addThisElem2")
         CompareResult.LevelError(this, elem)    // or `elem` is not visible at the level of the set.
       else
+        //println(i"Var.addThisElem3")
         // id == 108 then assert(false, i"trying to add $elem to $this")
         assert(elem.isTrackableRef, elem)
         assert(!this.isInstanceOf[HiddenSet] || summon[VarState].isSeparating, summon[VarState])
@@ -664,7 +676,7 @@ object CaptureSet:
       if (cs eq this) || cs.isUniversal || isConst then
         CompareResult.OK
       else if recordDepsState() then
-        deps += cs
+        addThisDep(cs)
         CompareResult.OK
       else
         CompareResult.Fail(this :: Nil)
@@ -768,6 +780,8 @@ object CaptureSet:
         case _ => descr
       s"$id$trail"
     override def toString = s"Var$id$elems"
+
+    override def identityString = s"$id"
   end Var
 
   /** Variables that represent refinements of class parameters can have the universal
@@ -911,8 +925,8 @@ object CaptureSet:
   extends Var(initialElems = elemIntersection(cs1, cs2)):
     addAsDependentTo(cs1)
     addAsDependentTo(cs2)
-    deps += cs1
-    deps += cs2
+    addThisDep(cs1)
+    addThisDep(cs2)
 
     override def tryInclude(elem: CaptureRef, origin: CaptureSet)(using Context, VarState): CompareResult =
       val present =
@@ -1012,7 +1026,7 @@ object CaptureSet:
                 deps = SimpleIdentitySet(hidden)
               else
                 addToElems()
-                hidden.deps += this
+                hidden.addThisDep(this)
           case _ =>
             addToElems()
 
