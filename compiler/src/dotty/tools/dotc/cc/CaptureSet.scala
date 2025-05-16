@@ -12,7 +12,7 @@ import annotation.internal.sharable
 import reporting.trace
 import printing.{Showable, Printer}
 import printing.Texts.*
-import util.{SimpleIdentitySet, Property}
+import util.{SimpleIdentitySet, SimpleIdentityMap, Property}
 import typer.ErrorReporting.Addenda
 import util.common.alwaysTrue
 import scala.collection.{mutable, immutable}
@@ -187,7 +187,6 @@ sealed abstract class CaptureSet extends Showable:
    *                 as frozen.
    */
   def accountsFor(x: CaptureRef)(using ctx: Context)(using vs: VarState = VarState.Separate): Boolean =
-
     def debugInfo(using Context) = i"$this accountsFor $x"
 
     def test(using Context) = reporting.trace(debugInfo):
@@ -200,9 +199,13 @@ sealed abstract class CaptureSet extends Showable:
            // in VarState.Separate, don't try to widen to cap since that might succeed with {cap} <: {cap}
         && x.captureSetOfInfo.subCaptures(this, VarState.Separate).isOK
 
-    comparer match
-      case comparer: ExplainingTypeComparer => comparer.traceIndented(debugInfo)(test)
-      case _ => test
+    val result =
+      comparer match
+        case comparer: ExplainingTypeComparer => comparer.traceIndented(debugInfo)(test)
+        case _ => test
+    if x.show == "cap.rd" then
+      println(i"accountsFor(cap.rd)? == $result")
+    result
   end accountsFor
 
   /** A more optimistic version of accountsFor, which does not take variable supersets
@@ -419,7 +422,7 @@ sealed abstract class CaptureSet extends Showable:
   override def toText(printer: Printer): Text =
     printer.toTextCaptureSet(this) ~~ description
 
-  def identityString: String
+  def identityString(using Context): String
 
   /** Apply function `f` to the elements. Typically used for printing.
    *  Overridden in HiddenSet so that we don't run into infinite recursions
@@ -477,7 +480,7 @@ object CaptureSet:
     def isProvisionallySolved(using Context) = false
 
     def addThisElem(elem: CaptureRef)(using Context, VarState): CompareResult =
-      println("Const.addThisElem")
+      //println("Const.addThisElem")
       val res = addIfHiddenOrFail(elem)
       if !res.isOK && this.isProvisionallySolved then
         println(i"Cannot add $elem to provisionally solved $this")
@@ -495,7 +498,7 @@ object CaptureSet:
 
     override def toString = elems.toString
 
-    def identityString = toString
+    def identityString(using Context) = "<const>"
   end Const
 
   case class EmptyWithProvenance(ref: CaptureRef, mapped: Type) extends Const(SimpleIdentitySet.empty):
@@ -554,8 +557,15 @@ object CaptureSet:
     def isAlwaysEmpty(using Context) = isConst && elems.isEmpty
     def isProvisionallySolved(using Context): Boolean = solved > 0 && solved != Int.MaxValue
 
-    def addThisDep(cs: CaptureSet): Unit =
+    def addThisDep(cs: CaptureSet)(using Context): Unit =
       deps += cs
+      val closure = getTransitiveDeps(this)
+      println(i"addThisDep, closure size = ${closure.size}")
+      if closure.contains(this) then
+        println(s"... there seems to be a loop for ${this.identityString}, ${this.optionalInfo} ...")
+        val path = closure(this).nn
+        path.reverse.foreach: cs =>
+          println(cs.identityString)
 
     def isMaybeSet = false // overridden in BiMapped
 
@@ -781,7 +791,7 @@ object CaptureSet:
       s"$id$trail"
     override def toString = s"Var$id$elems"
 
-    override def identityString = s"$id"
+    override def identityString(using Context) = s"$ids"
   end Var
 
   /** Variables that represent refinements of class parameters can have the universal
@@ -844,7 +854,7 @@ object CaptureSet:
       else
         try
           source.tryInclude(bimap.backward(elem), this)
-            .showing(i"propagating new elem $elem backward from $this to $source = $result", captDebug)
+            .showing(i"propagating new elem $elem backward from $this to $source = $result")
             .andAlso(addNewElem(elem))
         catch case ex: AssertionError =>
           println(i"fail while prop backwards tryInclude $elem of ${elem.getClass} in $this / ${this.summarize}")
@@ -1484,4 +1494,36 @@ object CaptureSet:
             println(i"  ${cv.show.padTo(20, ' ')} :: ${cv.deps.toList}%, %")
       }
     else op
+
+  type DepPath = List[CaptureSet]
+  /** Get a dependencies transitively reachable by the capture set. */
+  def getTransitiveDeps(cs: CaptureSet)(using Context): SimpleIdentityMap[CaptureSet, DepPath] =
+    var closure: SimpleIdentitySet[CaptureSet] = SimpleIdentitySet.empty
+    var paths: SimpleIdentityMap[CaptureSet, DepPath] = SimpleIdentityMap.empty
+    var workingStack: List[CaptureSet] = List(cs)
+
+    def maybeRecord(cs: CaptureSet, source: CaptureSet): Boolean =
+      !closure.contains(cs) && {
+        closure += cs
+        val prevPath = paths(source) match
+          case null => source :: Nil  // the initial element
+          case p => p
+        paths = paths.updated(cs, cs :: prevPath)
+        true
+      }
+
+    @annotation.tailrec def loop(): Unit =
+      workingStack match
+        case Nil =>
+        case cs :: rem =>
+          workingStack = rem
+          cs match
+            case cs: CaptureSet.Const =>
+            case cs: CaptureSet.Var =>
+              val newDeps = cs.deps.filter: d =>
+                maybeRecord(d, cs)
+              workingStack = workingStack ++ newDeps.toList
+          loop()
+    loop()
+    paths
 end CaptureSet
