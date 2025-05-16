@@ -473,11 +473,11 @@ class PlainPrinter(_ctx: Context) extends Printer {
           case -1 =>
             "<cap of " ~ toText(binder) ~ ">"
           case n => "outer_" * n ++ (if ccVerbose then "localcap" else "cap")
-        vbleText ~ hashStr(binder) ~ Str(idStr).provided(showUniqueIds)
+        vbleText ~ hashStr(binder) ~ Str(idStr)//.provided(showUniqueIds)
       case tp @ root.Fresh(hidden) =>
         val idStr = if showUniqueIds then s"#${tp.rootAnnot.id}" else ""
         if ccVerbose then s"<fresh$idStr in ${tp.ccOwner} hiding " ~ toTextCaptureSet(hidden) ~ ">"
-        else "cap"
+        else "fresh"
       case tp => toText(tp)
 
   protected def isOmittablePrefix(sym: Symbol): Boolean =

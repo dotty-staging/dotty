@@ -133,7 +133,8 @@ object root:
       ccs.rootId += 1
       ccs.rootId
 
-    //assert(id != 4, kind)
+    //assert(id != 509, kind)
+    //assert(id == 508, kind)
 
     override def symbol(using Context) = defn.RootCapabilityAnnot
     override def tree(using Context) = New(symbol.typeRef, Nil)

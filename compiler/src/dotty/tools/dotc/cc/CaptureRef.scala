@@ -212,7 +212,7 @@ trait CaptureRef extends TypeProxy, ValueType:
    *   Y: CapSet^c1...CapSet^c2, x subsumes (CapSet^c2)  ==>  x subsumes Y
    *   Contains[X, y]  ==>  X subsumes y
    */
-  final def subsumes(y: CaptureRef)(using ctx: Context)(using vs: VarState = VarState.Separate): Boolean = trace.force(i"subsumes($this, $y)"):
+  final def subsumes(y: CaptureRef)(using ctx: Context)(using vs: VarState = VarState.Separate): Boolean = trace(i"subsumes($this, $y)"):
 
     def subsumingRefs(x: Type, y: Type): Boolean = x match
       case x: CaptureRef => y match

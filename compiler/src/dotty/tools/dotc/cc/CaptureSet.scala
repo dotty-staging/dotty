@@ -146,8 +146,10 @@ sealed abstract class CaptureSet extends Showable:
    */
   protected final def addNewElem(elem: CaptureRef)(using ctx: Context, vs: VarState): CompareResult =
     addNewElemCount += 1
-    //println(i"addNewElem $elem to ${this.identityString} (count=$addNewElemCount)")
-    //assert(addNewElemCount <= 100)
+    println(i"addNewElem to ${this.identityString} (count=$addNewElemCount)")
+    //assert(addNewElemCount != 1948)
+    // if addNewElemCount >= 1740 && addNewElemCount <= 1752 then
+    //   println(i"... new elem is $elem ...")
     if elem.isRootCapability || !vs.isOpen then
       //println(i"addNewElem1 (count=$addNewElemCount)")
       addThisElem(elem)
@@ -203,8 +205,8 @@ sealed abstract class CaptureSet extends Showable:
       comparer match
         case comparer: ExplainingTypeComparer => comparer.traceIndented(debugInfo)(test)
         case _ => test
-    if x.show == "cap.rd" then
-      println(i"accountsFor(cap.rd)? == $result")
+    // if x.show == "cap.rd" then
+    //   println(i"accountsFor(cap.rd)? == $result")
     result
   end accountsFor
 
@@ -532,7 +534,7 @@ object CaptureSet:
       ccs.varId += 1
       ccs.varId
 
-    //assert(id != 8, this)
+    //assert(id != 12, this)
 
     /** A variable is solved if it is aproximated to a from-then-on constant set.
      *  Interpretation:
@@ -546,7 +548,9 @@ object CaptureSet:
     protected var myElems: Refs = initialElems
 
     def elems: Refs = myElems
-    def elems_=(refs: Refs): Unit = myElems = refs
+    def elems_=(refs: Refs): Unit =
+      //println("general.elems_=")
+      myElems = refs
 
     /** The sets currently known to be dependent sets (i.e. new additions to this set
      *  are propagated to these dependent sets.)
@@ -617,6 +621,7 @@ object CaptureSet:
             i"Skipped map ${tm.getClass} maps newly added $elem to $elem1 in $this")
 
     final def addThisElem(elem: CaptureRef)(using Context, VarState): CompareResult =
+      //println(s"added cap.rd to $ids, elems = $elems (size=${elems.toList.size})")
       if isConst || !recordElemsState() then // Fail if variable is solved or given VarState is frozen
         //println(i"Var.addThisElem1")
         addIfHiddenOrFail(elem)
@@ -633,9 +638,11 @@ object CaptureSet:
           rootAddedHandler()
         newElemAddedHandler(elem)
         val normElem = if isMaybeSet then elem else elem.stripMaybe
-        // assert(id != 5 || elems.size != 3, this)
+        //assert(id != 65 || elems.size != 10, this)
         val res = (CompareResult.OK /: deps): (r, dep) =>
-          r.andAlso(dep.tryInclude(normElem, this))
+          r.andAlso:
+            println(i"~~~~> normal propagate from ${justIds} to ${dep.identityString}")
+            dep.tryInclude(normElem, this)
         if ccConfig.checkSkippedMaps && res.isOK then checkSkippedMaps(elem)
         res.orElse:
           elems -= elem
@@ -766,7 +773,7 @@ object CaptureSet:
     override def optionalInfo(using Context): String =
       for vars <- ctx.property(ShownVars) do vars += this
       val debugInfo =
-        if !ctx.settings.YccDebug.value then ""
+        if !ctx.settings.YccDebug.value then justIds //""
         else if isConst then ids ++ "(solved)"
         else ids
       val limitInfo =
@@ -790,6 +797,15 @@ object CaptureSet:
         case _ => descr
       s"$id$trail"
     override def toString = s"Var$id$elems"
+
+    protected def justIds: String =
+      def descr = getClass.getSimpleName.nn.take(1)
+      val trail = this.match
+        case dv: DerivedVar =>
+          def summary = descr
+          s"$summary${dv.source.justIds}"
+        case _ => descr
+      s"$id$trail"
 
     override def identityString(using Context) = s"$ids"
   end Var
@@ -844,6 +860,12 @@ object CaptureSet:
     (val source: Var, val bimap: BiTypeMap, initialElems: Refs)(using @constructorOnly ctx: Context)
   extends DerivedVar(source.owner, initialElems):
 
+    override def elems_=(refs: Refs): Unit =
+      //println(s"bimapped($justIds).elems_=")
+      // if id == 65 then
+      //   println(s" ... new size = ${refs.size} ...")
+      super.elems_=(refs)
+
     override def tryInclude(elem: CaptureRef, origin: CaptureSet)(using Context, VarState): CompareResult =
       if origin eq source then
         val mappedElem = bimap.forward(elem)
@@ -853,8 +875,9 @@ object CaptureSet:
         CompareResult.OK
       else
         try
+          println(s"<~~~~ backward propagate from ${justIds} to ${source.identityString}")
           source.tryInclude(bimap.backward(elem), this)
-            .showing(i"propagating new elem $elem backward from $this to $source = $result")
+            //.showing(i"propagating new elem $elem backward from $this to $source = $result", captDebug)
             .andAlso(addNewElem(elem))
         catch case ex: AssertionError =>
           println(i"fail while prop backwards tryInclude $elem of ${elem.getClass} in $this / ${this.summarize}")
@@ -1006,6 +1029,7 @@ object CaptureSet:
       if al eq this then super.elems else al.elems
 
     override def elems_=(refs: Refs) =
+      //println("hidden.elems_=")
       val al = aliasSet
       if al eq this then super.elems_=(refs) else al.elems_=(refs)
 

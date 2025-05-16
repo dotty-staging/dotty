@@ -523,6 +523,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
      *  @pre !(boxed && sym.exists)
      */
     private def transformTT(tree: TypeTree, sym: Symbol, boxed: Boolean)(using Context): Unit =
+      //println(i"transformTT $tree for $sym")
       if !tree.hasNuType then
         var transformed =
           if tree.isInferred
