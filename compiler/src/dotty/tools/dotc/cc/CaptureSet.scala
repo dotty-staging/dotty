@@ -148,8 +148,10 @@ sealed abstract class CaptureSet extends Showable:
     addNewElemCount += 1
     println(i"addNewElem to ${this.identityString} (count=$addNewElemCount)")
     //assert(addNewElemCount != 1948)
-    // if addNewElemCount >= 1740 && addNewElemCount <= 1752 then
+    // if addNewElemCount >= 500 && addNewElemCount <= 600 then
     //   println(i"... new elem is $elem ...")
+    if addNewElemCount <= 150 then
+      println(i"... new elem is $elem ...")
     if elem.isRootCapability || !vs.isOpen then
       //println(i"addNewElem1 (count=$addNewElemCount)")
       addThisElem(elem)
@@ -534,7 +536,11 @@ object CaptureSet:
       ccs.varId += 1
       ccs.varId
 
-    //assert(id != 12, this)
+    //assert(id != 17, this)
+    println(i"Var$id is created")
+    // if id == 75 then
+    //   println("CREATION TRACE 75")
+    //   (new Throwable).printStackTrace()
 
     /** A variable is solved if it is aproximated to a from-then-on constant set.
      *  Interpretation:

@@ -336,7 +336,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
     try
       val tp1 = mapInferred(refine = true)(tp)
       val tp2 = root.toResultInResults(NoSymbol, _ => assert(false))(tp1)
-      if tp2 ne tp then capt.println(i"expanded inferred in ${ctx.owner}: $tp  -->  $tp1  -->  $tp2")
+      if tp2 ne tp then println(i"expanded inferred in ${ctx.owner}: $tp  -->  $tp1  -->  $tp2")
       tp2
     catch case ex: AssertionError =>
       println(i"error while mapping inferred $tp")
@@ -567,6 +567,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
           ccState.inNestedLevel:
             inContext(ctx.withOwner(meth)):
               paramss.foreach(traverse)
+              println(i"transformResultType for $tree")
               transformResultType(tpt, meth)
               traverse(tree.rhs)
 
@@ -585,6 +586,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
               arg.setNuType(
                 root.capToFresh(arg.tpe, root.Origin.TypeArg(arg.tpe)))
             else
+              println(i"transformTypeApply $arg in $tree")
               transformTT(arg, NoSymbol, boxed = true) // type arguments in type applications are boxed
 
         case tree: TypeDef if tree.symbol.isClass =>
@@ -688,12 +690,12 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
                     sym.info = prevInfo // set info provisionally so we can analyze the symbol in recheck
                     completeDef(tree, sym, this)
                     sym.info = newInfo
-                      .showing(i"new info of $sym = $result", capt)
+                      .showing(i"new info of $sym = $result")
               else if sym.is(Method) then
                 new LazyType:
                   def complete(denot: SymDenotation)(using Context) =
                     sym.info = newInfo
-                      .showing(i"new info of $sym = $result", capt)
+                      .showing(i"new info of $sym = $result")
               else newInfo
             else sym.info
           val updatedOwner = if ownerChanges then ctx.owner else sym.owner

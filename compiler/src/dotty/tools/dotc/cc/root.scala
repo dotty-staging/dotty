@@ -133,8 +133,11 @@ object root:
       ccs.rootId += 1
       ccs.rootId
 
-    //assert(id != 509, kind)
+    //assert(id != 205, kind)
     //assert(id == 508, kind)
+    println(s"creating root of id $id")
+
+    //if id == 23 then (new Throwable).printStackTrace()
 
     override def symbol(using Context) = defn.RootCapabilityAnnot
     override def tree(using Context) = New(symbol.typeRef, Nil)
@@ -352,6 +355,7 @@ object root:
               val (k, v) = it.next
               if v.annot eq t.annot then ref = k
             if ref == null then
+              println(i"an unseen result cap: ${t.show}")
               ref = Fresh(Origin.Unknown)
               seen(ref) = t
             ref
