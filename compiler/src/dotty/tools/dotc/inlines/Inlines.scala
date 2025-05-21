@@ -512,17 +512,19 @@ object Inlines:
           else
             constVal
 
-        def searchImplicitOrError(tpe: Type): Tree =
+        def searchImplicitOrError0(tpe: Type): (Tree, TyperState) =
           val evTyper = new Typer(ctx.nestingLevel + 1)
           val evCtx = ctx.fresh.setTyper(evTyper)
           inContext(evCtx) {
             val evidence = evTyper.inferImplicitArg(tpe, callTypeArgs.head.span)
             evidence.tpe match
               case fail: Implicits.SearchFailureType =>
-                errorTree(call, evTyper.missingArgMsg(evidence, tpe, ""))
+                (errorTree(call, evTyper.missingArgMsg(evidence, tpe, "")), evCtx.typerState)
               case _ =>
-                evidence
+                (evidence, evCtx.typerState)
           }
+        def searchImplicitOrError(tpe: Type): Tree =
+          searchImplicitOrError0(tpe)(0)
 
         def unrollTupleTypes(tpe: Type): Option[List[Type]] = tpe.dealias match
           case AppliedType(tycon, args) if defn.isTupleClass(tycon.typeSymbol) =>
@@ -562,6 +564,17 @@ object Inlines:
             case Some(types) =>
               val implicits = types.map(searchImplicitOrError)
               return Typed(tpd.tupleTree(implicits), TypeTree(callTypeArgs.head.tpe)).withSpan(call.span)
+            case _ =>
+              return errorTree(call, em"Tuple element types must be known at compile time")
+        }
+        else if (inlinedMethod == defn.Compiletime_summonAllTransparent) {
+          unrollTupleTypes(callTypeArgs.head.tpe) match
+            case Some(types) =>
+              val implicits = types.map(searchImplicitOrError)
+              // record for good luck
+              val tree = Typed(tpd.tupleTree(implicits), tpd.tupleTypeTree(implicits)).withSpan(call.span)
+              dotc.typer.Inferencing.fullyDefinedType(tree.tpe, "", tree)
+              return tree
             case _ =>
               return errorTree(call, em"Tuple element types must be known at compile time")
         }

@@ -13,6 +13,18 @@ import util.SimpleIdentityMap
 
 import collection.mutable
 
+object InlineReducer {
+  /** same as widenTermRefExpr, but preserves modules and singleton enum values */
+  def widenInlineScrutineePre(tp: Type)(using Context): Type = tp.stripTypeVar match
+    case tp: TermRef  =>
+      val sym = tp.termSymbol
+      if sym.isAllOf(EnumCase, butNot=JavaDefined) || sym.is(Module) then tp
+      else if !tp.isOverloaded then widenInlineScrutineePre(tp.underlying.widenExpr)
+      else tp
+    case _ => tp
+}
+
+
 /** A utility class offering methods for rewriting inlined code */
 class InlineReducer(inliner: Inliner)(using Context):
   import tpd.*
@@ -21,13 +33,7 @@ class InlineReducer(inliner: Inliner)(using Context):
 
   extension (tp: Type)
     /** same as widenTermRefExpr, but preserves modules and singleton enum values */
-    private def widenInlineScrutinee(using Context): Type = tp.stripTypeVar match
-      case tp: TermRef  =>
-        val sym = tp.termSymbol
-        if sym.isAllOf(EnumCase, butNot=JavaDefined) || sym.is(Module) then tp
-        else if !tp.isOverloaded then tp.underlying.widenExpr.widenInlineScrutinee
-        else tp
-      case _ => tp
+    private def widenInlineScrutinee(using Context): Type = InlineReducer.widenInlineScrutineePre(tp)
 
   /** An extractor for terms equivalent to `new C(args)`, returning the class `C`,
    *  a list of bindings, and the arguments `args`. Can see inside blocks and Inlined nodes and can

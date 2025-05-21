@@ -105,7 +105,10 @@ val experimentalDefinitionInLibrary = Set(
   "scala.Predef$.runtimeChecked", "scala.annotation.internal.RuntimeChecked",
 
   // New feature: SIP 61 - @unroll annotation
-  "scala.annotation.unroll"
+  "scala.annotation.unroll",
+
+  // New feature: summonAll that can aid type inference of unknown arguments.
+  "scala.compiletime.package$package$.summonAllTransparent"
 )
 
 

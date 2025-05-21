@@ -180,6 +180,11 @@ inline def summonAll[T <: Tuple]: T =
   // implemented in dotty.tools.dotc.typer.Inliner
   error("Compiler bug: `summonAll` was not evaluated by the compiler")
 
+@experimental
+transparent inline def summonAllTransparent[T <: Tuple]: T =
+  // implemented in dotty.tools.dotc.typer.Inliner
+  error("Compiler bug: `summonAllTransparent` was not evaluated by the compiler")
+
 /** Assertion that an argument is by-name. Used for nullability checking. */
 def byName[T](x: => T): T = x
 
