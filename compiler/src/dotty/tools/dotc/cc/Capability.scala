@@ -54,7 +54,32 @@ object Capabilities:
 
   @sharable private var nextRootId = 0
 
-  /** The base trait of all root capabilities */
+  /** The base trait of all root capabilities
+   *  There are three kinds:
+   *
+   *   - FreshCap   for caps in local definitions, including results of non-dependent functions.
+   *                E.g. the `^` would be mapped to FreshCap here:
+   *
+   *                  val x: C^
+   *                  val y: A => C^
+   *                  type T <: C^
+   *
+   *   - ResultCap  for caps in method results, and results of dependent function types.
+   *                E.g. the `^` would be mapped to ResultCap here:
+   *
+   *                  def f: C^
+   *                  def g(x: T): C^
+   *                  val x: (y: A) => C^
+   *
+   *   - GlobalCap  The old universal root, still used for function parameters, in type
+   *                aliases, and some corner cases.
+   *                E.g. the `^` would be mapped to ResultCap here:
+   *
+   *                  def f(x: C^): T
+   *                  val x: (y: C^) => T
+   *                  type L = List[C^]
+   *                  class A extends B[C^]
+   */
   trait RootCapability extends Capability:
     val rootId = nextRootId
     nextRootId += 1
@@ -97,8 +122,7 @@ object Capabilities:
    *      (x?).readOnly = (x.rd)?
    */
   case class ReadOnly(underlying: ObjectCapability | RootCapability | Reach)
-  extends DerivedCapability:
-    assert(!underlying.isInstanceOf[Maybe])
+  extends DerivedCapability
 
   /** If `x` is a capability, its reach capability `x*`. `x*` stands for all
    *  capabilities reachable through `x`.
@@ -112,8 +136,7 @@ object Capabilities:
    *      (x.rd).reach = x*.rd
    *      (x.rd)?      = (x*)?
    */
-  case class Reach(underlying: ObjectCapability) extends DerivedCapability:
-    assert(!underlying.isInstanceOf[Maybe | ReadOnly])
+  case class Reach(underlying: ObjectCapability) extends DerivedCapability
 
   /** The global root capability referenced as `caps.cap`
    *  `cap` does not subsume other capabilities, except in arguments of
@@ -391,7 +414,7 @@ object Capabilities:
       case TermRef(prefix: Capability, _) => prefix.ccOwner
       case self: NamedType => self.symbol
       case self: DerivedCapability => self.underlying.ccOwner
-      case self: FreshCap => self.hiddenSet.owner
+      case self: FreshCap => self.owner
       case _ /* : GlobalCap | ResultCap | ParamRef */ => NoSymbol
 
     /** The symbol that represents the level closest-enclosing ccOwner.
@@ -542,9 +565,10 @@ object Capabilities:
       || this.match
         case x: FreshCap =>
           def levelOK =
+            // check that we don't leak an inner ref to an outer fresh
             if ccConfig.useFreshLevels && !CCState.collapseFresh then
               val yOwner = y.levelOwner
-              yOwner.isStaticOwner || x.ccOwner.isContainedIn(yOwner)
+              yOwner.isStaticOwner || x.owner.isContainedIn(yOwner)
             else y.core match
               case ResultCap(_) | _: ParamRef => false
               case _ => true
@@ -562,11 +586,13 @@ object Capabilities:
           result
         case GlobalCap =>
           y match
-            case GlobalCap => true
             case _: ResultCap => false
             case _: FreshCap if CCState.collapseFresh => true
+            case GlobalCap => assert(false) // should already have been handled by the x eq y case
             case _ =>
               y.derivesFromSharedCapability
+                  // this condition is needed when we compare parameter types
+                  // e.g. pos-custom-args/captures/reach-capability.scala
               || canAddHidden && vs != VarState.HardSeparate && CCState.capIsRoot
         case _ =>
           y match

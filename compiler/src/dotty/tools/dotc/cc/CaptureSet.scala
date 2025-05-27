@@ -1163,12 +1163,21 @@ object CaptureSet:
      *  It's sound since ExprTypes always appear alone and at the top-level, so there is
      *  no problem with confusing results at different levels.
      *  See pos-customargs/captures/overrides.scala for a test case.
+     *
+     *  N.B. One could think that unify is not needed for results of method types because
+     *  we hash-cons based on binder. So if two ResultCaps have the same binder are they not
+     *  already `eq`, so no further tests are needed? This is not true because we don't do global
+     *  hash consing for ResultCaps, only for ResultCaps deriving from the same original type.
+     *  So we could have two original types A and B that each get mapped by substBinding
+     *  to a type C. Then C's ResultCaps have the same binder, but they are not identical.
+     *  Also, of course, we still need to check for ResultCaps of ExprTypes since these
+     *  are not hash consed anyway.
      */
     def unify(c1: ResultCap, c2: ResultCap)(using Context): Boolean =
       ((c1.binder eq c2.binder)
         || c1.binder.isInstanceOf[ExprType] && c2.binder.isInstanceOf[ExprType] // (**)
       )
-      && (c1.originalBinder ne c2.originalBinder)
+      && (c1.originalBinder ne c2.originalBinder) // can't two unify separate ^'s in same function result
       && eqResultMap(c1) == null
       && eqResultMap(c2) == null
       && {
