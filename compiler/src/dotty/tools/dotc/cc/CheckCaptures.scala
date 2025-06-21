@@ -1240,6 +1240,7 @@ class CheckCaptures extends Recheck, SymTransformer:
           curEnv = Env(curEnv.owner, EnvKind.Boxed, CaptureSet.Var(curEnv.owner, level = ccState.currentLevel), curEnv)
         case _ =>
       val res =
+        //assert(!ctx.settings.YccNew.value)
         try
           if capt eq noPrinter then
             super.recheck(tree, pt)
