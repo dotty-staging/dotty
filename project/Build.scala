@@ -1237,7 +1237,7 @@ object Build {
     settings(scala2LibraryBootstrappedSettings).
     settings(
       moduleName := "scala2-library-cc",
-      scalacOptions ++= Seq("-source", "3.7", "-verbose"), // for separation checking
+      scalacOptions ++= Seq("-source", "3.7", "-Wconf:cat=deprecation:s,cat=unchecked:s"), // for separation checking
       Compile / compile / logLevel.withRank(KeyRanks.Invisible) := Level.Info,  // overwrite the logging level
     )
 

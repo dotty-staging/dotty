@@ -101,7 +101,7 @@ object report:
     if sourceVersion.isAtLeast(migrationVersion.errorFrom) then
       if sourceVersion != migrationVersion.errorFrom.prevMigrating then error(msg, pos)
       else if ctx.settings.rewrite.value.isEmpty then migrationWarning(msg, pos)
-    else if sourceVersion.isAtLeast(migrationVersion.warnFrom) then warning(msg, pos)
+    else if sourceVersion.isAtLeast(migrationVersion.warnFrom) then deprecationWarning(msg, pos)
 
   def restrictionError(msg: Message, pos: SrcPos = NoSourcePosition)(using Context): Unit =
     error(msg.mapMsg("Implementation restriction: " + _), pos)
