@@ -109,8 +109,8 @@ trait TypesSupport:
           case List(ref) if ref.isCaptureRoot =>
             keyword("=> ") :: inner(tpe)
           case refs =>
-            keyword("->") :: (renderCaptureSet(refs) ++ inner(tpe))
-      case ByNameType(tpe) => keyword("=> ") :: inner(tpe) // FIXME: does it need change for CC?
+            keyword("->") :: (renderCaptureSet(refs) ++ (plain(" ") :: inner(tpe)))
+      case ByNameType(tpe) => keyword("=>!! ") :: inner(tpe) // FIXME: does it need change for CC?
       case ConstantType(constant) =>
         plain(constant.show).l
       case ThisType(tpe) =>
