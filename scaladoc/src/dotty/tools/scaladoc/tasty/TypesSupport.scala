@@ -115,10 +115,9 @@ trait TypesSupport:
         ++ keyword(" & ").l
         ++ inParens(inner(right), shouldWrapInParens(right, tp, false))
       case ByNameType(CapturingType(tpe, refs)) =>
-        renderCaptureArrow(using qctx)(refs, false) ++ (plain(" ") :: inner(tpe))
+        renderFunctionArrow(using qctx)(refs, true, false) ++ (plain(" ") :: inner(tpe))
       case ByNameType(tpe) =>
-        tpe.typeSymbol.pos.map(p => report.warning(s"Pure ByNameType at ${p}"))
-        keyword("-> ") :: inner(tpe) // FIXME need to check if cc is enabled in current file first!!!
+        (if ccEnabled then keyword("-> ") else keyword("=> ")):: inner(tpe)
       case ConstantType(constant) =>
         plain(constant.show).l
       case ThisType(tpe) =>
@@ -248,7 +247,8 @@ trait TypesSupport:
         ++ plain(" ").l
         ++ inParens(inner(rhs), shouldWrapInParens(rhs, t, false))
 
-      case t @ AppliedType(tpe, args) if t.isFunctionType => functionType(t, tpe, args)
+      case t @ AppliedType(tpe, args) if t.isFunctionType =>
+        functionType(t, tpe, args)
 
       case t @ AppliedType(tpe, typeList) =>
         inner(tpe) ++ plain("[").l ++ commas(typeList.map { t => t match
@@ -346,7 +346,7 @@ trait TypesSupport:
       Some(List(CaptureDefs.captureRoot.termRef))
     else
       inCC
-    val arrow = plain(" ") :: (renderCaptureArrow(using qctx)(refs, t.isContextFunctionType) ++ plain(" ").l)
+    val arrow = plain(" ") :: (renderFunctionArrow(using qctx)(refs, t.isFunction1, t.isContextFunctionType) ++ plain(" ").l)
     given Option[List[TypeRepr]] = None // FIXME: this is ugly
     args match
       case Nil => Nil
@@ -485,17 +485,23 @@ trait TypesSupport:
     import reflect._
     Keyword("^") :: renderCaptureSet(refs)
 
-  private def renderCaptureArrow(using Quotes)(refs: List[reflect.TypeRepr], isImplicitFun: Boolean)(using elideThis: reflect.ClassDef): SSignature =
+  private def renderFunctionArrow(using Quotes)(refs: List[reflect.TypeRepr], isPureFun: Boolean, isImplicitFun: Boolean)(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
     val prefix = if isImplicitFun then "?" else ""
-    refs match
-      case Nil => List(Keyword(prefix + "->")) // FIXME need to check if cc is enabled in current file first!!!
-      case List(ref) if ref.isCaptureRoot => List(Keyword(prefix + "=>"))
-      case refs => Keyword(prefix + "->") :: renderCaptureSet(refs)
+    if !ccEnabled then
+      List(Keyword(prefix + "=>"))
+    else
+      refs match
+        case Nil => if isPureFun then List(Keyword(prefix + "->")) else List(Keyword(prefix + "=>"))
+        case List(ref) if ref.isCaptureRoot => List(Keyword(prefix + "=>"))
+        case refs => Keyword(prefix + "->") :: renderCaptureSet(refs)
 
-  private def renderCaptureArrow(using qctx: Quotes)(refs: Option[List[reflect.TypeRepr]], isImplicitFun: Boolean)(using elideThis: reflect.ClassDef): SSignature =
+  private def renderFunctionArrow(using qctx: Quotes)(refs: Option[List[reflect.TypeRepr]], isPureFun: Boolean, isImplicitFun: Boolean)(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
     val prefix = if isImplicitFun then "?" else ""
-    refs match
-      case None => List(Keyword(prefix + "->")) // FIXME need to check if cc is enabled in current file first!!!
-      case Some(refs) => renderCaptureArrow(using qctx)(refs, isImplicitFun)
+    if !ccEnabled then
+      List(Keyword(prefix + "=>"))
+    else
+      refs match
+        case None => if isPureFun then List(Keyword(prefix + "->")) else List(Keyword(prefix + "=>"))
+        case Some(refs) => renderFunctionArrow(using qctx)(refs, isPureFun, isImplicitFun)
