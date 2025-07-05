@@ -341,6 +341,7 @@ trait TypesSupport:
     import reflect._
     val arrow = if t.isContextFunctionType then keyword(" ?=> ").l // FIXME: can we have contextual functions with capture sets?
                 else plain(" ") :: (renderCaptureArrow(inCC) ++ plain(" ").l)
+    given Option[List[TypeRepr]] = None
     args match
       case Nil => Nil
       case List(rtpe) => plain("()").l ++ arrow ++ inner(rtpe)
