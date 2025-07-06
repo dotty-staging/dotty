@@ -524,7 +524,10 @@ trait ClassLikeSupport:
       case _ => valDef.symbol.getExtraModifiers()
 
     mkMember(valDef.symbol, kind, memberInfo.res.asSignature(c))(
-      modifiers = modifiers,
+      // Due to how capture checking encodes update methods (recycling the mutable flag for methods),
+      // we need to filter out the update modifier here. Otherwise, mutable fields will
+      // be documented as having the update modifier, which is not correct.
+      modifiers = modifiers.filterNot(_ == Modifier.Update),
       deprecated = valDef.symbol.isDeprecated(),
       experimental = valDef.symbol.isExperimental()
     )
