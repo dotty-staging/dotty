@@ -133,6 +133,8 @@ trait TypesSupport:
       case CapturingType(base, refs) => base match
         case t @ AppliedType(base, args) if t.isFunctionType =>
           functionType(base, args)(using inCC = Some(refs))
+        case t : Refinement if t.isFunctionType =>
+          inner(base)(using inCC = Some(refs))
         case _ => inner(base) ++ renderCapturing(refs)
       case AnnotatedType(tpe, _) =>
         inner(tpe)
@@ -203,12 +205,19 @@ trait TypesSupport:
             val isCtx = isContextualMethod(m)
             if isDependentMethod(m) then
               val paramList = getParamList(m)
-              val arrow = keyword(if isCtx then " ?=> " else " => ").l
-              val resType = inner(m.resType)
-              paramList ++ arrow ++ resType
+              val arrPrefix = if isCtx then "?" else ""
+              val arrow =
+                if ccEnabled then
+                  inCC match
+                    case None | Some(Nil) => keyword(arrPrefix + "->").l
+                    case Some(List(c)) if c.isCaptureRoot => keyword(arrPrefix + "=>").l
+                    case Some(refs) => keyword(arrPrefix + "->") :: renderCaptureSet(refs)
+                else keyword(arrPrefix + "=>").l
+              val resType = inner(m.resType)(using inCC = None)
+              paramList ++ (plain(" ") :: arrow) ++ (plain(" ") :: resType)
             else
               val sym = defn.FunctionClass(m.paramTypes.length, isCtx)
-              inner(sym.typeRef.appliedTo(m.paramTypes :+ m.resType))
+              inner(sym.typeRef.appliedTo(m.paramTypes :+ m.resType))(using inCC = None)
           case other => noSupported("Dependent function type without MethodType refinement")
         }
 
@@ -499,7 +508,8 @@ trait TypesSupport:
           else
             report.error(s"Cannot render function arrow: expected a (Context)Function* or Impure(Context)Function*, but got: ${funTy.show}")
             Nil
-        case Some(refs) => // there is some capture set
+        case Some(refs) =>
+          // there is some capture set
           refs match
             case Nil => List(Keyword(prefix + "->"))
             case List(ref) if ref.isCaptureRoot => List(Keyword(prefix + "=>"))
