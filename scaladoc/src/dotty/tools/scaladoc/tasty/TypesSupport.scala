@@ -460,9 +460,10 @@ trait TypesSupport:
   private def renderCapability(using Quotes)(ref: reflect.TypeRepr)(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
     ref match
-      case ReachCapability(c) => renderCapability(c) :+ Keyword("*")
-      case ThisType(_)        => List(Keyword("this"))
-      case t                  => inner(t)(using skipTypeSuffix = true, inCC = Some(Nil))
+      case ReachCapability(c)    => renderCapability(c) :+ Keyword("*")
+      case ReadOnlyCapability(c) => renderCapability(c) :+ Keyword(".rd")
+      case ThisType(_)           => List(Keyword("this"))
+      case t                     => inner(t)(using skipTypeSuffix = true, inCC = Some(Nil))
 
   private def renderCaptureSet(using Quotes)(refs: List[reflect.TypeRepr])(using elideThis: reflect.ClassDef): SSignature =
     import dotty.tools.scaladoc.tasty.NameNormalizer._
