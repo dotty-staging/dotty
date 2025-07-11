@@ -5,6 +5,8 @@ import dotty.tools.scaladoc._
 import dotty.tools.scaladoc.{Signature => DSignature}
 import dotty.tools.scaladoc.Inkuire
 
+import dotty.tools.scaladoc.cc.CaptureDefs
+
 import scala.quoted._
 
 import SymOps._

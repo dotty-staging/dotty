@@ -55,7 +55,7 @@ trait TypesSupport:
   private def tpe(using Quotes)(symbol: reflect.Symbol)(using inCC: Option[Any]): SSignature =
     import SymOps._
     val dri: Option[DRI] = Option(symbol).filterNot(_.isHiddenByVisibility).map(_.dri)
-    if inCC.isDefined then
+    if inCC.isDefined then // we are in the context of a capture set and want paths to be rendered plainly
       dotty.tools.scaladoc.Plain(symbol.normalizedName).l
     else
       dotty.tools.scaladoc.Type(symbol.normalizedName, dri).l
@@ -115,9 +115,9 @@ trait TypesSupport:
         ++ keyword(" & ").l
         ++ inParens(inner(right), shouldWrapInParens(right, tp, false))
       case ByNameType(CapturingType(tpe, refs)) =>
-        renderByNameArrow(using qctx)(Some(refs)) ++ (plain(" ") :: inner(tpe))
+        emitByNameArrow(using qctx)(Some(refs)) ++ (plain(" ") :: inner(tpe))
       case ByNameType(tpe) =>
-        renderByNameArrow(using qctx)(None) ++ (plain(" ") :: inner(tpe))
+        emitByNameArrow(using qctx)(None) ++ (plain(" ") :: inner(tpe))
       case ConstantType(constant) =>
         plain(constant.show).l
       case ThisType(tpe) =>
@@ -130,12 +130,14 @@ trait TypesSupport:
         inner(tpe) :+ plain("*")
       case AppliedType(repeatedClass, Seq(tpe)) if isRepeated(repeatedClass) =>
         inner(tpe) :+ plain("*")
-      case CapturingType(base, refs) => base match
-        case t @ AppliedType(base, args) if t.isFunctionType =>
-          functionType(base, args)(using inCC = Some(refs))
-        case t : Refinement if t.isFunctionType =>
-          inner(base)(using inCC = Some(refs))
-        case _ => inner(base) ++ renderCapturing(refs)
+      case CapturingType(base, refs) =>
+        base match
+          case t @ AppliedType(base, args) if t.isFunctionType =>
+            functionType(base, args)(using inCC = Some(refs))
+          case t : Refinement if t.isFunctionType =>
+            inner(base)(using inCC = Some(refs))
+          case t if t.isCapSet => emitCaptureSet(refs, omitCap = false)
+          case _ => inner(base) ++ emitCapturing(refs)
       case AnnotatedType(tpe, _) =>
         inner(tpe)
       case tl @ TypeLambda(params, paramBounds, AppliedType(tpe, args))
@@ -211,7 +213,7 @@ trait TypesSupport:
                   inCC match
                     case None | Some(Nil) => keyword(arrPrefix + "->").l
                     case Some(List(c)) if c.isCaptureRoot => keyword(arrPrefix + "=>").l
-                    case Some(refs) => keyword(arrPrefix + "->") :: renderCaptureSet(refs)
+                    case Some(refs) => keyword(arrPrefix + "->") :: emitCaptureSet(refs)
                 else keyword(arrPrefix + "=>").l
               val resType = inner(m.resType)(using inCC = None)
               paramList ++ (plain(" ") :: arrow) ++ (plain(" ") :: resType)
@@ -264,6 +266,8 @@ trait TypesSupport:
           case _: TypeBounds => keyword("_").l ++ inner(t)
           case _ => topLevelProcess(t)
         }) ++ plain("]").l
+
+      case t : TypeRef if t.isCapSet => emitCaptureSet(Nil)
 
       case tp @ TypeRef(qual, typeName) =>
         qual match {
@@ -350,7 +354,7 @@ trait TypesSupport:
     inCC: Option[List[reflect.TypeRepr]],
   ): SSignature =
     import reflect._
-    val arrow = plain(" ") :: (renderFunctionArrow(using qctx)(funTy, inCC) ++ plain(" ").l)
+    val arrow = plain(" ") :: (emitFunctionArrow(using qctx)(funTy, inCC) ++ plain(" ").l)
     given Option[List[TypeRepr]] = None // FIXME: this is ugly
     args match
       case Nil => Nil
@@ -366,7 +370,10 @@ trait TypesSupport:
 
   private def typeBound(using Quotes)(t: reflect.TypeRepr, low: Boolean)(using elideThis: reflect.ClassDef) =
     import reflect._
-    val ignore = if (low) t.typeSymbol == defn.NothingClass else t.typeSymbol == defn.AnyClass
+    val ignore = low &&  (ccEnabled && t.isCapSetPure
+                          || t.typeSymbol == defn.NothingClass)
+              || !low && (ccEnabled && t.isCapSetCap
+                          || t.typeSymbol == defn.AnyClass)
     val prefix = keyword(if low then " >: " else " <: ")
     t match {
       case l: TypeLambda => prefix :: inParens(inner(l)(using elideThis))
@@ -466,31 +473,30 @@ trait TypesSupport:
       case AnnotatedType(tr, _) => stripAnnotated(tr)
       case other => other
 
-  private def renderCapability(using Quotes)(ref: reflect.TypeRepr)(using elideThis: reflect.ClassDef): SSignature =
+  private def emitCapability(using Quotes)(ref: reflect.TypeRepr)(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
     ref match
-      case ReachCapability(c)    => renderCapability(c) :+ Keyword("*")
-      case ReadOnlyCapability(c) => renderCapability(c) :+ Keyword(".rd")
+      case ReachCapability(c)    => emitCapability(c) :+ Keyword("*")
+      case ReadOnlyCapability(c) => emitCapability(c) :+ Keyword(".rd")
       case ThisType(_)           => List(Keyword("this"))
       case t                     => inner(t)(using skipTypeSuffix = true, inCC = Some(Nil))
 
-  private def renderCaptureSet(using Quotes)(refs: List[reflect.TypeRepr])(using elideThis: reflect.ClassDef): SSignature =
-    import dotty.tools.scaladoc.tasty.NameNormalizer._
+  private def emitCaptureSet(using Quotes)(refs: List[reflect.TypeRepr], omitCap: Boolean = true)(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
     refs match
-      case List(ref) if ref.isCaptureRoot => Nil
+      case List(ref) if omitCap && ref.isCaptureRoot => Nil
       case refs =>
-        val res0 = refs.map(renderCapability)
+        val res0 = refs.map(emitCapability)
         val res1 = res0 match
           case Nil => Nil
           case other => other.reduce((r, e) => r ++ (List(Plain(", ")) ++ e))
         Plain("{") :: (res1 ++ List(Plain("}")))
 
-  private def renderCapturing(using Quotes)(refs: List[reflect.TypeRepr])(using elideThis: reflect.ClassDef): SSignature =
+  private def emitCapturing(using Quotes)(refs: List[reflect.TypeRepr])(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
-    Keyword("^") :: renderCaptureSet(refs)
+    Keyword("^") :: emitCaptureSet(refs)
 
-  private def renderFunctionArrow(using Quotes)(funTy: reflect.TypeRepr, captures: Option[List[reflect.TypeRepr]])(using elideThis: reflect.ClassDef): SSignature =
+  private def emitFunctionArrow(using Quotes)(funTy: reflect.TypeRepr, captures: Option[List[reflect.TypeRepr]])(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
     val isContextFun = funTy.isAnyContextFunction || funTy.isAnyImpureContextFunction
     val prefix = if isContextFun then "?" else ""
@@ -506,14 +512,14 @@ trait TypesSupport:
           else if isImpureFun then
             List(Keyword(prefix + "=>"))
           else
-            report.error(s"Cannot render function arrow: expected a (Context)Function* or Impure(Context)Function*, but got: ${funTy.show}")
+            report.error(s"Cannot emit function arrow: expected a (Context)Function* or Impure(Context)Function*, but got: ${funTy.show}")
             Nil
         case Some(refs) =>
           // there is some capture set
           refs match
             case Nil => List(Keyword(prefix + "->"))
             case List(ref) if ref.isCaptureRoot => List(Keyword(prefix + "=>"))
-            case refs => Keyword(prefix + "->") :: renderCaptureSet(refs)
+            case refs => Keyword(prefix + "->") :: emitCaptureSet(refs)
 
-  private def renderByNameArrow(using Quotes)(captures: Option[List[reflect.TypeRepr]])(using elideThis: reflect.ClassDef): SSignature =
-    renderFunctionArrow(CaptureDefs.Function1.typeRef, captures)
+  private def emitByNameArrow(using Quotes)(captures: Option[List[reflect.TypeRepr]])(using elideThis: reflect.ClassDef): SSignature =
+    emitFunctionArrow(CaptureDefs.Function1.typeRef, captures)
