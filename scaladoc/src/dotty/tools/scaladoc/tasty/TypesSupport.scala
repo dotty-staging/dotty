@@ -135,9 +135,9 @@ trait TypesSupport:
           case t @ AppliedType(base, args) if t.isFunctionType =>
             functionType(base, args)(using inCC = Some(refs))
           case t : Refinement if t.isFunctionType =>
-            inner(base)(using inCC = Some(refs))
+            inner(base)(using indent = indent, skipTypeSuffix = skipTypeSuffix, inCC = Some(refs))
           case t if t.isCapSet => emitCaptureSet(refs, omitCap = false)
-          case _ => inner(base) ++ emitCapturing(refs)
+          case t => inner(base) ++ emitCapturing(refs)
       case AnnotatedType(tpe, _) =>
         inner(tpe)
       case tl @ TypeLambda(params, paramBounds, AppliedType(tpe, args))
@@ -159,6 +159,8 @@ trait TypesSupport:
         inner(Refinement(at, "apply", mt))
 
       case r: Refinement => { //(parent, name, info)
+        val inCC0 = inCC
+        given Option[List[TypeRepr]] = None // do not propagate capture set beyond this point
         def getRefinementInformation(t: TypeRepr): List[TypeRepr] = t match {
           case r: Refinement => getRefinementInformation(r.parent) :+ r
           case t => List(t)
@@ -214,16 +216,16 @@ trait TypesSupport:
               val arrPrefix = if isCtx then "?" else ""
               val arrow =
                 if ccEnabled then
-                  inCC match
+                  inCC0 match
                     case None | Some(Nil) => keyword(arrPrefix + "->").l
                     case Some(List(c)) if c.isCaptureRoot => keyword(arrPrefix + "=>").l
                     case Some(refs) => keyword(arrPrefix + "->") :: emitCaptureSet(refs)
                 else keyword(arrPrefix + "=>").l
-              val resType = inner(m.resType)(using inCC = None)
+              val resType = inner(m.resType)
               paramList ++ (plain(" ") :: arrow) ++ (plain(" ") :: resType)
             else
               val sym = defn.FunctionClass(m.paramTypes.length, isCtx)
-              inner(sym.typeRef.appliedTo(m.paramTypes :+ m.resType))(using inCC = None)
+              inner(sym.typeRef.appliedTo(m.paramTypes :+ m.resType))
           case other => noSupported("Dependent function type without MethodType refinement")
         }
 
@@ -280,7 +282,7 @@ trait TypesSupport:
             tpe(tp.typeSymbol)
           case _: TermRef | _: ParamRef =>
             val suffix = if tp.typeSymbol == Symbol.noSymbol then tpe(typeName).l else tpe(tp.typeSymbol)
-            inner(qual)(using skipTypeSuffix = true) ++ plain(".").l ++ suffix
+            inner(qual)(using skipTypeSuffix = true, inCC = inCC) ++ plain(".").l ++ suffix
           case ThisType(tr) =>
             findSupertype(elideThis, tr.typeSymbol) match
               case Some((sym, AppliedType(tr2, args))) =>
@@ -294,7 +296,7 @@ trait TypesSupport:
                   case _ => tpe(tp.typeSymbol)
               case Some(_) => tpe(tp.typeSymbol)
               case None =>
-                val sig = inParens(inner(qual)(using skipTypeSuffix = true), shouldWrapInParens(qual, tp, true))
+                val sig = inParens(inner(qual)(using skipTypeSuffix = true, inCC = inCC), shouldWrapInParens(qual, tp, true))
                 sig ++ plain(".").l ++ tpe(tp.typeSymbol)
           case _ =>
             val sig = inParens(inner(qual), shouldWrapInParens(qual, tp, true))
@@ -304,7 +306,7 @@ trait TypesSupport:
       case tr @ TermRef(qual, typeName) =>
         val prefix = qual match
           case t if skipPrefix(t, elideThis) => Nil
-          case tp => inner(tp)(using skipTypeSuffix = true) ++ plain(".").l
+          case tp => inner(tp)(using skipTypeSuffix = true, inCC = inCC) ++ plain(".").l
         val suffix = if skipTypeSuffix then Nil else List(plain("."), keyword("type"))
         val typeSig = tr.termSymbol.tree match
           case vd: ValDef if tr.termSymbol.flags.is(Flags.Module) =>
@@ -323,9 +325,9 @@ trait TypesSupport:
         val spaces = " " * (indent)
         val casesTexts = cases.flatMap {
           case MatchCase(from, to) =>
-            keyword(caseSpaces + "case ").l ++ inner(from) ++ keyword(" => ").l ++ inner(to)(using indent = indent + 2) ++ plain("\n").l
+            keyword(caseSpaces + "case ").l ++ inner(from) ++ keyword(" => ").l ++ inner(to)(using indent = indent + 2, inCC = inCC) ++ plain("\n").l
           case TypeLambda(_, _, MatchCase(from, to)) =>
-            keyword(caseSpaces + "case ").l ++ inner(from) ++ keyword(" => ").l ++ inner(to)(using indent = indent + 2) ++ plain("\n").l
+            keyword(caseSpaces + "case ").l ++ inner(from) ++ keyword(" => ").l ++ inner(to)(using indent = indent + 2, inCC = inCC) ++ plain("\n").l
         }
         inner(sc) ++ keyword(" match ").l ++ plain("{\n").l ++ casesTexts ++ plain(spaces + "}").l
 
@@ -359,7 +361,7 @@ trait TypesSupport:
   ): SSignature =
     import reflect._
     val arrow = plain(" ") :: (emitFunctionArrow(using qctx)(funTy, inCC) ++ plain(" ").l)
-    given Option[List[TypeRepr]] = None // FIXME: this is ugly
+    given Option[List[TypeRepr]] = None // do not propagate capture set beyond this point
     args match
       case Nil => Nil
       case List(rtpe) => plain("()").l ++ arrow ++ inner(rtpe)
@@ -389,14 +391,14 @@ trait TypesSupport:
   private def typeBoundsTreeOfHigherKindedType(using Quotes)(low: reflect.TypeRepr, high: reflect.TypeRepr)(using elideThis: reflect.ClassDef, inCC: Option[List[reflect.TypeRepr]]) =
     import reflect._
     def regularTypeBounds(low: TypeRepr, high: TypeRepr) =
-      if low == high then keyword(" = ").l ++ inner(low)(using elideThis)
+      if low == high then keyword(" = ").l ++ inner(low)(using elideThis, inCC = inCC)
       else typeBound(low, low = true)(using elideThis) ++ typeBound(high, low = false)(using elideThis)
     high.match
       case TypeLambda(params, paramBounds, resType) =>
         if resType.typeSymbol == defn.AnyClass then
           plain("[").l ++ commas(params.zip(paramBounds).map { (name, typ) =>
             val normalizedName = if name.matches("_\\$\\d*") then "_" else name
-            tpe(normalizedName)(using inCC).l ++ inner(typ)(using elideThis)
+            tpe(normalizedName)(using inCC).l ++ inner(typ)(using elideThis, inCC = inCC)
           }) ++ plain("]").l
         else
           regularTypeBounds(low, high)
