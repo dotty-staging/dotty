@@ -192,28 +192,28 @@ object ListMap extends MapFactory[ListMap] {
 
       if (found) {
         if (isDifferent) {
-          var newHead: ListMap.Node[K, V1] = null
-          var prev: ListMap.Node[K, V1] = null
+          var newHead: ListMap.Node[K, V1] | Null = null
+          var prev: ListMap.Node[K, V1] | Null = null
           var curr: ListMap[K, V1] = this
           var i = 0
           while (i < index) {
             val temp = new ListMap.Node(curr.key, curr.value, null)
-            if (prev ne null) {
-              prev._init = temp
+            if (prev != null) {
+              prev.nn._init = temp
             }
             prev = temp
             curr = curr.init
-            if (newHead eq null) {
+            if (newHead == null) {
               newHead = prev
             }
             i += 1
           }
           val newNode = new ListMap.Node(curr.key, v, curr.init)
-          if (prev ne null) {
-            prev._init = newNode
+          if (prev != null) {
+            prev.nn._init = newNode
           }
           releaseFence()
-          if (newHead eq null) newNode else newHead
+          if (newHead == null) newNode else newHead.nn
         } else {
           this
         }
@@ -370,3 +370,4 @@ private[immutable] final class ListMapBuilder[K, V] extends mutable.ReusableBuil
     }
   }
 }
+

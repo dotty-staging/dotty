@@ -70,17 +70,17 @@ import scala.runtime.AbstractFunction2
   *  @define mayNotTerminateInf
   *  @define willNotTerminateInf
   */
-final class TreeMap[K, +V] private (private val tree: RB.Tree[K, V])(implicit val ordering: Ordering[K])
+final class TreeMap[K, +V] private (private val tree: RB.Tree[K, V] | Null)(implicit val ordering: Ordering[K])
   extends AbstractMap[K, V]
     with SortedMap[K, V]
     with StrictOptimizedSortedMapOps[K, V, TreeMap, TreeMap[K, V]]
     with SortedMapFactoryDefaults[K, V, TreeMap, Iterable, Map]
     with DefaultSerializable {
 
-  def this()(implicit ordering: Ordering[K]) = this(null)(ordering)
-  private[immutable] def tree0: RB.Tree[K, V] = tree
+  def this()(implicit ordering: Ordering[K]) = this(null: RB.Tree[K, V] | Null)(ordering)
+  private[immutable] def tree0: RB.Tree[K, V] | Null = tree
 
-  private[this] def newMapOrSelf[V1 >: V](t: RB.Tree[K, V1]): TreeMap[K, V1] = if(t eq tree) this else new TreeMap[K, V1](t)
+  private[this] def newMapOrSelf[V1 >: V](t: RB.Tree[K, V1] | Null): TreeMap[K, V1] = if(t eq tree) this else new TreeMap[K, V1](t)
 
   override def sortedMapFactory: SortedMapFactory[TreeMap] = TreeMap
 
@@ -279,7 +279,7 @@ final class TreeMap[K, +V] private (private val tree: RB.Tree[K, V])(implicit va
 
   private final class Adder[B1 >: V]
     extends RB.MapHelper[K, B1] with Function1[(K, B1), Unit] {
-    private var currentMutableTree: RB.Tree[K,B1] = tree0
+    private var currentMutableTree: RB.Tree[K,B1] | Null = tree0
     def finalTree = beforePublish(currentMutableTree)
     override def apply(kv: (K, B1)): Unit = {
       currentMutableTree = mutableUpd(currentMutableTree, kv._1, kv._2)
@@ -315,13 +315,13 @@ object TreeMap extends SortedMapFactory[TreeMap] {
       case sm: scala.collection.SortedMap[K, V] if ordering == sm.ordering =>
         new TreeMap[K, V](RB.fromOrderedEntries(sm.iterator, sm.size))
       case _ =>
-        var t: RB.Tree[K, V] = null
+        var t: RB.Tree[K, V] | Null = null
         val i = it.iterator
         while (i.hasNext) {
           val (k, v) = i.next()
-          t = RB.update(t, k, v, overwrite = true)
+          t = RB.update(t.nn, k, v, overwrite = true)
         }
-        new TreeMap[K, V](t)
+        new TreeMap[K, V](t.nn)
     }
 
   def newBuilder[K, V](implicit ordering: Ordering[K]): ReusableBuilder[(K, V), TreeMap[K, V]] = new TreeMapBuilder[K, V]
@@ -330,16 +330,18 @@ object TreeMap extends SortedMapFactory[TreeMap] {
     extends RB.MapHelper[K, V]
       with ReusableBuilder[(K, V), TreeMap[K, V]] {
     type Tree = RB.Tree[K, V]
-    private var tree:Tree = null
+    @annotation.nullTrackable
+    private var tree: Tree | Null = null
 
     def addOne(elem: (K, V)): this.type = {
-      tree = mutableUpd(tree, elem._1, elem._2)
+      tree = mutableUpd(tree.nn, elem._1, elem._2)
       this
     }
     private object adder extends AbstractFunction2[K, V, Unit] {
       // we cache tree to avoid the outer access to tree
       // in the hot path (apply)
-      private[this] var accumulator :Tree = null
+      @annotation.nullTrackable
+      private[this] var accumulator : Tree | Null = null
       def addForEach(hasForEach: collection.Map[K, V]): Unit = {
         accumulator = tree
         hasForEach.foreachEntry(this)
@@ -349,7 +351,7 @@ object TreeMap extends SortedMapFactory[TreeMap] {
       }
 
       override def apply(key: K, value: V): Unit = {
-        accumulator = mutableUpd(accumulator, key, value)
+        accumulator = mutableUpd(accumulator.nn, key, value)
       }
     }
 
@@ -361,7 +363,7 @@ object TreeMap extends SortedMapFactory[TreeMap] {
         // calling `beforePublish` makes `tree` immutable
         case ts: TreeMap[K, V] if ts.ordering == ordering =>
           if (tree eq null) tree = ts.tree0
-          else tree = RB.union(beforePublish(tree), ts.tree0)
+          else tree = RB.union(beforePublish(tree.nn), ts.tree0)
         case that: collection.Map[K, V]                  =>
           //add avoiding creation of tuples
           adder.addForEach(that)
@@ -375,6 +377,6 @@ object TreeMap extends SortedMapFactory[TreeMap] {
       tree = null
     }
 
-    override def result(): TreeMap[K, V] = new TreeMap[K, V](beforePublish(tree))
+    override def result(): TreeMap[K, V] = new TreeMap[K, V](beforePublish(tree.nn))
   }
 }

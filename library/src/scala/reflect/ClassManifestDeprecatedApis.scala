@@ -124,7 +124,7 @@ trait ClassManifestDeprecatedApis[T] extends OptManifest[T] {
   @deprecated("create WrappedArray directly instead", "2.10.0")
   def newWrappedArray(len: Int): ArraySeq[T] =
     // it's safe to assume T <: AnyRef here because the method is overridden for all value type manifests
-    new ArraySeq.ofRef[T with AnyRef](newArray(len).asInstanceOf[Array[T with AnyRef]]).asInstanceOf[ArraySeq[T]]
+    new ArraySeq.ofRef[T with AnyRef](newArray(len).asInstanceOf[Array[T with AnyRef]]].asInstanceOf[ArraySeq[T]]
 
   @deprecated("use ArrayBuilder.make(this) instead", "2.10.0")
   def newArrayBuilder(): ArrayBuilder[T] =
@@ -136,7 +136,7 @@ trait ClassManifestDeprecatedApis[T] extends OptManifest[T] {
 
   protected def argString =
     if (typeArguments.nonEmpty) typeArguments.mkString("[", ", ", "]")
-    else if (runtimeClass.isArray) "["+ClassManifest.fromClass(runtimeClass.getComponentType)+"]"
+    else if (runtimeClass.isArray) "["+ClassManifest.fromClass(runtimeClass.getComponentType.nn)+"]"
     else ""
 }
 

@@ -451,14 +451,14 @@ object StreamExtensions {
   trait LowPriorityAccumulatorFactoryInfo {
     implicit def noAccumulatorFactoryInfo[A, C]: AccumulatorFactoryInfo[A, C] = noAccumulatorFactoryInfoPrototype.asInstanceOf[AccumulatorFactoryInfo[A, C]]
     private val noAccumulatorFactoryInfoPrototype: AccumulatorFactoryInfo[AnyRef, AnyRef] = new AccumulatorFactoryInfo[AnyRef, AnyRef] {
-      val companion: AnyRef = null
+      val companion: AnyRef | Null = null
     }
   }
   object AccumulatorFactoryInfo extends LowPriorityAccumulatorFactoryInfo {
     implicit def anyAccumulatorFactoryInfo[A]: AccumulatorFactoryInfo[A, AnyAccumulator[A]] = anyAccumulatorFactoryInfoPrototype.asInstanceOf[AccumulatorFactoryInfo[A, AnyAccumulator[A]]]
 
     private object anyAccumulatorFactoryInfoPrototype extends AccumulatorFactoryInfo[AnyRef, AnyAccumulator[AnyRef]] {
-      val companion: AnyRef = AnyAccumulator
+      val companion: AnyRef | Null = null
     }
 
     implicit val intAccumulatorFactoryInfo: AccumulatorFactoryInfo[Int, IntAccumulator] = new AccumulatorFactoryInfo[Int, IntAccumulator] {

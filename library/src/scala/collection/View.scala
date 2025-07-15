@@ -470,7 +470,7 @@ object View extends IterableFactory[View] {
       init()
       if(len == 0) Iterator.empty.next()
       else {
-        val x = buf(pos).asInstanceOf[A]
+        val x = buf.nn(pos).asInstanceOf[A]
         pos += 1
         if(pos == maxlen) pos = 0
         len -= 1
@@ -496,17 +496,17 @@ object View extends IterableFactory[View] {
     }
   }
 
-  private final class DropRightIterator[A](private[this] var underlying: Iterator[A], maxlen: Int) extends AbstractIterator[A] {
+  private final class DropRightIterator[A](@annotation.nullTrackable private[this] var underlying: Iterator[A] | Null, maxlen: Int) extends AbstractIterator[A] {
     private[this] var len: Int = -1 // known size or -1 if the end of `underlying` has not been seen yet
     private[this] var pos: Int = 0
-    private[this] var buf: ArrayBuffer[AnyRef] = _
+    @annotation.nullTrackable private[this] var buf: ArrayBuffer[AnyRef] | Null = _
     def init(): Unit = if(buf eq null) {
       buf = new ArrayBuffer[AnyRef](maxlen min 256)
-      while(pos < maxlen && underlying.hasNext) {
-        buf.addOne(underlying.next().asInstanceOf[AnyRef])
+      while(pos < maxlen && underlying.nn.hasNext) {
+        buf.nn.addOne(underlying.nn.next().asInstanceOf[AnyRef])
         pos += 1
       }
-      if(!underlying.hasNext) len = 0
+      if(!underlying.nn.hasNext) len = 0
       pos = 0
     }
     override def knownSize = len
@@ -517,10 +517,10 @@ object View extends IterableFactory[View] {
     def next(): A = {
       if(!hasNext) Iterator.empty.next()
       else {
-        val x = buf(pos).asInstanceOf[A]
+        val x = buf.nn(pos).asInstanceOf[A]
         if(len == -1) {
-          buf(pos) = underlying.next().asInstanceOf[AnyRef]
-          if(!underlying.hasNext) len = 0
+          buf.nn(pos) = underlying.nn.next().asInstanceOf[AnyRef]
+          if(!underlying.nn.hasNext) len = 0
         } else len -= 1
         pos += 1
         if(pos == maxlen) pos = 0

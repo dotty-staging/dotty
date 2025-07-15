@@ -26,7 +26,7 @@ import scala.runtime.Statics.releaseFence
  *  optimizations behind a reasonably clean API.
  */
 private[collection] object RedBlackTree {
-  def validate[A](tree: Tree[A, _])(implicit ordering: Ordering[A]): tree.type = {
+  def validate[A](tree: Tree[A, _] | Null)(implicit ordering: Ordering[A]): tree.type = {
     def impl(tree: Tree[A, _], keyProp: A => Boolean): Int = {
       assert(keyProp(tree.key), s"key check failed: $tree")
       if (tree.isRed) {
@@ -42,23 +42,23 @@ private[collection] object RedBlackTree {
     tree
   }
 
-  def isEmpty(tree: Tree[_, _]): Boolean = tree eq null
+  def isEmpty(tree: Tree[_, _] | Null): Boolean = tree eq null
 
-  def contains[A: Ordering](tree: Tree[A, _], x: A): Boolean = lookup(tree, x) ne null
-  def get[A: Ordering, B](tree: Tree[A, B], x: A): Option[B] = lookup(tree, x) match {
+  def contains[A: Ordering](tree: Tree[A, _] | Null, x: A): Boolean = lookup(tree, x) ne null
+  def get[A: Ordering, B](tree: Tree[A, B] | Null, x: A): Option[B] = lookup(tree, x) match {
     case null  => None
     case found => Some(found.value)
   }
 
   @tailrec
-  def lookup[A, B](tree: Tree[A, B], x: A)(implicit ordering: Ordering[A]): Tree[A, B] = if (tree eq null) null else {
+  def lookup[A, B](tree: Tree[A, B] | Null, x: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = if (tree eq null) null else {
     val cmp = ordering.compare(x, tree.key)
     if (cmp < 0) lookup(tree.left, x)
     else if (cmp > 0) lookup(tree.right, x)
     else tree
   }
   private[immutable] abstract class Helper[A](implicit val ordering: Ordering[A]) {
-    def beforePublish[B](tree: Tree[A, B]): Tree[A, B] = {
+    def beforePublish[B](tree: Tree[A, B] | Null): Tree[A, B] | Null = {
       if (tree eq null) tree
       else if (tree.isMutable) {
         val res = tree.mutableBlack.makeImmutable
@@ -156,7 +156,7 @@ private[collection] object RedBlackTree {
     }
   }
   private[immutable] class SetHelper[A](implicit ordering: Ordering[A]) extends Helper[A] {
-    protected[this] final def mutableUpd(tree: Tree[A, Any], k: A): Tree[A, Any] =
+    protected[this] final def mutableUpd(tree: Tree[A, Any] | Null, k: A): Tree[A, Any] =
       if (tree eq null) {
         mutableRedTree(k, (), null, null)
       } else if (k.asInstanceOf[AnyRef] eq tree.key.asInstanceOf[AnyRef]) {
@@ -171,7 +171,7 @@ private[collection] object RedBlackTree {
       }
   }
   private[immutable] class MapHelper[A, B](implicit ordering: Ordering[A]) extends Helper[A] {
-    protected[this] final def mutableUpd[B1 >: B](tree: Tree[A, B], k: A, v: B1): Tree[A, B1] =
+    protected[this] final def mutableUpd[B1 >: B](tree: Tree[A, B] | Null, k: A, v: B1): Tree[A, B1] =
       if (tree eq null) {
         mutableRedTree(k, v, null, null)
       } else if (k.asInstanceOf[AnyRef] eq tree.key.asInstanceOf[AnyRef]) {
@@ -186,39 +186,39 @@ private[collection] object RedBlackTree {
       }
   }
 
-  def count(tree: Tree[_, _]) = if (tree eq null) 0 else tree.count
-  def update[A: Ordering, B, B1 >: B](tree: Tree[A, B], k: A, v: B1, overwrite: Boolean): Tree[A, B1] = blacken(upd(tree, k, v, overwrite))
-  def delete[A: Ordering, B](tree: Tree[A, B], k: A): Tree[A, B] = blacken(del(tree, k))
-  def rangeImpl[A: Ordering, B](tree: Tree[A, B], from: Option[A], until: Option[A]): Tree[A, B] = (from, until) match {
+  def count(tree: Tree[_, _] | Null) = if (tree eq null) 0 else tree.count
+  def update[A: Ordering, B, B1 >: B](tree: Tree[A, B] | Null, k: A, v: B1, overwrite: Boolean): Tree[A, B1] = blacken(upd(tree, k, v, overwrite))
+  def delete[A: Ordering, B](tree: Tree[A, B] | Null, k: A): Tree[A, B] | Null = blacken(del(tree, k))
+  def rangeImpl[A: Ordering, B](tree: Tree[A, B] | Null, from: Option[A], until: Option[A]): Tree[A, B] | Null = (from, until) match {
     case (Some(from), Some(until)) => this.range(tree, from, until)
     case (Some(from), None)        => this.from(tree, from)
     case (None,       Some(until)) => this.until(tree, until)
     case (None,       None)        => tree
   }
-  def range[A: Ordering, B](tree: Tree[A, B], from: A, until: A): Tree[A, B] = blacken(doRange(tree, from, until))
-  def from[A: Ordering, B](tree: Tree[A, B], from: A): Tree[A, B] = blacken(doFrom(tree, from))
-  def to[A: Ordering, B](tree: Tree[A, B], to: A): Tree[A, B] = blacken(doTo(tree, to))
-  def until[A: Ordering, B](tree: Tree[A, B], key: A): Tree[A, B] = blacken(doUntil(tree, key))
+  def range[A: Ordering, B](tree: Tree[A, B] | Null, from: A, until: A): Tree[A, B] | Null = blacken(doRange(tree, from, until))
+  def from[A: Ordering, B](tree: Tree[A, B] | Null, from: A): Tree[A, B] | Null = blacken(doFrom(tree, from))
+  def to[A: Ordering, B](tree: Tree[A, B] | Null, to: A): Tree[A, B] | Null = blacken(doTo(tree, to))
+  def until[A: Ordering, B](tree: Tree[A, B] | Null, key: A): Tree[A, B] | Null = blacken(doUntil(tree, key))
 
-  def drop[A: Ordering, B](tree: Tree[A, B], n: Int): Tree[A, B] = blacken(doDrop(tree, n))
-  def take[A: Ordering, B](tree: Tree[A, B], n: Int): Tree[A, B] = blacken(doTake(tree, n))
-  def slice[A: Ordering, B](tree: Tree[A, B], from: Int, until: Int): Tree[A, B] = blacken(doSlice(tree, from, until))
+  def drop[A: Ordering, B](tree: Tree[A, B] | Null, n: Int): Tree[A, B] | Null = blacken(doDrop(tree, n))
+  def take[A: Ordering, B](tree: Tree[A, B] | Null, n: Int): Tree[A, B] | Null = blacken(doTake(tree, n))
+  def slice[A: Ordering, B](tree: Tree[A, B] | Null, from: Int, until: Int): Tree[A, B] | Null = blacken(doSlice(tree, from, until))
 
-  def smallest[A, B](tree: Tree[A, B]): Tree[A, B] = {
+  def smallest[A, B](tree: Tree[A, B] | Null): Tree[A, B] = {
     if (tree eq null) throw new NoSuchElementException("empty tree")
     var result = tree
     while (result.left ne null) result = result.left
     result
   }
-  def greatest[A, B](tree: Tree[A, B]): Tree[A, B] = {
+  def greatest[A, B](tree: Tree[A, B] | Null): Tree[A, B] = {
     if (tree eq null) throw new NoSuchElementException("empty tree")
     var result = tree
     while (result.right ne null) result = result.right
     result
   }
 
-  def tail[A, B](tree: Tree[A, B]): Tree[A, B] = {
-    def _tail(tree: Tree[A, B]): Tree[A, B] =
+  def tail[A, B](tree: Tree[A, B] | Null): Tree[A, B] | Null = {
+    def _tail(tree: Tree[A, B]): Tree[A, B] | Null =
       if (tree eq null) throw new NoSuchElementException("empty tree")
       else {
         val tl = tree.left
@@ -229,8 +229,8 @@ private[collection] object RedBlackTree {
     blacken(_tail(tree))
   }
 
-  def init[A, B](tree: Tree[A, B]): Tree[A, B] = {
-    def _init(tree: Tree[A, B]): Tree[A, B] =
+  def init[A, B](tree: Tree[A, B] | Null): Tree[A, B] | Null = {
+    def _init(tree: Tree[A, B]): Tree[A, B] | Null =
       if (tree eq null) throw new NoSuchElementException("empty tree")
       else {
         val tr = tree.right
@@ -244,7 +244,7 @@ private[collection] object RedBlackTree {
   /**
     * Returns the smallest node with a key larger than or equal to `x`. Returns `null` if there is no such node.
     */
-  def minAfter[A, B](tree: Tree[A, B], x: A)(implicit ordering: Ordering[A]): Tree[A, B] = if (tree eq null) null else {
+  def minAfter[A, B](tree: Tree[A, B] | Null, x: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = if (tree eq null) null else {
     val cmp = ordering.compare(x, tree.key)
     if (cmp == 0) tree
     else if (cmp < 0) {
@@ -256,7 +256,7 @@ private[collection] object RedBlackTree {
   /**
     * Returns the largest node with a key smaller than `x`. Returns `null` if there is no such node.
     */
-  def maxBefore[A, B](tree: Tree[A, B], x: A)(implicit ordering: Ordering[A]): Tree[A, B] = if (tree eq null) null else {
+  def maxBefore[A, B](tree: Tree[A, B] | Null, x: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = if (tree eq null) null else {
     val cmp = ordering.compare(x, tree.key)
     if (cmp <= 0) maxBefore(tree.left, x)
     else {
@@ -265,21 +265,21 @@ private[collection] object RedBlackTree {
     }
   }
 
-  def foreach[A,B,U](tree:Tree[A,B], f:((A,B)) => U):Unit = if (tree ne null) _foreach(tree,f)
+  def foreach[A,B,U](tree:Tree[A,B] | Null, f:((A,B)) => U):Unit = if (tree ne null) _foreach(tree,f)
 
-  def keysEqual[A: Ordering, X, Y](a: Tree[A, X], b: Tree[A, Y]): Boolean = {
+  def keysEqual[A: Ordering, X, Y](a: Tree[A, X] | Null, b: Tree[A, Y] | Null): Boolean = {
     if (a eq b) true
     else if (a eq null) false
     else if (b eq null) false
     else a.count == b.count && (new EqualsIterator(a)).sameKeys(new EqualsIterator(b))
   }
-  def valuesEqual[A: Ordering, X, Y](a: Tree[A, X], b: Tree[A, Y]): Boolean = {
+  def valuesEqual[A: Ordering, X, Y](a: Tree[A, X] | Null, b: Tree[A, Y] | Null): Boolean = {
     if (a eq b) true
     else if (a eq null) false
     else if (b eq null) false
     else a.count == b.count && (new EqualsIterator(a)).sameValues(new EqualsIterator(b))
   }
-  def entriesEqual[A: Ordering, X, Y](a: Tree[A, X], b: Tree[A, Y]): Boolean = {
+  def entriesEqual[A: Ordering, X, Y](a: Tree[A, X] | Null, b: Tree[A, Y] | Null): Boolean = {
     if (a eq b) true
     else if (a eq null) false
     else if (b eq null) false
@@ -292,7 +292,7 @@ private[collection] object RedBlackTree {
     if (tree.right ne null) _foreach(tree.right, f)
   }
 
-  def foreachKey[A, U](tree:Tree[A,_], f: A => U):Unit = if (tree ne null) _foreachKey(tree,f)
+  def foreachKey[A, U](tree:Tree[A,_] | Null, f: A => U):Unit = if (tree ne null) _foreachKey(tree,f)
 
   private[this] def _foreachKey[A, U](tree: Tree[A, _], f: A => U): Unit = {
     if (tree.left ne null) _foreachKey(tree.left, f)
@@ -325,27 +325,27 @@ private[collection] object RedBlackTree {
   @`inline` private[this] def isRedTree(tree: Tree[_, _]) = (tree ne null) && tree.isRed
   @`inline` private[this] def isBlackTree(tree: Tree[_, _]) = (tree ne null) && tree.isBlack
 
-  private[this] def blacken[A, B](t: Tree[A, B]): Tree[A, B] = if (t eq null) null else t.black
+  private[this] def blacken[A, B](t: Tree[A, B] | Null): Tree[A, B] | Null = if (t eq null) null else t.black
 
   // Blacken if the tree is red and has a red child. This is necessary when using methods such as `upd` or `updNth`
   // for building subtrees. Use `blacken` instead when building top-level trees.
-  private[this] def maybeBlacken[A, B](t: Tree[A, B]): Tree[A, B] =
-    if(isBlack(t)) t else if(isRedTree(t.left) || isRedTree(t.right)) t.black else t
+  private[this] def maybeBlacken[A, B](t: Tree[A, B] | Null): Tree[A, B] | Null =
+    if(isBlack(t)) t else if(isRedTree(t.nn.left) || isRedTree(t.nn.right)) t.nn.black else t
 
-  private[this] def mkTree[A, B](isBlack: Boolean, key: A, value: B, left: Tree[A, B], right: Tree[A, B]) = {
+  private[this] def mkTree[A, B](isBlack: Boolean, key: A, value: B, left: Tree[A, B] | Null, right: Tree[A, B] | Null) = {
     val sizeAndColour = sizeOf(left) + sizeOf(right) + 1 | (if(isBlack) initialBlackCount else initialRedCount)
     new Tree(key, value.asInstanceOf[AnyRef], left, right, sizeAndColour)
   }
 
   /** Create a new balanced tree where `newLeft` replaces `tree.left`. */
-  private[this] def balanceLeft[A, B1](tree: Tree[A, B1], newLeft: Tree[A, B1]): Tree[A, B1] = {
+  private[this] def balanceLeft[A, B1](tree: Tree[A, B1], newLeft: Tree[A, B1] | Null): Tree[A, B1] = {
     // Parameter trees
     //            tree              |                   newLeft
     //     --      KV         R     |    nl.L            nl.KV      nl.R
     //                              |                     nl.R.L   nl.R.KV  nl.R.R
     if (tree.left eq newLeft) tree
     else {
-      if (newLeft.isRed) {
+      if (newLeft != null && newLeft.isRed) {
         val newLeft_left = newLeft.left
         val newLeft_right = newLeft.right
         if (isRedTree(newLeft_left)) {
@@ -379,14 +379,14 @@ private[collection] object RedBlackTree {
     }
   }
   /** Create a new balanced tree where `newRight` replaces `tree.right`. */
-  private[this] def balanceRight[A, B1](tree: Tree[A, B1], newRight: Tree[A, B1]): Tree[A, B1] = {
+  private[this] def balanceRight[A, B1](tree: Tree[A, B1], newRight: Tree[A, B1] | Null): Tree[A, B1] = {
     // Parameter trees
     //            tree                |                             newRight
     //      L      KV         --      |              nr.L            nr.KV      nr.R
     //                                |     nr.L.L   nr.L.KV  nr.L.R
     if (tree.right eq newRight) tree
     else {
-      if (newRight.isRed) {
+      if (newRight != null && newRight.isRed) {
         val newRight_left = newRight.left
         if (isRedTree(newRight_left)) {
           //                                RED
@@ -420,7 +420,7 @@ private[collection] object RedBlackTree {
     }
   }
 
-  private[this] def upd[A, B, B1 >: B](tree: Tree[A, B], k: A, v: B1, overwrite: Boolean)(implicit ordering: Ordering[A]): Tree[A, B1] = if (tree eq null) {
+  private[this] def upd[A, B, B1 >: B](tree: Tree[A, B] | Null, k: A, v: B1, overwrite: Boolean)(implicit ordering: Ordering[A]): Tree[A, B1] = if (tree eq null) {
     RedTree(k, v, null, null)
   } else if (k.asInstanceOf[AnyRef] eq tree.key.asInstanceOf[AnyRef]) {
     if (overwrite)
@@ -436,7 +436,7 @@ private[collection] object RedBlackTree {
                         tree.withV(v)
     else tree
   }
-  private[this] def updNth[A, B, B1 >: B](tree: Tree[A, B], idx: Int, k: A, v: B1): Tree[A, B1] = if (tree eq null) {
+  private[this] def updNth[A, B, B1 >: B](tree: Tree[A, B] | Null, idx: Int, k: A, v: B1): Tree[A, B1] = if (tree eq null) {
     RedTree(k, v, null, null)
   } else {
     val rank = count(tree.left) + 1
@@ -447,7 +447,7 @@ private[collection] object RedBlackTree {
     else tree
   }
 
-  private[this] def doFrom[A, B](tree: Tree[A, B], from: A)(implicit ordering: Ordering[A]): Tree[A, B] = {
+  private[this] def doFrom[A, B](tree: Tree[A, B] | Null, from: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = {
     if (tree eq null) return null
     if (ordering.lt(tree.key, from)) return doFrom(tree.right, from)
     val newLeft = doFrom(tree.left, from)
@@ -455,7 +455,7 @@ private[collection] object RedBlackTree {
     else if (newLeft eq null) maybeBlacken(upd(tree.right, tree.key, tree.value, overwrite = false))
     else join(newLeft, tree.key, tree.value, tree.right)
   }
-  private[this] def doTo[A, B](tree: Tree[A, B], to: A)(implicit ordering: Ordering[A]): Tree[A, B] = {
+  private[this] def doTo[A, B](tree: Tree[A, B] | Null, to: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = {
     if (tree eq null) return null
     if (ordering.lt(to, tree.key)) return doTo(tree.left, to)
     val newRight = doTo(tree.right, to)
@@ -463,7 +463,7 @@ private[collection] object RedBlackTree {
     else if (newRight eq null) maybeBlacken(upd(tree.left, tree.key, tree.value, overwrite = false))
     else join(tree.left, tree.key, tree.value, newRight)
   }
-  private[this] def doUntil[A, B](tree: Tree[A, B], until: A)(implicit ordering: Ordering[A]): Tree[A, B] = {
+  private[this] def doUntil[A, B](tree: Tree[A, B] | Null, until: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = {
     if (tree eq null) return null
     if (ordering.lteq(until, tree.key)) return doUntil(tree.left, until)
     val newRight = doUntil(tree.right, until)
@@ -472,7 +472,7 @@ private[collection] object RedBlackTree {
     else join(tree.left, tree.key, tree.value, newRight)
   }
 
-  private[this] def doRange[A, B](tree: Tree[A, B], from: A, until: A)(implicit ordering: Ordering[A]): Tree[A, B] = {
+  private[this] def doRange[A, B](tree: Tree[A, B] | Null, from: A, until: A)(implicit ordering: Ordering[A]): Tree[A, B] | Null = {
     if (tree eq null) return null
     if (ordering.lt(tree.key, from)) return doRange(tree.right, from, until)
     if (ordering.lteq(until, tree.key)) return doRange(tree.left, from, until)
@@ -484,7 +484,7 @@ private[collection] object RedBlackTree {
     else join(newLeft, tree.key, tree.value, newRight)
   }
 
-  private[this] def doDrop[A, B](tree: Tree[A, B], n: Int): Tree[A, B] =
+  private[this] def doDrop[A, B](tree: Tree[A, B] | Null, n: Int): Tree[A, B] | Null =
     if((tree eq null) || (n <= 0)) tree
     else if(n >= tree.count) null
     else {
@@ -494,7 +494,7 @@ private[collection] object RedBlackTree {
       else join(doDrop(tree.left, n), tree.key, tree.value, tree.right)
     }
 
-  private[this] def doTake[A, B](tree: Tree[A, B], n: Int): Tree[A, B] =
+  private[this] def doTake[A, B](tree: Tree[A, B] | Null, n: Int): Tree[A, B] | Null =
     if((tree eq null) || (n <= 0)) null
     else if(n >= tree.count) tree
     else {
@@ -504,7 +504,7 @@ private[collection] object RedBlackTree {
       else join(tree.left, tree.key, tree.value, doTake(tree.right, n-l-1))
     }
 
-  private[this] def doSlice[A, B](tree: Tree[A, B], from: Int, until: Int): Tree[A, B] =
+  private[this] def doSlice[A, B](tree: Tree[A, B] | Null, from: Int, until: Int): Tree[A, B] | Null =
     if((tree eq null) || (from >= until) || (from >= tree.count) || (until <= 0)) null
     else if((from <= 0) && (until >= tree.count)) tree
     else {
@@ -555,8 +555,8 @@ private[collection] object RedBlackTree {
   private[immutable] final class Tree[A, +B](
                            @(`inline` @getter @setter)     private var _key: A,
                            @(`inline` @getter @setter)     private var _value: AnyRef,
-                           @(`inline` @getter @setter)     private var _left: Tree[A, _],
-                           @(`inline` @getter @setter)     private var _right: Tree[A, _],
+                           @(`inline` @getter @setter)     private var _left: Tree[A, _] | Null,
+                           @(`inline` @getter @setter)     private var _right: Tree[A, _] | Null,
                            @(`inline` @getter @setter)     private var _count: Int)
   {
     @`inline` private[RedBlackTree] def isMutable: Boolean = (_count & colourMask) == 0
@@ -569,7 +569,7 @@ private[collection] object RedBlackTree {
     @`inline` private def mutableRetainingColour = _count & colourBit
 
     //inlined here to avoid outer object null checks
-    @`inline` private[RedBlackTree] final def sizeOf(tree:Tree[_,_]) = if (tree eq null) 0 else tree.count
+    @`inline` private[RedBlackTree] final def sizeOf(tree:Tree[_,_] | Null) = if (tree eq null) 0 else tree.count
     @`inline` private[immutable] final def key = _key
     @`inline` private[immutable] final def value = _value.asInstanceOf[B]
     @`inline` private[immutable] final def left = _left.asInstanceOf[Tree[A, B]]
@@ -797,7 +797,7 @@ private[collection] object RedBlackTree {
     val size = sizeOf(left) + sizeOf(right) + 1
     new Tree(key, value.asInstanceOf[AnyRef], left, right, initialBlackCount | size)
   }
-  @`inline` private def sizeOf(tree:Tree[_,_]) = if (tree eq null) 0 else tree.count
+  @`inline` private def sizeOf(tree: Tree[_,_] | Null): Int = if (tree eq null) 0 else tree.count
   //immutable APIs
   //assertions - uncomment decls and callers  when changing functionality
   //  private def devTimeAssert(assertion: Boolean) = {
@@ -822,21 +822,21 @@ private[collection] object RedBlackTree {
     }
 
     @tailrec
-    protected final def findLeftMostOrPopOnEmpty(tree: Tree[A, B]): Tree[A, B] =
+    protected final def findLeftMostOrPopOnEmpty(tree: Tree[A, B] | Null): Tree[A, B] | Null =
       if (tree eq null) popNext()
       else if (tree.left eq null) tree
       else findLeftMostOrPopOnEmpty(goLeft(tree))
 
     @`inline` private[this] def pushNext(tree: Tree[A, B]): Unit = {
-      stackOfNexts(index) = tree
+      stackOfNexts.nn(index) = tree
       index += 1
     }
-    @`inline` protected final def popNext(): Tree[A, B] = if (index == 0) null else {
+    @`inline` protected final def popNext(): Tree[A, B] | Null = if (index == 0) null else {
       index -= 1
-      stackOfNexts(index)
+      stackOfNexts.nn(index)
     }
 
-    protected[this] val stackOfNexts = if (root eq null) null else {
+    protected[this] val stackOfNexts: Array[Tree[A, B]] | Null = if (root eq null) null else {
       /*
        * According to "Ralf Hinze. Constructing red-black trees" [https://www.cs.ox.ac.uk/ralf.hinze/publications/#P5]
        * the maximum height of a red-black tree is 2*log_2(n + 2) - 2.
@@ -850,7 +850,7 @@ private[collection] object RedBlackTree {
       new Array[Tree[A, B]](maximumHeight)
     }
     private[this] var index = 0
-    protected var lookahead: Tree[A, B] = if (start.isDefined) startFrom(start.get) else findLeftMostOrPopOnEmpty(root)
+    protected var lookahead: Tree[A, B] | Null = if (start.isDefined) startFrom(start.get) else findLeftMostOrPopOnEmpty(root)
 
     /**
       * Find the leftmost subtree whose key is equal to the given key, or if no such thing,
@@ -858,8 +858,8 @@ private[collection] object RedBlackTree {
       * to the ordering. Along the way build up the iterator's path stack so that "next"
       * functionality works.
       */
-    private[this] def startFrom(key: A) : Tree[A,B] = if (root eq null) null else {
-      @tailrec def find(tree: Tree[A, B]): Tree[A, B] =
+    private[this] def startFrom(key: A) : Tree[A,B] | Null = if (root eq null) null else {
+      @tailrec def find(tree: Tree[A, B] | Null): Tree[A, B] | Null =
         if (tree eq null) popNext()
         else find(
           if (ordering.lteq(key, tree.key)) goLeft(tree)
@@ -868,18 +868,18 @@ private[collection] object RedBlackTree {
       find(root)
     }
 
-    @`inline` private[this] def goLeft(tree: Tree[A, B]) = {
+    @`inline` private[this] def goLeft(tree: Tree[A, B]): Tree[A, B] | Null = {
       pushNext(tree)
       tree.left
     }
 
-    @`inline` protected final def goRight(tree: Tree[A, B]) = tree.right
+    @`inline` protected final def goRight(tree: Tree[A, B]): Tree[A, B] | Null = tree.right
   }
 
   private[this] class EqualsIterator[A: Ordering, B](tree: Tree[A, B]) extends TreeIterator[A, B, Unit](tree, None) {
     override def nextResult(tree: Tree[A, B]): Nothing = ???
 
-    def sameKeys[X](that:EqualsIterator[A,X]): Boolean = {
+    def sameKeys[X](that: EqualsIterator[A,X]): Boolean = {
       var equal = true
       while (equal && (this.lookahead ne null) && (that.lookahead ne null)) {
         if (this.lookahead eq that.lookahead) {
@@ -894,7 +894,7 @@ private[collection] object RedBlackTree {
       }
       equal && (this.lookahead eq null) && (that.lookahead eq null)
     }
-    def sameValues[X](that:EqualsIterator[A,X]): Boolean = {
+    def sameValues[X](that: EqualsIterator[A,X]): Boolean = {
       var equal = true
       while (equal && (this.lookahead ne null) && (that.lookahead ne null)) {
         if (this.lookahead eq that.lookahead) {
@@ -1221,7 +1221,7 @@ private[collection] object RedBlackTree {
       join(tl, k1, t2.value, tr)
     }
 
-  private[this] def _intersect[A, B](t1: Tree[A, B], t2: Tree[A, B])(implicit ordering: Ordering[A]): Tree[A, B] =
+  private[this] def _intersect[A, B](t1: Tree[A, B], t2: Tree[A, B])(implicit ordering: Ordering[A]): Tree[A, B] | Null =
     if((t1 eq null) || (t2 eq null)) null
     else if (t1 eq t2) t1
     else {
@@ -1232,7 +1232,7 @@ private[collection] object RedBlackTree {
       else join2(tl, tr)
     }
 
-  private[this] def _difference[A, B](t1: Tree[A, B], t2: Tree[A, B])(implicit ordering: Ordering[A]): Tree[A, B] =
+  private[this] def _difference[A, B](t1: Tree[A, B], t2: Tree[A, B])(implicit ordering: Ordering[A]): Tree[A, B] | Null =
     if((t1 eq null) || (t2 eq null)) t1
     else if (t1 eq t2) null
     else {

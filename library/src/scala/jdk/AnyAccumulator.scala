@@ -348,7 +348,7 @@ private[jdk] class AnyAccumulatorStepper[A](private[this] val acc: AnyAccumulato
       else i += half.toInt
       N -= half
       ans
-    }
+    }: scala.collection.AnyStepper[A] | Null
 
   override def spliterator[B >: A]: Spliterator[B] = new AnyStepper.AnyStepperSpliterator[B](this) {
     // Overridden for efficiency

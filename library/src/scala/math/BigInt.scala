@@ -32,7 +32,7 @@ object BigInt {
     val offset = i - minCached
     var n = cache(offset)
     if (n eq null) {
-      n = new BigInt(null, i.toLong)
+      n = new BigInt(BigInteger.valueOf(i.toLong), i.toLong)
       cache(offset) = n
     }
     n
@@ -58,7 +58,7 @@ object BigInt {
   def apply(l: Long): BigInt =
     if (minCached <= l && l <= maxCached) getCached(l.toInt)
     else if (l == Long.MinValue) longMinValue
-    else new BigInt(null, l)
+    else new BigInt(BigInteger.valueOf(l), l)
 
   /** Translates a byte array containing the two's-complement binary
    *  representation of a BigInt into a BigInt.
@@ -123,7 +123,7 @@ object BigInt {
 
   /** Implicit conversion from `java.math.BigInteger` to `scala.BigInt`.
    */
-  implicit def javaBigInteger2bigInt(x: BigInteger): BigInt = if (x eq null) null else apply(x)
+  implicit def javaBigInteger2bigInt(x: BigInteger): BigInt | Null = if (x eq null) null else apply(x)
 
   // this method is adapted from Google Guava's version at
   //   https://github.com/google/guava/blob/master/guava/src/com/google/common/math/LongMath.java
@@ -176,8 +176,10 @@ object BigInt {
  *
  * It wraps `java.math.BigInteger`, with optimization for small values that can be encoded in a `Long`.
  */
-final class BigInt private (private var _bigInteger: BigInteger, private val _long: Long)
-  extends ScalaNumber
+final class BigInt private (
+  @annotation.nullTrackable private var _bigInteger: BigInteger | Null, 
+  private val _long: Long
+) extends ScalaNumber
     with ScalaNumericConversions
     with Serializable
     with Ordered[BigInt]
@@ -636,3 +638,4 @@ final class BigInt private (private var _bigInteger: BigInteger, private val _lo
    */
   def toByteArray: Array[Byte] = this.bigInteger.toByteArray()
 }
+

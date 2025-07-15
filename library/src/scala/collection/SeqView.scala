@@ -129,7 +129,7 @@ object SeqView {
   }
 
   @SerialVersionUID(3L)
-  class Sorted[A, B >: A] private (private[this] var underlying: SomeSeqOps[A],
+  class Sorted[A, B >: A] private (private[this] var underlying: SomeSeqOps[A] | Null,
                                    private[this] val len: Int,
                                    ord: Ordering[B])
     extends SeqView[A] {
@@ -164,10 +164,10 @@ object SeqView {
       val res = {
         val len = this.len
         if (len == 0) Nil
-        else if (len == 1) List(underlying.head)
+        else if (len == 1) List(underlying.nn.head)
         else {
           val arr = new Array[Any](len) // Array[Any] =:= Array[AnyRef]
-          @annotation.unused val copied = underlying.copyToArray(arr)
+          @annotation.unused val copied = underlying.nn.copyToArray(arr)
           //assert(copied == len)
           java.util.Arrays.sort(arr.asInstanceOf[Array[AnyRef]], ord.asInstanceOf[Ordering[AnyRef]])
           // casting the Array[AnyRef] to Array[A] and creating an ArraySeq from it
@@ -188,7 +188,7 @@ object SeqView {
 
     private[this] def elems: SomeSeqOps[A] = {
       val orig = underlying
-      if (evaluated) _sorted else orig
+      if (evaluated) _sorted else orig.nn
     }
 
     def apply(i: Int): A = _sorted.apply(i)

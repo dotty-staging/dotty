@@ -411,7 +411,7 @@ private[jdk] class IntAccumulatorStepper(private val acc: IntAccumulator) extend
     }
 
   def trySplit(): IntStepper =
-    if (N <= 1) null
+    if (N <= 1) null: scala.collection.IntStepper | Null
     else {
       val half = N >> 1
       val M = (if (h <= 0) 0L else acc.cumulative(h-1)) + i

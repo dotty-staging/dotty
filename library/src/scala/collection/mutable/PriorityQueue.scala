@@ -87,7 +87,7 @@ sealed class PriorityQueue[A](implicit val ord: Ordering[A])
 
     def p_size0 = size0
     def p_size0_=(s: Int) = size0 = s
-    def p_array = array
+    def p_array: Array[AnyRef | Null] = array.asInstanceOf[Array[AnyRef | Null]]
     def p_ensureSize(n: Int) = super.ensureSize(n)
     def p_ensureAdditionalSize(n: Int) = super.ensureSize(size0 + n)
     def p_swap(a: Int, b: Int): Unit = {
@@ -128,8 +128,8 @@ sealed class PriorityQueue[A](implicit val ord: Ordering[A])
 
   def result() = this
 
-  private def toA(x: AnyRef): A = x.asInstanceOf[A]
-  protected def fixUp(as: Array[AnyRef], m: Int): Unit = {
+  private def toA(x: AnyRef | Null): A = x.asInstanceOf[A]
+  protected def fixUp(as: Array[AnyRef | Null], m: Int): Unit = {
     var k: Int = m
     // use `ord` directly to avoid allocating `OrderingOps`
     while (k > 1 && ord.lt(toA(as(k / 2)), toA(as(k)))) {
@@ -138,7 +138,7 @@ sealed class PriorityQueue[A](implicit val ord: Ordering[A])
     }
   }
 
-  protected def fixDown(as: Array[AnyRef], m: Int, n: Int): Boolean = {
+  protected def fixDown(as: Array[AnyRef | Null], m: Int, n: Int): Boolean = {
     // returns true if any swaps were done (used in heapify)
     var k: Int = m
     while (n >= 2 * k) {
@@ -146,7 +146,7 @@ sealed class PriorityQueue[A](implicit val ord: Ordering[A])
       // use `ord` directly to avoid allocating `OrderingOps`
       if (j < n && ord.lt(toA(as(j)), toA(as(j + 1))))
         j += 1
-      if (ord.gteq(toA(as(k)), toA(as(j))))
+      if (ord.gteq(toA(as(k))), toA(as(j))))
         return k != m
       else {
         val h = as(k)
@@ -411,3 +411,4 @@ object PriorityQueue extends SortedIterableFactory[PriorityQueue] {
     b.result()
   }
 }
+

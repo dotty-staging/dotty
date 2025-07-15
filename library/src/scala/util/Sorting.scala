@@ -177,11 +177,11 @@ object Sorting {
   }
 
   // Caller is required to pass iN >= i0, else math will fail.  Also, i0 >= 0.
-  private def mergeSort[@specialized T: ClassTag](a: Array[T], i0: Int, iN: Int, ord: Ordering[T], scratch: Array[T] = null): Unit = {
+  private def mergeSort[@specialized T: ClassTag](a: Array[T], i0: Int, iN: Int, ord: Ordering[T], scratch: Array[T] | Null = null): Unit = {
     if (iN - i0 < mergeThreshold) insertionSort(a, i0, iN, ord)
     else {
       val iK = (i0 + iN) >>> 1   // Bit shift equivalent to unsigned math, no overflow
-      val sc = if (scratch eq null) new Array[T](iK - i0) else scratch
+      val sc = if (scratch eq null) new Array[T](iK - i0) else scratch.nn
       mergeSort(a, i0, iK, ord, sc)
       mergeSort(a, iK, iN, ord, sc)
       mergeSorted(a, i0, iK, iN, ord, sc)
@@ -300,3 +300,4 @@ object Sorting {
     ret
   }
 }
+

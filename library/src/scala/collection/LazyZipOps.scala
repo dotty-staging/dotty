@@ -315,14 +315,14 @@ final class LazyZip4[+El1, +El2, +El3, +El4, C1] private[collection](src: C1,
         private[this] val elems2 = coll2.iterator
         private[this] val elems3 = coll3.iterator
         private[this] val elems4 = coll4.iterator
-        private[this] var _current: Iterator[B] = Iterator.empty
+        private[this] var _current: Iterator[B] | Null = Iterator.empty
         private def current = {
-          while (!_current.hasNext && elems1.hasNext && elems2.hasNext && elems3.hasNext && elems4.hasNext)
+          while (!_current.nn.hasNext && elems1.hasNext && elems2.hasNext && elems3.hasNext && elems4.hasNext)
             _current = f(elems1.next(), elems2.next(), elems3.next(), elems4.next()).iterator
           _current
         }
-        def hasNext = current.hasNext
-        def next() = current.next()
+        def hasNext = current.nn.hasNext
+        def next() = current.nn.next()
       }
       override def knownSize: Int = if (coll1.knownSize == 0 || coll2.knownSize == 0 || coll3.knownSize == 0 || coll4.knownSize == 0) 0 else super.knownSize
       override def isEmpty: Boolean = iterator.isEmpty
@@ -336,7 +336,7 @@ final class LazyZip4[+El1, +El2, +El3, +El4, C1] private[collection](src: C1,
         private[this] val elems2 = coll2.iterator
         private[this] val elems3 = coll3.iterator
         private[this] val elems4 = coll4.iterator
-        private[this] var _current: (El1, El2, El3, El4) = _
+        private[this] var _current: (El1, El2, El3, El4) | Null = _
         private def current = {
           while ((_current eq null) && elems1.hasNext && elems2.hasNext && elems3.hasNext && elems4.hasNext) {
             val e1 = elems1.next()
@@ -352,7 +352,7 @@ final class LazyZip4[+El1, +El2, +El3, +El4, C1] private[collection](src: C1,
           val c = current
           if (c ne null) {
             _current = null
-            c
+            c.nn
           } else Iterator.empty.next()
         }
       }

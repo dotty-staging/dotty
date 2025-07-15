@@ -364,7 +364,7 @@ object MurmurHash3 extends MurmurHash3 {
   def rangeHash(start: Int, step: Int, last: Int): Int = rangeHash(start, step, last, seqSeed)
 
   @deprecated("use `caseClassHash` instead", "2.13.17")
-  def productHash(x: Product): Int = caseClassHash(x, productSeed, null)
+  def productHash(x: Product): Int = caseClassHash(x, productSeed, null: String | Null)
 
   /**
    * Compute the `hashCode` of a case class instance. This method returns the same value as `x.hashCode`
@@ -394,7 +394,7 @@ object MurmurHash3 extends MurmurHash3 {
    * val res2: Int = -668012062
    * }}}
    */
-  def caseClassHash(x: Product, caseClassName: String = null): Int = caseClassHash(x, productSeed, caseClassName)
+  def caseClassHash(x: Product, caseClassName: String | Null = null): Int = caseClassHash(x, productSeed, caseClassName)
 
   private[scala] def arraySeqHash[@specialized T](a: Array[T]): Int = arrayHash(a, seqSeed)
   private[scala] def tuple2Hash(x: Any, y: Any): Int = tuple2Hash(x.##, y.##, productSeed)

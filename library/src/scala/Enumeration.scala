@@ -105,7 +105,7 @@ abstract class Enumeration (initial: Int) extends Serializable {
   private val vmap: mutable.Map[Int, Value] = new mutable.HashMap
 
   /** The cache listing all values of this enumeration. */
-  @transient private var vset: ValueSet = null
+  @transient @annotation.nullTrackable private var vset: ValueSet | Null = null
   @transient @volatile private var vsetDefined = false
 
   /** The mapping from the integer used to identify values to their
@@ -119,7 +119,7 @@ abstract class Enumeration (initial: Int) extends Serializable {
       vset = (ValueSet.newBuilder ++= vmap.values).result()
       vsetDefined = true
     }
-    vset
+    vset.nn
   }
 
   /** The integer to use to identify the next created value. */
@@ -128,7 +128,7 @@ abstract class Enumeration (initial: Int) extends Serializable {
   /** The string to use to name the next created value. */
   protected var nextName: Iterator[String] = _
 
-  private def nextNameOrNull =
+  private def nextNameOrNull: String | Null =
     if (nextName != null && nextName.hasNext) nextName.next() else null
 
   /** The highest integer amongst those used to identify values in this
@@ -168,7 +168,10 @@ abstract class Enumeration (initial: Int) extends Serializable {
    *           unique amongst all values of the enumeration.
    *  @return  Fresh value identified by `i`.
    */
-  protected final def Value(i: Int): Value = Value(i, nextNameOrNull)
+  protected final def Value(i: Int): Value = {
+    val name = nextNameOrNull
+    if (name == null) Value(i, nameOf(i)) else Value(i, name)
+  }
 
   /** Creates a fresh value, part of this enumeration, called `name`.
    *
@@ -247,7 +250,10 @@ abstract class Enumeration (initial: Int) extends Serializable {
    */
   @SerialVersionUID(0 - 3501153230598116017L)
   protected class Val(i: Int, name: String) extends Value with Serializable {
-    def this(i: Int)       = this(i, nextNameOrNull)
+    def this(i: Int)       = this(i, {
+      val name = nextNameOrNull
+      if (name == null) thisenum.nameOf(i) else name
+    })
     def this(name: String) = this(nextId, name)
     def this()             = this(nextId)
 

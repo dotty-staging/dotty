@@ -47,11 +47,12 @@ class ListBuffer[A]
   @transient private[this] var mutationCount: Int = 0
 
   private var first: List[A] = Nil
-  private var last0: ::[A] = null // last element (`last0` just because the name `last` is already taken)
+  @annotation.nullTrackable
+  private var last0: ::[A] | Null = null // last element (`last0` just because the name `last` is already taken)
   private[this] var aliased = false
   private[this] var len = 0
 
-  private type Predecessor[A0] = ::[A0] /*| Null*/
+  private type Predecessor[A0] = ::[A0] | Null
 
   def iterator: Iterator[A] = new MutationTracker.CheckedIterator(first.iterator, mutationCount)
 
@@ -99,7 +100,7 @@ class ListBuffer[A]
     if (isEmpty) xs
     else {
       ensureUnaliased()
-      last0.next = xs
+      last0.nn.next = xs
       toList
     }
   }
@@ -115,7 +116,7 @@ class ListBuffer[A]
   final def addOne(elem: A): this.type = {
     ensureUnaliased()
     val last1 = new ::[A](elem, Nil)
-    if (len == 0) first = last1 else last0.next = last1
+    if (len == 0) first = last1 else last0.nn.next = last1
     last0 = last1
     len += 1
     this
@@ -147,7 +148,7 @@ class ListBuffer[A]
       val fresh = new ListBuffer[A].freshFrom(it)
       ensureUnaliased()
       if (len == 0) first = fresh.first
-      else last0.next = fresh.first
+      else last0.nn.next = fresh.first
       last0 = fresh.last0
       len += fresh.length
     }
@@ -200,22 +201,22 @@ class ListBuffer[A]
     }
 
   private def getNext(p: Predecessor[A]): List[A] =
-    if (p == null) first else p.next
+    if (p == null) first else p.nn.next
 
   def update(idx: Int, elem: A): Unit = {
     ensureUnaliased()
     if (idx < 0 || idx >= len) throw CommonErrors.indexOutOfBounds(index = idx, max = len - 1)
     if (idx == 0) {
       val newElem = new :: (elem, first.tail)
-      if (last0 eq first) {
+      if (last0.nn eq first) {
         last0 = newElem
       }
       first = newElem
     } else {
       // `p` can not be `null` because the case where `idx == 0` is handled above
-      val p = locate(idx)
+      val p = locate(idx).nn
       val newElem = new :: (elem, p.tail.tail)
-      if (last0 eq p.tail) {
+      if (last0.nn eq p.tail) {
         last0 = newElem
       }
       p.asInstanceOf[::[A]].next = newElem
@@ -229,7 +230,7 @@ class ListBuffer[A]
     else {
       val p = locate(idx)
       val nx = elem :: getNext(p)
-      if(p eq null) first = nx else p.next = nx
+      if(p eq null) first = nx else p.nn.next = nx
       len += 1
     }
   }
@@ -243,8 +244,8 @@ class ListBuffer[A]
   private def insertAfter(prev: Predecessor[A], fresh: ListBuffer[A]): Unit = {
     if (!fresh.isEmpty) {
       val follow = getNext(prev)
-      if (prev eq null) first = fresh.first else prev.next = fresh.first
-      fresh.last0.next = follow
+      if (prev eq null) first = fresh.first else prev.nn.next = fresh.first
+      fresh.last0.nn.next = follow
       if (follow.isEmpty) last0 = fresh.last0
       len += fresh.length
     }
@@ -272,8 +273,8 @@ class ListBuffer[A]
       first = nx.tail
       if(first.isEmpty) last0 = null
     } else {
-      if(last0 eq nx) last0 = p
-      p.next = nx.tail
+      if(last0.nn eq nx) last0 = p
+      p.nn.next = nx.tail
     }
     len -= 1
     nx.head
@@ -292,12 +293,11 @@ class ListBuffer[A]
     @tailrec def ahead(p: List[A], n: Int): List[A] =
       if (n == 0) p else ahead(p.tail, n - 1)
     val nx = ahead(getNext(prev), n)
-    if(prev eq null) first = nx else prev.next = nx
+    if(prev eq null) first = nx else prev.nn.next = nx
     if(nx.isEmpty) last0 = prev
     len -= n
   }
 
-  /** Replace the contents of this $coll with the mapped result.
    *
    *  @param f the mapping function
    *  @return this $coll
@@ -320,20 +320,20 @@ class ListBuffer[A]
   def flatMapInPlace(f: A => IterableOnce[A]): this.type = {
     mutationCount += 1
     var src = first
-    var dst: List[A] = null
+    var dst: List[A] | Null = null
     last0 = null
     len = 0
     while(!src.isEmpty) {
       val it = f(src.head).iterator
       while(it.hasNext) {
         val v = new ::(it.next(), Nil)
-        if(dst eq null) dst = v else last0.next = v
+        if(dst eq null) dst = v else last0.nn.next = v
         last0 = v
         len += 1
       }
       src = src.tail
     }
-    first = if(dst eq null) Nil else dst
+    first = if(dst eq null) Nil else dst.nn
     aliased = false // we just rebuilt a fresh, unaliased instance
     this
   }
@@ -345,13 +345,13 @@ class ListBuffer[A]
    */
   def filterInPlace(p: A => Boolean): this.type = {
     ensureUnaliased()
-    var prev: Predecessor[A] = null
+    var prev: Predecessor[A] | Null = null
     var cur: List[A] = first
     while (!cur.isEmpty) {
       val follow = cur.tail
       if (!p(cur.head)) {
         if(prev eq null) first = follow
-        else prev.next = follow
+        else prev.nn.next = follow
         len -= 1
       } else {
         prev = cur.asInstanceOf[Predecessor[A]]
@@ -418,3 +418,4 @@ object ListBuffer extends StrictOptimizedSeqFactory[ListBuffer] {
 
   def empty[A]: ListBuffer[A] = new ListBuffer[A]
 }
+

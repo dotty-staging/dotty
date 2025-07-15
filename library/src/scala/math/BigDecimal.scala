@@ -304,7 +304,7 @@ object BigDecimal {
   implicit def double2bigDecimal(d: Double): BigDecimal = decimal(d)
 
   /** Implicit conversion from `java.math.BigDecimal` to `scala.BigDecimal`. */
-  implicit def javaBigDecimal2bigDecimal(x: BigDec): BigDecimal = if (x == null) null else apply(x)
+  implicit def javaBigDecimal2bigDecimal(x: BigDec): BigDecimal | Null = if (x == null) null else apply(x)
 }
 
 /**
@@ -719,3 +719,4 @@ extends ScalaNumber with ScalaNumericConversions with Serializable with Ordered[
   override def toString: String = this.bigDecimal.toString
 
 }
+

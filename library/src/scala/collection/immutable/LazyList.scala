@@ -283,7 +283,7 @@ final class LazyList[+A] private (lazyState: AnyRef /* EmptyMarker.type | () => 
   // after initialization (`_head ne Uninitialized`)
   //   - `null` if this is an empty lazy list
   //   - `head: A` otherwise (can be `null`, `_tail == null` is used to test emptiness)
-  @volatile private[this] var _head: Any /* Uninitialized | A */ =
+  @volatile private[this] var _head: Any | Null /* Uninitialized | A */ =
     if (lazyState eq EmptyMarker) null else Uninitialized
 
   // when `_head eq Uninitialized`
@@ -292,12 +292,12 @@ final class LazyList[+A] private (lazyState: AnyRef /* EmptyMarker.type | () => 
   // when `_head ne Uninitialized`
   //   - `null` if this is an empty lazy list
   //   - `tail: LazyList[A]` otherwise
-  private[this] var _tail: AnyRef /* () => LazyList[A] | MidEvaluation.type | LazyList[A] */ =
+  private[this] var _tail: AnyRef | Null /* () => LazyList[A] | MidEvaluation.type | LazyList[A] */ =
     if (lazyState eq EmptyMarker) null else lazyState
 
-  private def rawHead: Any = _head
-  private def rawTail: AnyRef = _tail
-
+  private def rawHead: Any | Null = _head
+  private def rawTail: AnyRef | Null = _tail
+  @inline private def isEvaluated: Boolean = _head.asInstanceOf[AnyRef] ne Uninitialized
   @inline private def isEvaluated: Boolean = _head.asInstanceOf[AnyRef] ne Uninitialized
 
   private def initState(): Unit = synchronized {
@@ -594,7 +594,6 @@ final class LazyList[+A] private (lazyState: AnyRef /* EmptyMarker.type | () => 
     }
 
   /** @inheritdoc
-    *
     * $preservesLaziness
     */
   override def collect[B](pf: PartialFunction[A, B]): LazyList[B] =
@@ -808,6 +807,7 @@ final class LazyList[+A] private (lazyState: AnyRef /* EmptyMarker.type | () => 
 
   // need contravariant type B to make the compiler happy - still returns LazyList[A]
   @tailrec
+  private def reverseOnto[B >: A](tl: LazyList[B]): LazyList[B] =
   private def reverseOnto[B >: A](tl: LazyList[B]): LazyList[B] =
     if (isEmpty) tl
     else tail.reverseOnto(newLL(eagerCons(head, tl)))
@@ -1108,22 +1108,22 @@ object LazyList extends SeqFactory[LazyList] {
     // DO NOT REFERENCE `ll` ANYWHERE ELSE, OR IT WILL LEAK THE HEAD
     var restRef = ll                          // val restRef = new ObjectRef(ll)
     newLL {
-      var it: Iterator[B] = null
+      var it: Iterator[B] | Null = null
       var itHasNext       = false
       var rest            = restRef           // var rest = restRef.elem
       while (!itHasNext && !rest.isEmpty) {
         it        = f(rest.head).iterator
-        itHasNext = it.hasNext
+        itHasNext = it.nn.hasNext
         if (!itHasNext) {                     // wait to advance `rest` because `it.next()` can throw
           rest    = rest.tail
           restRef = rest                      // restRef.elem = rest
         }
       }
       if (itHasNext) {
-        val head = it.next()
+        val head = it.nn.next()
         rest     = rest.tail
         restRef  = rest                       // restRef.elem = rest
-        eagerCons(head, newLL(eagerHeadPrependIterator(it)(flatMapImpl(rest, f))))
+        eagerCons(head, newLL(eagerHeadPrependIterator(it.nn)(flatMapImpl(rest, f))))
       } else Empty
     }
   }
@@ -1307,7 +1307,7 @@ object LazyList extends SeqFactory[LazyList] {
   /** The builder returned by this method only evaluates elements
     * of collections added to it as needed.
     *
-    * @tparam A the type of the ${coll}’s elements
+    * @tparam A the type of the ${coll}'s elements
     * @return A builder for $Coll objects.
     */
   def newBuilder[A]: Builder[A, LazyList[A]] = new LazyBuilder[A]
@@ -1407,8 +1407,6 @@ object LazyList extends SeqFactory[LazyList] {
       }
     }
   }
-
-  /** This serialization proxy is used for LazyLists which start with a sequence of evaluated cons cells.
     * The forced sequence is serialized in a compact, sequential format, followed by the unevaluated tail, which uses
     * standard Java serialization to store the complete structure of unevaluated thunks. This allows the serialization
     * of long evaluated lazy lists without exhausting the stack through recursive serialization of cons cells.
@@ -1445,3 +1443,4 @@ object LazyList extends SeqFactory[LazyList] {
     private[this] def readResolve(): Any = coll
   }
 }
+

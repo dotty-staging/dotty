@@ -352,7 +352,7 @@ object TreeSeqMap extends MapFactory[TreeSeqMap] {
       if (aliased eq null) {
         aliased = new TreeSeqMap(ong, bdr.result(), ord, orderedBy)
       }
-      aliased
+      aliased.nn
     }
   }
 
@@ -571,7 +571,7 @@ object TreeSeqMap extends MapFactory[TreeSeqMap] {
     }
 
     @inline private[collection] final def appendInPlace[S >: T](ordinal: Int, value: S): Ordering[S] = appendInPlace1(null, ordinal, value)
-    private[collection] final def appendInPlace1[S >: T](parent: Bin[S], ordinal: Int, value: S): Ordering[S] = this match {
+    private[collection] final def appendInPlace1[S >: T](parent: Bin[S] | Null, ordinal: Int, value: S): Ordering[S] = this match {
       case Zero =>
         Tip(ordinal, value)
       case Tip(o, _) if o >= ordinal =>
@@ -579,14 +579,14 @@ object TreeSeqMap extends MapFactory[TreeSeqMap] {
       case Tip(o, _) if parent == null =>
         join(ordinal, Tip(ordinal, value), o, this)
       case Tip(o, _) =>
-        parent.right = join(ordinal, Tip(ordinal, value), o, this)
-        parent
+        parent.nn.right = join(ordinal, Tip(ordinal, value), o, this)
+        parent.nn
       case b @ Bin(p, m, _, r) =>
         if (!hasMatch(ordinal, p, m)) {
           val b2 = join(ordinal, Tip(ordinal, value), p, this)
           if (parent != null) {
-            parent.right = b2
-            parent
+            parent.nn.right = b2
+            parent.nn
           } else b2
         } else if (zero(ordinal, m)) throw new IllegalArgumentException(s"Append called with ordinal out of range: $ordinal is not greater than current max ordinal ${this.ordinal}")
         else {
@@ -648,3 +648,4 @@ object TreeSeqMap extends MapFactory[TreeSeqMap] {
     }
   }
 }
+

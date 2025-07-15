@@ -88,7 +88,7 @@ sealed abstract class ArraySeq[+A]
     *
     * @return null if optimisation not possible.
     */
-  private def appendedAllArraySeq[B >: A](that: ArraySeq[B]): ArraySeq[B] = {
+  private def appendedAllArraySeq[B >: A](that: ArraySeq[B]): ArraySeq[B] | Null = {
     // Optimise concatenation of two ArraySeqs
     // For ArraySeqs with sizes of [100, 1000, 10000] this is [3.5, 4.1, 5.2]x as fast
     if (isEmpty)
@@ -296,8 +296,6 @@ object ArraySeq extends StrictOptimizedClassTagSeqFactory[ArraySeq] { self =>
     }
     ArraySeq.unsafeWrapArray(elements)
   }
-
-  /**
    * Wrap an existing `Array` into an `ArraySeq` of the proper primitive specialization type
    * without copying. Any changes to wrapped array will break the expected immutability.
    *
@@ -692,3 +690,4 @@ object ArraySeq extends StrictOptimizedClassTagSeqFactory[ArraySeq] { self =>
       new ObjectArrayStepper[AnyRef](unsafeArray.asInstanceOf[Array[AnyRef]], 0, unsafeArray.length).asInstanceOf[S with EfficientSplit]
   }
 }
+

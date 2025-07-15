@@ -31,7 +31,7 @@ class SystemProperties
 extends mutable.AbstractMap[String, String] {
 
   override def empty: mutable.Map[String, String] = mutable.Map[String, String]()
-  override def default(key: String): String = null
+  override def default(key: String): String | Null = null
 
   def iterator: Iterator[(String, String)] = wrapAccess {
     val ps = System.getProperties()
@@ -89,4 +89,3 @@ object SystemProperties {
   lazy val preferIPv6Addresses: BooleanProp = BooleanProp.keyExists(PreferIPv6AddressesKey)
   lazy val noTraceSuppression: BooleanProp  = BooleanProp.valueIsTrue(NoTraceSuppressionKey)
 }
-

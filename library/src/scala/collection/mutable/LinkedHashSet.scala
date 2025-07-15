@@ -45,9 +45,11 @@ class LinkedHashSet[A]
 
   /*private*/ type Entry = LinkedHashSet.Entry[A]
 
-  protected var firstEntry: Entry = null
+  @annotation.nullTrackable
+  protected var firstEntry: Entry | Null = null
 
-  protected var lastEntry: Entry = null
+  @annotation.nullTrackable
+  protected var lastEntry: Entry | Null = null
 
   /* Uses the same implementation as mutable.HashSet. The hashtable holds the following invariant:
    * - For each i between 0 and table.length, the bucket at table(i) only contains keys whose hash-index is i.
@@ -61,19 +63,19 @@ class LinkedHashSet[A]
   private[this] var contentSize = 0
 
   override def last: A =
-    if (size > 0) lastEntry.key
+    if (size > 0) lastEntry.nn.key
     else throw new NoSuchElementException("Cannot call .last on empty LinkedHashSet")
 
   override def lastOption: Option[A] =
-    if (size > 0) Some(lastEntry.key)
+    if (size > 0) Some(lastEntry.nn.key)
     else None
 
   override def head: A =
-    if (size > 0) firstEntry.key
+    if (size > 0) firstEntry.nn.key
     else throw new NoSuchElementException("Cannot call .head on empty LinkedHashSet")
 
   override def headOption: Option[A] =
-    if (size > 0) Some(firstEntry.key)
+    if (size > 0) Some(firstEntry.nn.key)
     else None
 
   override def size: Int = contentSize
@@ -106,11 +108,11 @@ class LinkedHashSet[A]
   override def remove(elem: A): Boolean = remove0(elem, computeHash(elem))
 
   private[this] abstract class LinkedHashSetIterator[T] extends AbstractIterator[T] {
-    private[this] var cur = firstEntry
+    private[this] var cur: Entry | Null = firstEntry
     def extract(nd: Entry): T
     def hasNext: Boolean = cur ne null
     def next(): T =
-      if (hasNext) { val r = extract(cur); cur = cur.later; r }
+      if (hasNext) { val r = extract(cur.nn); cur = cur.nn.later; r }
       else Iterator.empty.next()
   }
 
@@ -123,10 +125,10 @@ class LinkedHashSet[A]
   }
 
   override def foreach[U](f: A => U): Unit = {
-    var cur = firstEntry
+    var cur: Entry | Null = firstEntry
     while (cur ne null) {
-      f(cur.key)
-      cur = cur.later
+      f(cur.nn.key)
+      cur = cur.nn.later
     }
   }
 
@@ -153,7 +155,7 @@ class LinkedHashSet[A]
 
   @`inline` private[this] def index(hash: Int) = hash & (table.length - 1)
 
-  @`inline` private[this] def findEntry(key: A): Entry = {
+  @`inline` private[this] def findEntry(key: A): Entry | Null = {
     val hash = computeHash(key)
     table(index(hash)) match {
       case null => null
@@ -169,7 +171,7 @@ class LinkedHashSet[A]
     val e = new Entry(key, hash)
     if (firstEntry eq null) firstEntry = e
     else {
-      lastEntry.later = e
+      lastEntry.nn.later = e
       e.earlier = lastEntry
     }
     lastEntry = e
@@ -192,8 +194,8 @@ class LinkedHashSet[A]
       case null =>
         table(idx) = createNewEntry(elem, hash)
       case old =>
-        var prev: Entry = null
-        var n = old
+        var prev: Entry | Null = null
+        var n: Entry | Null = old
         while ((n ne null) && n.hash <= hash) {
           if (n.hash == hash && elem == n.key) return false
           prev = n
@@ -225,7 +227,7 @@ class LinkedHashSet[A]
       case nd =>
         // find an element that matches
         var prev = nd
-        var next = nd.next
+        var next: Entry | Null = nd.next
         while ((next ne null) && next.hash <= hash) {
           if (next.hash == hash && next.key == elem) {
             prev.next = next.next
@@ -255,13 +257,13 @@ class LinkedHashSet[A]
       while (oldlen < newlen) {
         var i = 0
         while (i < oldlen) {
-          val old = table(i)
+          val old: Entry | Null = table(i)
           if (old ne null) {
             preLow.next = null
             preHigh.next = null
             var lastLow = preLow
             var lastHigh = preHigh
-            var n = old
+            var n: Entry | Null = old
             while (n ne null) {
               val next = n.next
               if ((n.hash & oldlen) == 0) { // keep low
@@ -296,8 +298,6 @@ class LinkedHashSet[A]
           override def hashCode: Int = hash
           override def extract(nd: Entry): Any = {
             hash = unimproveHash(nd.hash)
-            this
-          }
         }
       }
     MurmurHash3.unorderedHash(setHashIterator, MurmurHash3.setSeed)
@@ -328,15 +328,15 @@ object LinkedHashSet extends IterableFactory[LinkedHashSet] {
   /** Class for the linked hash set entry, used internally.
    */
   private[mutable] final class Entry[A](val key: A, val hash: Int) {
-    var earlier: Entry[A] = null
-    var later: Entry[A] = null
-    var next: Entry[A] = null
+    @annotation.nullTrackable var earlier: Entry[A] | Null = null
+    @annotation.nullTrackable var later: Entry[A] | Null = null
+    @annotation.nullTrackable var next: Entry[A] | Null = null
 
     @tailrec
-    final def findEntry(k: A, h: Int): Entry[A] =
+    final def findEntry(k: A, h: Int): Entry[A] | Null =
       if (h == hash && k == key) this
       else if ((next eq null) || (hash > h)) null
-      else next.findEntry(k, h)
+      else next.nn.findEntry(k, h)
   }
 
   /** The default load factor for the hash table */

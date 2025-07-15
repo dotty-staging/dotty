@@ -244,7 +244,8 @@ object VectorMap extends MapFactory[VectorMap] {
 private[immutable] final class VectorMapBuilder[K, V] extends mutable.Builder[(K, V), VectorMap[K, V]] {
   private[this] val vectorBuilder = new VectorBuilder[K]
   private[this] val mapBuilder = new MapBuilderImpl[K, (Int, V)]
-  private[this] var aliased: VectorMap[K, V] = _
+  @annotation.nullTrackable
+  private[this] var aliased: VectorMap[K, V] | Null = null
 
   override def clear(): Unit = {
     vectorBuilder.clear()
@@ -256,11 +257,11 @@ private[immutable] final class VectorMapBuilder[K, V] extends mutable.Builder[(K
     if (aliased eq null) {
       aliased = new VectorMap(vectorBuilder.result(), mapBuilder.result())
     }
-    aliased
+    aliased.nn
   }
   def addOne(key: K, value: V): this.type = {
     if (aliased ne null) {
-      aliased = aliased.updated(key, value)
+      aliased = aliased.nn.updated(key, value)
     } else {
       mapBuilder.getOrElse(key, null) match {
         case (slot, _) =>

@@ -60,7 +60,8 @@ private[collection] trait HashTable[A, B, Entry >: Null <: HashEntry[A, Entry]] 
 
   /** The array keeping track of the number of elements in 32 element blocks.
    */
-  protected var sizemap: Array[Int] = null
+  @annotation.nullTrackable
+  protected var sizemap: Array[Int] | Null = null
 
   protected var seedvalue: Int = tableSizeSeed
 
@@ -248,7 +249,7 @@ private[collection] trait HashTable[A, B, Entry >: Null <: HashEntry[A, Entry]] 
    */
   def clearTable(): Unit = {
     var i = table.length - 1
-    while (i >= 0) { table(i) = null; i = i - 1 }
+    while (i >= 0) { table(i) = null.asInstanceOf[HashEntry[A, Entry]]; i = i - 1 }
     tableSize = 0
     nnSizeMapReset(0)
   }
@@ -293,17 +294,16 @@ private[collection] trait HashTable[A, B, Entry >: Null <: HashEntry[A, Entry]] 
    * there.
    */
   protected final def nnSizeMapAdd(h: Int) = if (sizemap ne null) {
-    sizemap(h >> sizeMapBucketBitSize) += 1
+    sizemap.nn(h >> sizeMapBucketBitSize) += 1
   }
 
   protected final def nnSizeMapRemove(h: Int) = if (sizemap ne null) {
-    sizemap(h >> sizeMapBucketBitSize) -= 1
   }
 
   protected final def nnSizeMapReset(tableLength: Int) = if (sizemap ne null) {
     val nsize = calcSizeMapSize(tableLength)
-    if (sizemap.length != nsize) sizemap = new Array[Int](nsize)
-    else java.util.Arrays.fill(sizemap, 0)
+    if (sizemap.nn.length != nsize) sizemap = new Array[Int](nsize)
+    else java.util.Arrays.fill(sizemap.nn, 0)
   }
 
   private[collection] final def totalSizeMapBuckets = if (sizeMapBucketSize < table.length) 1 else table.length / sizeMapBucketSize
@@ -336,14 +336,14 @@ private[collection] trait HashTable[A, B, Entry >: Null <: HashEntry[A, Entry]] 
         }
         tableidx += 1
       }
-      sizemap(bucketidx) = currbucketsize
+      sizemap.nn(bucketidx) = currbucketsize
       tableuntil += sizeMapBucketSize
       bucketidx += 1
     }
   }
 
   private[collection] def printSizeMap() = {
-    println(sizemap.to(collection.immutable.List))
+    if (sizemap ne null) println(sizemap.nn.to(collection.immutable.List))
   }
 
   protected final def sizeMapDisable() = sizemap = null
@@ -415,3 +415,4 @@ private[collection] trait HashEntry[A, E <: HashEntry[A, E]] {
   val key: A
   var next: E = _
 }
+

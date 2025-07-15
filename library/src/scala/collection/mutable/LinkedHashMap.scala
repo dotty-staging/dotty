@@ -49,37 +49,39 @@ class LinkedHashMap[K, V]
 
   private[collection] type Entry = LinkedHashMap.LinkedEntry[K, V]
 
-  private[collection] def _firstEntry: Entry = firstEntry
+  private[collection] def _firstEntry: Entry | Null = firstEntry
 
-  protected var firstEntry: Entry = null
+  @annotation.nullTrackable
+  protected var firstEntry: Entry | Null = null
 
-  protected var lastEntry: Entry = null
+  @annotation.nullTrackable
+  protected var lastEntry: Entry | Null = null
 
   /* Uses the same implementation as mutable.HashMap. The hashtable holds the following invariant:
    * - For each i between 0 and table.length, the bucket at table(i) only contains keys whose hash-index is i.
    * - Every bucket is sorted in ascendant hash order
    * - The sum of the lengths of all buckets is equal to contentSize.
    */
-  private[this] var table = new Array[Entry](tableSizeFor(LinkedHashMap.defaultinitialSize))
+  private[this] var table = new Array[Entry | Null](tableSizeFor(LinkedHashMap.defaultinitialSize))
 
   private[this] var threshold: Int = newThreshold(table.length)
 
   private[this] var contentSize = 0
 
   override def last: (K, V) =
-    if (size > 0) (lastEntry.key, lastEntry.value)
+    if (size > 0) (lastEntry.nn.key, lastEntry.nn.value)
     else throw new NoSuchElementException("Cannot call .last on empty LinkedHashMap")
 
   override def lastOption: Option[(K, V)] =
-    if (size > 0) Some((lastEntry.key, lastEntry.value))
+    if (size > 0) Some((lastEntry.nn.key, lastEntry.nn.value))
     else None
 
   override def head: (K, V) =
-    if (size > 0) (firstEntry.key, firstEntry.value)
+    if (size > 0) (firstEntry.nn.key, firstEntry.nn.value)
     else throw new NoSuchElementException("Cannot call .head on empty LinkedHashMap")
 
   override def headOption: Option[(K, V)] =
-    if (size > 0) Some((firstEntry.key, firstEntry.value))
+    if (size > 0) Some((firstEntry.nn.key, firstEntry.nn.value))
     else None
 
   override def size = contentSize
@@ -150,7 +152,7 @@ class LinkedHashMap[K, V]
     }
   }
 
-  private[this] def removeEntry0(elem: K): Entry = removeEntry0(elem, computeHash(elem))
+  private[this] def removeEntry0(elem: K): Entry | Null = removeEntry0(elem, computeHash(elem))
 
   /** Removes a key from this map if it exists
    *
@@ -158,7 +160,7 @@ class LinkedHashMap[K, V]
    * @param hash the **improved** hashcode of `element` (see computeHash)
    * @return the node that contained element if it was present, otherwise null
    */
-  private[this] def removeEntry0(elem: K, hash: Int): Entry = {
+  private[this] def removeEntry0(elem: K, hash: Int): Entry | Null = {
     val idx = index(hash)
     table(idx) match {
       case null => null
@@ -197,7 +199,7 @@ class LinkedHashMap[K, V]
 
   @`inline` private[this] def index(hash: Int) = hash & (table.length - 1)
 
-  @`inline` private[this] def findEntry(key: K): Entry = {
+  @`inline` private[this] def findEntry(key: K): Entry | Null = {
     val hash = computeHash(key)
     table(index(hash)) match {
       case null => null
@@ -216,11 +218,11 @@ class LinkedHashMap[K, V]
   }
 
   private[this] abstract class LinkedHashMapIterator[T] extends AbstractIterator[T] {
-    private[this] var cur = firstEntry
+    private[this] var cur: Entry | Null = firstEntry
     def extract(nd: Entry): T
     def hasNext: Boolean = cur ne null
     def next(): T =
-      if (hasNext) { val r = extract(cur); cur = cur.later; r }
+      if (hasNext) { val r = extract(cur.nn); cur = cur.nn.later; r }
       else Iterator.empty.next()
   }
 
@@ -259,13 +261,13 @@ class LinkedHashMap[K, V]
       val hash = computeHash(key)
       val indexedHash = index(hash)
 
-      var foundEntry: Entry = null
-      var previousEntry: Entry = null
+      var foundEntry: Entry | Null = null
+      var previousEntry: Entry | Null = null
       table(indexedHash) match {
         case null =>
         case nd =>
           @tailrec
-          def findEntry(prev: Entry, nd: Entry, k: K, h: Int): Unit = {
+          def findEntry(prev: Entry | Null, nd: Entry, k: K, h: Int): Unit = {
             if (h == nd.hash && k == nd.key) {
               previousEntry = prev
               foundEntry = nd
@@ -288,16 +290,14 @@ class LinkedHashMap[K, V]
         case (None, None) => // do nothing
 
         case (Some(_), None) =>
-          if (previousEntry != null) previousEntry.next = foundEntry.next
-          else table(indexedHash) = foundEntry.next
-          deleteEntry(foundEntry)
+          if (previousEntry != null) previousEntry.nn.next = foundEntry.nn.next
+          else table(indexedHash) = foundEntry.nn.next
+          deleteEntry(foundEntry.nn)
           contentSize -= 1
 
         case (None, Some(value)) =>
           val newIndexedHash =
             if (contentSize + 1 >= threshold) {
-              growTable(table.length * 2)
-              index(hash)
             } else indexedHash
           put0(key, value, getOld = false, hash, newIndexedHash)
 
@@ -333,8 +333,8 @@ class LinkedHashMap[K, V]
   override def clear(): Unit = {
     java.util.Arrays.fill(table.asInstanceOf[Array[AnyRef]], null)
     contentSize = 0
-    firstEntry = null
-    lastEntry = null
+    firstEntry = null.asInstanceOf[Entry | Null]
+    lastEntry = null.asInstanceOf[Entry | Null]
   }
 
   private[this] def tableSizeFor(capacity: Int) =
@@ -350,7 +350,7 @@ class LinkedHashMap[K, V]
     val e = new Entry(key, hash, value)
     if (firstEntry eq null) firstEntry = e
     else {
-      lastEntry.later = e
+      lastEntry.nn.later = e
       e.earlier = lastEntry
     }
     lastEntry = e
@@ -360,27 +360,27 @@ class LinkedHashMap[K, V]
   /** Delete the entry from the LinkedHashMap, set the `earlier` and `later` pointers correctly */
   private[this] def deleteEntry(e: Entry): Unit = {
     if (e.earlier eq null) firstEntry = e.later
-    else e.earlier.later = e.later
+    else e.earlier.nn.later = e.later
     if (e.later eq null) lastEntry = e.earlier
-    else e.later.earlier = e.earlier
-    e.earlier = null
-    e.later = null
-    e.next = null
+    else e.later.nn.earlier = e.earlier
+    e.earlier = null.asInstanceOf[Entry | Null]
+    e.later = null.asInstanceOf[Entry | Null]
+    e.next = null.asInstanceOf[Entry | Null]
   }
 
-  private[this] def put0(key: K, value: V, getOld: Boolean): Some[V] = {
+  private[this] def put0(key: K, value: V, getOld: Boolean): Some[V] | Null = {
     if (contentSize + 1 >= threshold) growTable(table.length * 2)
     val hash = computeHash(key)
     val idx = index(hash)
     put0(key, value, getOld, hash, idx)
   }
 
-  private[this] def put0(key: K, value: V, getOld: Boolean, hash: Int, idx: Int): Some[V] = {
+  private[this] def put0(key: K, value: V, getOld: Boolean, hash: Int, idx: Int): Some[V] | Null = {
     table(idx) match {
       case null =>
         table(idx) = createNewEntry(key, hash, value)
       case old =>
-        var prev: Entry = null
+        var prev: Entry | Null = null
         var n = old
         while ((n ne null) && n.hash <= hash) {
           if (n.hash == hash && key == n.key) {
@@ -396,8 +396,8 @@ class LinkedHashMap[K, V]
           nnode.next = old
           table(idx) = nnode
         } else {
-          nnode.next = prev.next
-          prev.next = nnode
+          nnode.next = prev.nn.next
+          prev.nn.next = nnode
         }
     }
     contentSize += 1
@@ -421,8 +421,8 @@ class LinkedHashMap[K, V]
         while (i < oldlen) {
           val old = table(i)
           if (old ne null) {
-            preLow.next = null
-            preHigh.next = null
+            preLow.next = null.asInstanceOf[Entry | Null]
+            preHigh.next = null.asInstanceOf[Entry | Null]
             var lastLow = preLow
             var lastHigh = preHigh
             var n = old
@@ -437,11 +437,11 @@ class LinkedHashMap[K, V]
               }
               n = next
             }
-            lastLow.next = null
+            lastLow.next = null.asInstanceOf[Entry | Null]
             if (old ne preLow.next) table(i) = preLow.next
             if (preHigh.next ne null) {
               table(i + oldlen) = preHigh.next
-              lastHigh.next = null
+              lastHigh.next = null.asInstanceOf[Entry | Null]
             }
           }
           i += 1
@@ -490,15 +490,15 @@ object LinkedHashMap extends MapFactory[LinkedHashMap] {
   /** Class for the linked hash map entry, used internally.
     */
   private[mutable] final class LinkedEntry[K, V](val key: K, val hash: Int, var value: V) {
-    var earlier: LinkedEntry[K, V] = null
-    var later: LinkedEntry[K, V] = null
-    var next: LinkedEntry[K, V] = null
+    var earlier: LinkedEntry[K, V] | Null = null
+    var later: LinkedEntry[K, V] | Null = null
+    var next: LinkedEntry[K, V] | Null = null
 
     @tailrec
-    final def findEntry(k: K, h: Int): LinkedEntry[K, V] =
+    final def findEntry(k: K, h: Int): LinkedEntry[K, V] | Null =
       if (h == hash && k == key) this
       else if ((next eq null) || (hash > h)) null
-      else next.findEntry(k, h)
+      else next.nn.findEntry(k, h)
   }
 
   /** The default load factor for the hash table */
@@ -507,3 +507,5 @@ object LinkedHashMap extends MapFactory[LinkedHashMap] {
   /** The default initial capacity for the hash table */
   private[collection] final def defaultinitialSize: Int = 16
 }
+}
+
