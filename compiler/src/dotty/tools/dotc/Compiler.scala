@@ -149,6 +149,7 @@ class Compiler {
   /** Generate the output of the compilation */
   protected def backendPhases: List[List[Phase]] =
     List(new backend.sjs.GenSJSIR) :: // Generate .sjsir files for Scala.js (not enabled by default)
+    List(new backend.py.GenPyIR) ::   // Generate Python IR
     List(new GenBCode) ::             // Generate JVM bytecode
     Nil
 
