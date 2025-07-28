@@ -321,7 +321,7 @@ trait MapOps[K, +V, +CC[_, _] <: IterableOps[_, AnyConstr, _], +C]
     *  @return       a new $coll resulting from applying the given collection-valued function
     *                `f` to each element of this $coll and concatenating the results.
     */
-  def flatMap[K2, V2](@caps.use f: ((K, V)) => IterableOnce[(K2, V2)]^): CC[K2, V2] = mapFactory.from(new View.FlatMap(this, f))
+  def flatMap[K2, V2](@caps.use f: ((K, V)) => IterableOnce[(K2, V2)]^): CC[K2, V2]^{this, f*} = mapFactory.from(new View.FlatMap(this, f))
 
   /** Returns a new $coll containing the elements from the left hand operand followed by the elements from the
     *  right hand operand. The element type of the $coll is the most specific superclass encompassing

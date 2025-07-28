@@ -1698,7 +1698,7 @@ class CheckCaptures extends Recheck, SymTransformer:
             (param1, param2) <- params1.lazyZip(params2)
           do
             def checkAnnot(cls: ClassSymbol) =
-              if param1.hasAnnotation(cls) != param2.hasAnnotation(cls) then
+              if param1.hasAnnotation(cls) && !param2.hasAnnotation(cls) then
                 report.error(
                   OverrideError(
                       i"has a parameter ${param1.name} with different @${cls.name} status than the corresponding parameter in the overridden definition",
