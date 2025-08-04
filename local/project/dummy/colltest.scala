@@ -30,5 +30,17 @@ object CollectionStrawMan5 {
     val right: Partitioned^{Partition.this} = Partitioned(false)
   }
 
+}
 
+object CollectionWithPureSelf {
+  trait Concat[+A, CC[_]] {
+    def concat[B >: A](other: CC[B]^): CC[B]^{this, other}
+    def apply[B](f: A => B): CollectionStrawMan5.Iterable[B]^{f, this}
+  }
+  
+  trait Seq[+A] extends Concat[A, Seq] {
+    self: Seq[A] =>
+  }
+
+  trait ImmutSeq[+A] extends Seq[A] { }
 }

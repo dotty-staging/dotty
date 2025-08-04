@@ -137,7 +137,10 @@ trait TypesSupport:
           case t : Refinement if t.isFunctionType =>
             inner(base)(using indent = indent, skipTypeSuffix = skipTypeSuffix, inCC = Some(refs))
           case t if t.isCapSet => emitCaptureSet(refs, omitCap = false)
-          case t => inner(base) ++ emitCapturing(refs)
+          case t if t.isPureClass(elideThis) => inner(base)
+          case t =>
+            // println(s"printing non-pure class ${t.show} -> ${inner(base)}")
+            inner(base) ++ emitCapturing(refs)
       case AnnotatedType(tpe, _) =>
         inner(tpe)
       case tl @ TypeLambda(params, paramBounds, AppliedType(tpe, args))
@@ -498,9 +501,20 @@ trait TypesSupport:
           case other => other.reduce((r, e) => r ++ (List(Plain(", ")) ++ e))
         Plain("{") :: (res1 ++ List(Plain("}")))
 
+  // Within the context of `elideThis`, some capabilities can actually be pure.
+  private def isCapturedInContext(using Quotes)(ref: reflect.TypeRepr)(using elideThis: reflect.ClassDef): Boolean =
+    import reflect._
+    ref match
+      case ReachCapability(c)    => isCapturedInContext(c)
+      case ReadOnlyCapability(c) => isCapturedInContext(c)
+      case ThisType(tr)          => !elideThis.symbol.typeRef.isPureClass(elideThis) /* is the current class pure? */
+      case t                     => !t.isPureClass(elideThis)
+
+
   private def emitCapturing(using Quotes)(refs: List[reflect.TypeRepr])(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
-    Keyword("^") :: emitCaptureSet(refs)
+    val refs0 = refs.filter(isCapturedInContext)
+    if refs0.isEmpty then Nil else Keyword("^") :: emitCaptureSet(refs0)
 
   private def emitFunctionArrow(using Quotes)(funTy: reflect.TypeRepr, captures: Option[List[reflect.TypeRepr]])(using elideThis: reflect.ClassDef): SSignature =
     import reflect._
