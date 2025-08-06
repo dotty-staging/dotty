@@ -1982,6 +1982,7 @@ object Build {
       // Add the source directories for the stdlib (non-boostrapped)
       Compile / unmanagedSourceDirectories := Seq(baseDirectory.value / "src"),
       Compile / unmanagedSourceDirectories += baseDirectory.value / "src-non-bootstrapped",
+      Test / unmanagedSourceDirectories := Seq(baseDirectory.value / "test"),
       // All the dependencies needed by the compiler
       libraryDependencies ++= Seq(
         "org.scala-lang.modules" % "scala-asm" % "9.8.0-scala-1",
@@ -1989,8 +1990,11 @@ object Build {
         "org.jline" % "jline-reader" % "3.29.0",
         "org.jline" % "jline-terminal" % "3.29.0",
         "org.jline" % "jline-terminal-jni" % "3.29.0",
-        //("io.get-coursier" %% "coursier" % "2.0.16" % Test).cross(CrossVersion.for3Use2_13),
+        "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
+        ("io.get-coursier" %% "coursier" % "2.0.16" % Test).cross(CrossVersion.for3Use2_13),
       ),
+      // Exclude the transitive dependencies from `coursier` that causes issues at the moment
+      excludeDependencies ++= Seq("org.scala-lang" % "scala-reflect"),
       // NOTE: The only difference here is that we drop `-Werror` and semanticDB for now
       Compile / scalacOptions := Seq("-deprecation", "-feature", "-unchecked", "-encoding", "UTF8", "-language:implicitConversions"),
       // TODO: Enable these flags when the new stdlib is explicitelly null checked
