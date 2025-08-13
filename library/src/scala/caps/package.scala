@@ -29,6 +29,14 @@ import annotation.{experimental, compileTimeOnly, retainsCap}
 @experimental
 sealed trait Capability extends Any
 
+/** A marker trait that declares that all inheriting classes are "pure" in the
+ *  sense that their values retain no capabilities including capabilities needed
+ *  to perform effects. This has formal meaning only under capture checking.
+ */
+trait Pure extends Any:
+  this: Pure =>
+
+
 /** A marker trait for classifier capabilities that can appear in `.only`
  *  qualifiers. Capability classes directly extending `Classifier` are treated
  *  as classifier capbilities
