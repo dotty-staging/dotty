@@ -148,8 +148,9 @@ class ConvertToNamedLambdaParametersSuite extends BaseCodeActionSuite:
       |}""".stripMargin
   )
 
-  @Ignore
-  @Test def `Int => Int eta-expansion in map` =
+  // add type param to f?
+  // more parameter lists?
+  @Test def `Int => Int (method) eta-expansion in map` =
     checkEdit(
       """|object A{
         |  def f(x: Int): Int = x + 1
@@ -157,6 +158,18 @@ class ConvertToNamedLambdaParametersSuite extends BaseCodeActionSuite:
         |}""".stripMargin,
       """|object A{
         |  def f(x: Int): Int = x + 1
+        |  val a = List(1, 2).map(i => f(i))
+        |}""".stripMargin
+    )
+
+  @Test def `Int => Int (function) eta-expansion in map` =
+    checkEdit(
+      """|object A{
+        |  val f = (x: Int) => x + 1
+        |  val a = List(1, 2).map(<<f>>)
+        |}""".stripMargin,
+      """|object A{
+        |  val f = (x: Int) => x + 1
         |  val a = List(1, 2).map(i => f(i))
         |}""".stripMargin
     )

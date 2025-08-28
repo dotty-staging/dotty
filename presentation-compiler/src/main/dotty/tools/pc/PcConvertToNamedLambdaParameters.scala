@@ -9,6 +9,8 @@ import scala.meta.pc.OffsetParams
 import dotty.tools.dotc.ast.tpd
 import dotty.tools.dotc.core.Contexts.Context
 import dotty.tools.dotc.core.Flags
+import dotty.tools.dotc.core.Symbols.*
+import dotty.tools.dotc.core.Types.*
 import dotty.tools.dotc.interactive.Interactive
 import dotty.tools.dotc.interactive.InteractiveDriver
 import dotty.tools.dotc.util.SourceFile
@@ -42,14 +44,10 @@ final class PcConvertToNamedLambdaParameters(
     val treeList = Interactive.pathTo(trees, pos)
     // Extractor for a lambda function (needs context, so has to be defined here)
     val LambdaExtractor = Lambda(using newctx)
+    val FunctionSthExtractor = FunctionSth(using newctx)
     // select the most inner wildcard lambda
-    val firstLambda = treeList.collectFirst {
-      case LambdaExtractor(params, rhsFn) if params.forall(isWildcardParam) =>
-        params -> rhsFn
-    }
-
-    firstLambda match {
-      case Some((params, lambda)) =>
+    treeList.collectFirst {
+      case LambdaExtractor(params, lambda) if params.forall(isWildcardParam) =>
         // avoid names that are either defined or referenced in the lambda
         val namesToAvoid = allDefAndRefNamesInTree(lambda)
         // compute parameter names based on the type of the parameter
@@ -82,12 +80,42 @@ final class PcConvertToNamedLambdaParameters(
           val paramDefinitionEdits = List(
             new l.TextEdit(defRange, s"$paramDefsStr => ")
           )
-          (paramDefinitionEdits ++ paramReferenceEdits).asJava
+          (paramDefinitionEdits ++ paramReferenceEdits)
         else
-          List.empty.asJava
-      case _ =>
-        List.empty.asJava
-    }
+          List.empty[l.TextEdit]
+      case FunctionSthExtractor(tpes, body) =>
+        // avoid names that are either defined or referenced in the lambda
+        val namesToAvoid = allDefAndRefNamesInTree(body)
+        // compute parameter names based on the type of the parameter
+        val computedParamNames: List[String] =
+          tpes.foldLeft(List.empty[String]) { (acc, tpe) =>
+            val name = singleLetterNameStream(tpe.typeSymbol.name.toString())
+              .find(n => !namesToAvoid.contains(n) && !acc.contains(n))
+            acc ++ name.toList
+          }
+        val paramNamesStr = computedParamNames.mkString(", ")
+        val paramApplicationList = s"($paramNamesStr)"
+        // more parameter lists?
+        val defEndRange = new l.Range(
+          body.sourcePos.toLsp.getEnd(),
+          body.sourcePos.toLsp.getEnd()
+        )
+        val paramReferenceEdits = List(
+          new l.TextEdit(defEndRange, paramApplicationList)
+        )
+        val paramDefsStr =
+          if tpes.size == 1 then paramNamesStr
+          else s"($paramNamesStr)"
+        val defRange = new l.Range(
+          body.sourcePos.toLsp.getStart(),
+          body.sourcePos.toLsp.getStart()
+        )
+        val paramDefinitionEdits = List(
+          new l.TextEdit(defRange, s"$paramDefsStr => ")
+        )
+        (paramDefinitionEdits ++ paramReferenceEdits)
+      case _ => List.empty[l.TextEdit]
+    }.toList.flatten.asJava
   }
 
 end PcConvertToNamedLambdaParameters
@@ -96,7 +124,7 @@ object PcConvertToNamedLambdaParameters:
   val codeActionId = "ConvertToNamedLambdaParameters"
 
   class Lambda(using Context):
-    def unapply(tree: tpd.Block): Option[(List[tpd.ValDef], tpd.Tree)] = tree match {
+    def unapply(tree: tpd.Tree): Option[(List[tpd.ValDef], tpd.Tree)] = tree match {
       case tpd.Block((ddef @ tpd.DefDef(_, tpd.ValDefs(params) :: Nil, _, body: tpd.Tree)) :: Nil, tpd.Closure(_, meth, _))
       if ddef.symbol == meth.symbol =>
         params match {
@@ -108,6 +136,20 @@ object PcConvertToNamedLambdaParameters:
       case _ => None
     }
   end Lambda
+
+  class FunctionSth(using Context):
+    def unapply(tree: tpd.Tree): Option[(List[Type], tpd.Tree)] = tree match {
+      case id: tpd.Ident
+          if defn.isFunctionType(id.tpe.widenDealias) ||
+            id.tpe.widenDealias.isInstanceOf[MethodType] =>
+        val paramInfos = id.tpe.widenDealias match {
+          case mt: MethodType => mt.paramInfos
+          case tpe if defn.isFunctionType(tpe) => tpe.argInfos.init
+        }
+        Some(paramInfos -> id)
+      case _ => None
+    }
+  end FunctionSth
 
   private def multipleUnderscoresFromBody(param: tpd.ValDef, body: tpd.Tree)(using Context): (List[tpd.ValDef], tpd.Tree) = body match {
     case tpd.Block(defs, expr) if param.symbol.is(Flags.Synthetic) =>
