@@ -2,7 +2,7 @@ trait A
 trait B
 
 def test =
-  val f = (a: A^) =>
+  val f = (a: A^) =>  // error
     val b: B^ = ???
     b
 
@@ -10,7 +10,7 @@ def test =
     val b: B^ = ???
     b
 
-  val f2: (x: A^) => B^ = (a: A^) =>
+  val f2: (x: A^) -> B^ = (a: A^) =>
     val b: B^ = ???
     b   // ok
 

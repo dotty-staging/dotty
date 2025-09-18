@@ -485,9 +485,7 @@ object Capabilities:
 
     final def visibility(using Context): Symbol = this match
       case self: FreshCap => ccOwner.enclosingMethodOrClass
-      case _ =>
-        val vis = ccOwner
-        if vis.is(Param) then vis.owner else vis
+      case _ => levelOwner
 
     /** The symbol that represents the level closest-enclosing ccOwner.
      *  Symbols representing levels are
