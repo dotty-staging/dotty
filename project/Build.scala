@@ -1374,6 +1374,7 @@ object Build {
       target := target.value / "scala3-sbt-bridge-nonbootstrapped",
       // sbt adds all the projects to scala-tool config which breaks building the scalaInstance
       // as a workaround, I build it manually by only adding the compiler
+      managedScalaInstance := false,
       scalaInstance := {
         val lm = dependencyResolution.value
         val log = streams.value.log
@@ -1508,6 +1509,7 @@ object Build {
       Test    / publishArtifact := false,
       publish / skip := false,
       // Configure to use the non-bootstrapped compiler
+      managedScalaInstance := false,
       scalaInstance := {
         val externalCompilerDeps = (`scala3-compiler-nonbootstrapped` / Compile / externalDependencyClasspath).value.map(_.data).toSet
 
@@ -1566,6 +1568,7 @@ object Build {
       Test    / publishArtifact := false,
       publish / skip := false,
       // Configure to use the non-bootstrapped compiler
+      managedScalaInstance := false,
       scalaInstance := {
         val externalCompilerDeps = (`scala3-compiler-nonbootstrapped` / Compile / externalDependencyClasspath).value.map(_.data).toSet
 
@@ -1786,7 +1789,7 @@ object Build {
       // Do not depend on the `org.scala-lang:scala3-library` automatically, we manually depend on `scala-library-bootstrapped`
       autoScalaLibrary := false,
       // Drop all the scala tools in this project, so we can never generate any bytecode, or documentation
-      managedScalaInstance := false,
+      managedScalaInstance := true,
       // This Project only has a dependency to `org.scala-lang:scala-library:*.**.**-bootstrapped`
       Compile / sources := Seq(),
       Compile / resources := Seq(),
@@ -1940,7 +1943,7 @@ object Build {
       // Do not depend on the `org.scala-lang:scala3-library` automatically, we manually depend on `scala-library-bootstrapped`
       autoScalaLibrary := false,
       // Drop all the scala tools in this project, so we can never generate any bytecode, or documentation
-      managedScalaInstance := false,
+      managedScalaInstance := true,
       // This Project only has a dependency to `org.scala-js:scalajs-scalalib:*.**.**-bootstrapped`
       Compile / sources := Seq(),
       Compile / resources := Seq(),
@@ -2007,6 +2010,7 @@ object Build {
       target := target.value / "tasty-core-nonbootstrapped",
       // sbt adds all the projects to scala-tool config which breaks building the scalaInstance
       // as a workaround, I build it manually by only adding the compiler
+      managedScalaInstance := false,
       scalaInstance := {
         val lm = dependencyResolution.value
         val log = streams.value.log
@@ -2069,6 +2073,7 @@ object Build {
       // Project specific target folder. sbt doesn't like having two projects using the same target folder
       target := target.value / "tasty-core-bootstrapped",
       // Configure to use the non-bootstrapped compiler
+      managedScalaInstance := false,
       scalaInstance := {
         val externalCompilerDeps = (`scala3-compiler-nonbootstrapped` / Compile / externalDependencyClasspath).value.map(_.data).toSet
 
@@ -2506,6 +2511,7 @@ object Build {
       BuildInfoPlugin.buildInfoScopedSettings(Compile),
       BuildInfoPlugin.buildInfoDefaultSettings,
       // Configure to use the non-bootstrapped compiler
+      managedScalaInstance := false,
       scalaInstance := {
         val externalCompilerDeps = (`scala3-compiler-nonbootstrapped` / Compile / externalDependencyClasspath).value.map(_.data).toSet
 
