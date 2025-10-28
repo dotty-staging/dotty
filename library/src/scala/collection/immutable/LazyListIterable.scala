@@ -1268,11 +1268,11 @@ object LazyListIterable extends IterableFactory[LazyListIterable] {
     if (xss.knownSize == 0) empty
     else newLL(eagerHeadConcatIterators(xss.iterator))
 
-  private def eagerHeadConcatIterators[A](it: Iterator[collection.Iterable[A]^]^): LazyListIterable[A]^{it*} =
+  private def eagerHeadConcatIterators[A](it: Iterator[collection.Iterable[A]]^): LazyListIterable[A]^{it} =
     if !it.hasNext then Empty
     else
       eagerHeadPrependIterator
-          (caps.unsafe.unsafeDiscardUses(it.next()).iterator)
+          (it.next().iterator)
           (eagerHeadConcatIterators(it))
 
   /** An infinite LazyListIterable that repeatedly applies a given function to a start value.
