@@ -360,6 +360,7 @@ extension (tp: Type)
 
   /** Knowing that `tp` is a function type, is it an alias to a function other
    *  than `=>`?
+   *
    */
   def isAliasFun(using Context): Boolean = tp match
     case AppliedType(tycon, _) => !defn.isFunctionSymbol(tycon.typeSymbol)
