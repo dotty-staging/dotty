@@ -44,8 +44,10 @@ class Constructors extends MiniPhase with IdentityDenotTransformer { thisPhase =
     // performed before the rhs undergoes the owner change. This would lead
     // to more symbols being retained as parameters. Test case in run/capturing.scala.
 
-  /** The private vals that are known to be retained as class fields */
-  private val retainedPrivateVals = mutable.Set[Symbol]()
+  /** The private vals that are known to be retained as class fields.
+   *  mapped to the owner of one of the contexts where they are used.
+   */
+  private val retainedPrivateVals = mutable.Map[Symbol, Symbol]()
 
   /** The private vals whose definition comes before the current focus */
   private val seenPrivateVals = mutable.Set[Symbol]()
@@ -61,7 +63,9 @@ class Constructors extends MiniPhase with IdentityDenotTransformer { thisPhase =
   private def markUsedPrivateSymbols(tree: RefTree)(using Context): Unit = {
 
     val sym = tree.symbol
-    def retain() = retainedPrivateVals.add(sym)
+    def retain() = retainedPrivateVals.get(sym) match
+      case None => retainedPrivateVals(sym) = ctx.owner
+      case _ =>
 
     if (sym.exists && sym.owner.isClass && mightBeDropped(sym)) {
       val owner = sym.owner.asClass
@@ -185,7 +189,7 @@ class Constructors extends MiniPhase with IdentityDenotTransformer { thisPhase =
     }
 
     def isRetained(acc: Symbol) =
-      !mightBeDropped(acc) || retainedPrivateVals(acc)
+      !mightBeDropped(acc) || retainedPrivateVals.contains(acc)
 
     val constrStats, clsStats = new mutable.ListBuffer[Tree]
 
@@ -310,7 +314,15 @@ class Constructors extends MiniPhase with IdentityDenotTransformer { thisPhase =
       else {
         val param = acc.subst(accessors, paramSyms)
         if (param.hasAnnotation(defn.ConstructorOnlyAnnot))
-          report.error(em"${acc.name} is marked `@constructorOnly` but it is retained as a field in ${acc.owner}", acc.srcPos)
+          def because = retainedPrivateVals.get(acc) match
+            case Some(useOwner) =>
+              val shownOwner =
+                if useOwner.isLocalDummy then useOwner.owner.show
+                else if !useOwner.is(Method) then s"initializer of $useOwner"
+                else useOwner.show
+              i" because it is accessed in $shownOwner"
+            case None => ""
+          report.error(em"${acc.name} is marked `@constructorOnly` but it is retained as a field in ${acc.owner}$because", acc.srcPos)
         val target = if (acc.is(Method)) acc.field else acc
         if (!target.exists) Nil // this case arises when the parameter accessor is an alias
         else {

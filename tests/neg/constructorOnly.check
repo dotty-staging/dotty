@@ -1,0 +1,16 @@
+-- Error: tests/neg/constructorOnly.scala:7:31 -------------------------------------------------------------------------
+7 |class B(using @constructorOnly x: A): // error
+  |                               ^
+  |        x is marked `@constructorOnly` but it is retained as a field in class B because it is accessed in method f
+-- Error: tests/neg/constructorOnly.scala:10:31 ------------------------------------------------------------------------
+10 |class C(using @constructorOnly x: A): // error
+   |                               ^
+   |x is marked `@constructorOnly` but it is retained as a field in class C because it is accessed in initializer of val a
+-- Error: tests/neg/constructorOnly.scala:15:31 ------------------------------------------------------------------------
+15 |class D(using @constructorOnly x: A): // error
+   |                               ^
+   |                               x is marked `@constructorOnly` but it is retained as a field in class D
+-- Error: tests/neg/constructorOnly.scala:18:31 ------------------------------------------------------------------------
+18 |class E(using @constructorOnly x: A): // error
+   |                               ^
+   |   x is marked `@constructorOnly` but it is retained as a field in class E because it is accessed in class Inner
