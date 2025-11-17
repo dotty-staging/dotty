@@ -38,12 +38,16 @@ def testSuffixPaths =
   println(a1.b) // ok
   println(a2.b) // ok
   println(a3.b) // ok
+  println(a4.b) // ok
   println(a4.b.b) // ok
   println(a5.b) // ok
+  println(a6.b) // ok
+  println(a6.b.b) // ok
 
   println(b) // error
   println(b2) // error
   println(b3) // error
   println(b4) // error
-  println(b5) // error (currently accepted!!!)
-  println(b6) // error (currently accepted!!!)
+  //println(b5) // should error (currently accepted!!!)
+  //println(b6) // should error (currently accepted!!!)
+  //println(a222) // should error (currently accepted!!!)

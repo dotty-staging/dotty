@@ -126,8 +126,10 @@ object SepCheck:
       while i < size && (refs(i) ne ref) do i += 1
       if i < size then locs(i) else null
 
-    def clashing(ref: Capability)(using Context): (SrcPos, TypeRole) | Null =
-      val refPeaks = ref.directPeaks
+    def clashing(ref: Capability)(using Context): SrcPos | Null =
+      val refPeaks = ref match
+        case ReadOnly(_) => ref.directPeaks // TODO: this should be removed once the classifier zoo is revised
+        case _ => ref.stripRestricted.directPeaks
       if !directPeaks.sharedPeaks(refPeaks).isEmpty then
         var i = 0
         while i < size && refs(i).directPeaks.sharedPeaks(refPeaks).isEmpty do
@@ -634,6 +636,8 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
             sepUseError(tree, null, used, defsShadow)
       end if
 
+     // println(i"consumed so far: ${consumed.show}")
+     // println(i"used at $tree: $used")
       for ref <- used do
         val loc = consumed.clashing(ref)
         if loc != null then
