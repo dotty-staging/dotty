@@ -572,6 +572,7 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
           sepApplyError(fn, parts, arg, app)
   end checkApply
 
+<<<<<<< HEAD
   def checkAssign(tree: Assign)(using Context): Unit =
     val Assign(lhs, rhs) = tree
     lhs.nuType match
@@ -601,6 +602,8 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
       case _ =>
   end checkAssign
 
+=======
+>>>>>>> af8693f9e1 (Undo changes made to SepCheck.scala)
   /** 1. Check that the capabilities used at `tree` don't overlap with
    *     capabilities hidden by a previous definition.
    *  2. Also check that none of the used capabilities was consumed before.
@@ -629,20 +632,16 @@ class SepCheck(checker: CheckCaptures.CheckerAPI) extends tpd.TreeTraverser:
 
         findClashing(previousDefs) match
           case Some(clashing) =>
-            //println(i"check use $tree, $used, $rootSym, ${clashing.symbol}")
             if clashing.symbol != rootSym then
               sepUseError(tree, clashing.tree, used, clashing.hidden)
           case None =>
             sepUseError(tree, null, used, defsShadow)
       end if
 
-     // println(i"consumed so far: ${consumed.show}")
-     // println(i"used at $tree: $used")
       for ref <- used do
-        val loc = consumed.clashing(ref)
-        if loc != null then
-          // println(i"consumed so far ${consumed.refs.toList} with peaks ${consumed.directPeaks.toList}, used = $used, exposed = ${ref.directPeaks }")
-          consumeError(ref, loc, tree.srcPos)
+        val pos = consumed.clashing(ref)
+        if pos != null then
+            consumeError(ref, pos, tree.srcPos)
   end checkUse
 
   /** If `tp` denotes some version of a singleton capability `x.type` the set `{x, x*}`
