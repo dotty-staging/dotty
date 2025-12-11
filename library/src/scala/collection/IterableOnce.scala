@@ -25,6 +25,7 @@ import scala.reflect.ClassTag
 import scala.runtime.{AbstractFunction1, AbstractFunction2}
 
 import IterableOnce.elemsToCopyToArray
+import scala.annotation.experimental
 
 /**
   * A template trait for collections which can be traversed either once only
@@ -453,6 +454,33 @@ transparent trait IterableOnceOps[+A, +CC[_], +C] extends Any { this: IterableOn
    *    `List('a', 'b', 'c', 'd', 'e').slice(1, 3) == List('b', 'c')`
    */
   def slice(from: Int, until: Int): C^{this}
+
+  /**
+    * Partitions this $coll into a map according to a discriminator function `key`. All the values that
+    * have the same discriminator are then transformed by the `f` function and then reduced into a
+    * single value with the `reduce` function.
+    *
+    * {{{
+    *   def occurrences[A](as: Iterator[A]): Map[A, Int] =
+    *     as.groupMapReduce(identity)(_ => 1)(_ + _)
+    * }}}
+    *
+    * $willForceEvaluation
+    */
+  @experimental
+  def groupMapReduce[K, B](key: A => K)(f: A => B)(reduce: (B, B) => B): immutable.Map[K, B] = {
+    val m = mutable.Map.empty[K, B]
+    val it = iterator
+    while it.hasNext do
+      val elem = it.next()
+      val k = key(elem)
+      val v =
+        m.get(k) match
+          case Some(b) => reduce(b, f(elem))
+          case None => f(elem)
+      m.put(k, v)
+    m.to(immutable.Map)
+  }
 
   /** Builds a new $ccoll by applying a function to all elements of this $coll.
    *

@@ -98,6 +98,9 @@ val experimentalDefinitionInLibrary = Set(
 
   // New feature: Erased trait
   "scala.compiletime.Erased",
+
+  // New API: IterableOnceOps.groupMapReduce
+  "scala.collection.IterableOnceOps.groupMapReduce",
 )
 
 

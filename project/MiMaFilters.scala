@@ -11,6 +11,9 @@ object MiMaFilters {
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.caps.package#package.freeze"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.None.tapEach"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.Option.tapEach"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.AbstractIterator.groupMapReduce"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.IterableOnceOps.groupMapReduce"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.io.Source.groupMapReduce")
       ),
 
     )
