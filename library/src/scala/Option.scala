@@ -562,6 +562,16 @@ sealed abstract class Option[+A] extends IterableOnce[A] with Product with Seria
   def iterator: Iterator[A] =
     if (isEmpty) collection.Iterator.empty else collection.Iterator.single(this.get)
 
+  /** Apply the side-effecting function `f` to the option's value
+   *  if it is nonempty. Otherwise, do nothing.
+   *
+   *  @param  f  a function to apply to the option's value
+   *  @return the option
+   */
+  def tapEach[U](f: A => U): Option[A] =
+    foreach(f)
+    this
+
   /** Returns a singleton list containing the $option's value
    * if it is nonempty, or the empty list if the $option is empty.
    *

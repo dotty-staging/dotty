@@ -9,6 +9,8 @@ object MiMaFilters {
       // Additions that require a new minor version of the library
       Build.mimaPreviousDottyVersion -> Seq(
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.caps.package#package.freeze"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.None.tapEach"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.Option.tapEach"),
       ),
 
     )
