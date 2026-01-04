@@ -258,7 +258,7 @@ object IArray:
       arr.clone.asInstanceOf[Array[T]]
 
   extension [T](arr: IArray[T])
-    def ++[U >: T: ClassTag](suffix: IArray[U]): IArray[U] = genericArrayOps(arr) ++ suffix.toSeq
+    def ++[U >: T: ClassTag](suffix: IArray[U]): IArray[U] = genericArrayOps(arr) ++ IArray.genericWrapArray(suffix)
     def ++[U >: T: ClassTag](suffix: IterableOnce[U]): IArray[U] = genericArrayOps(arr) ++ suffix
     def :+ [U >: T: ClassTag](x: U): IArray[U] = genericArrayOps(arr) :+ x
     def :++ [U >: T: ClassTag](suffix: IArray[U]): IArray[U] = genericArrayOps(arr) :++ suffix
@@ -268,11 +268,11 @@ object IArray:
     def appendedAll[U >: T: ClassTag](suffix: IterableOnce[U]^): IArray[U] = genericArrayOps(arr).appendedAll(suffix)
     def collect[U: ClassTag](pf: PartialFunction[T, U]^): IArray[U] = genericArrayOps(arr).collect(pf)
     def collectFirst[U](f: PartialFunction[T, U]^): Option[U] = genericArrayOps(arr).collectFirst(f)
-    def combinations(n: Int): Iterator[IArray[T]] = genericArrayOps(arr).combinations(n)
+    def combinations(n: Int): Iterator[IArray[T]] = IArray.genericWrapArray(arr).combinations(n).map(_.unsafeArray.asInstanceOf[IArray[T]])
     def concat[U >: T: ClassTag](suffix: IArray[U]): IArray[U] = genericArrayOps(arr).concat(suffix)
     def concat[U >: T: ClassTag](suffix: IterableOnce[U]^): IArray[U] = genericArrayOps(arr).concat(suffix)
-    def diff[U >: T](that: IArray[U]): IArray[T] = genericArrayOps(arr).diff(that.toSeq)
-    def diff[U >: T](that: Seq[U]): IArray[T] = genericArrayOps(arr).diff(that)
+    def diff[U >: T](that: IArray[U]): IArray[T] = IArray.genericWrapArray(arr).diff(IArray.genericWrapArray(that)).unsafeArray.asInstanceOf[IArray[T]]
+    def diff[U >: T](that: Seq[U]): IArray[T] = IArray.genericWrapArray(arr).diff(that).unsafeArray.asInstanceOf[IArray[T]]
     def distinct: IArray[T] = genericArrayOps(arr).distinct
     def distinctBy[U](f: T -> U): IArray[T] = genericArrayOps(arr).distinctBy(f)
     def startsWith[U >: T](that: IArray[U]): Boolean = genericArrayOps(arr).startsWith(that, 0)
@@ -285,24 +285,24 @@ object IArray:
     def groupMap[K, U: ClassTag](key: T => K)(f: T => U): Map[K, IArray[U]] = genericArrayOps(arr).groupMap(key)(f)
     def grouped(size: Int): Iterator[IArray[T]] = genericArrayOps(arr).grouped(size)
     def inits: Iterator[IArray[T]] = genericArrayOps(arr).inits
-    def intersect[U >: T](that: IArray[U]): IArray[T] = genericArrayOps(arr).intersect(that)
-    def intersect[U >: T](that: Seq[U]): IArray[T] = genericArrayOps(arr).intersect(that)
+    def intersect[U >: T](that: IArray[U]): IArray[T] = IArray.genericWrapArray(arr).intersect(IArray.genericWrapArray(that)).unsafeArray.asInstanceOf[IArray[T]]
+    def intersect[U >: T](that: Seq[U]): IArray[T] = IArray.genericWrapArray(arr).intersect(that).unsafeArray.asInstanceOf[IArray[T]]
     def lazyZip[U](that: IArray[U]): LazyZip2[T, U, IArray[T]] = genericArrayOps(arr).lazyZip[U](that).asInstanceOf[LazyZip2[T, U, IArray[T]]]
     def lazyZip[U](that: Iterable[U]^): LazyZip2[T, U, IArray[T]] = genericArrayOps(arr).lazyZip[U](that).asInstanceOf[LazyZip2[T, U, IArray[T]]]
     def lengthCompare(len: Int): Int = genericArrayOps(arr).lengthCompare(len)
     def padTo[U >: T: ClassTag](len: Int, elem: U): IArray[U] = genericArrayOps(arr).padTo(len, elem)
     def partitionMap[T1: ClassTag, T2: ClassTag](f: T => Either[T1, T2]): (IArray[T1], IArray[T2]) = genericArrayOps(arr).partitionMap(f)
     def patch[U >: T: ClassTag](from: Int, other: IterableOnce[U], replaced: Int): IArray[U] = genericArrayOps(arr).patch(from, other, replaced)
-    def permutations: Iterator[IArray[T]] = genericArrayOps(arr).permutations
+    def permutations: Iterator[IArray[T]] = IArray.genericWrapArray(arr).permutations.map(_.unsafeArray.asInstanceOf[IArray[T]])
     def prepended[U >: T: ClassTag](x: U): IArray[U] = genericArrayOps(arr).prepended(x)
     def prependedAll[U >: T: ClassTag](prefix: IterableOnce[U]^): IArray[U] = genericArrayOps(arr).prependedAll(prefix)
     def reverseIterator: Iterator[T] = genericArrayOps(arr).reverseIterator
-    def search[U >: T](elem: U)(using Ordering[U]): Searching.SearchResult = arr.toSeq.search(elem)
-    def search[U >: T](elem: U, from: Int, to: Int)(using Ordering[U]): Searching.SearchResult = arr.toSeq.search(elem, from, to)
-    def sizeCompare(that: IArray[Any]): Int = arr.toSeq.sizeCompare(that)
-    def sizeCompare(that: Iterable[?]): Int = arr.toSeq.sizeCompare(that)
+    def search[U >: T](elem: U)(using Ordering[U]): Searching.SearchResult = IArray.genericWrapArray(arr).search(elem)
+    def search[U >: T](elem: U, from: Int, to: Int)(using Ordering[U]): Searching.SearchResult = IArray.genericWrapArray(arr).search(elem, from, to)
+    def sizeCompare(that: IArray[Any]): Int = IArray.genericWrapArray(arr).sizeCompare(that)
+    def sizeCompare(that: Iterable[?]): Int = IArray.genericWrapArray(arr).sizeCompare(that)
     def sizeCompare(otherSize: Int): Int = genericArrayOps(arr).sizeCompare(otherSize)
-    def sliding(size: Int, step: Int = 1): Iterator[IArray[T]] = genericArrayOps(arr).sliding(size, step)
+    def sliding(size: Int, step: Int = 1): Iterator[IArray[T]] = IArray.genericWrapArray(arr).sliding(size, step).map(_.unsafeArray.asInstanceOf[IArray[T]])
     def stepper[S <: Stepper[?]](using StepperShape[T, S]): S = genericArrayOps(arr).stepper[S]
     def tails: Iterator[IArray[T]] = genericArrayOps(arr).tails
     def tapEach[U](f: (T) => U): IArray[T] =
