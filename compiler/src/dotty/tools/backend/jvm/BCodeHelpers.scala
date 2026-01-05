@@ -315,9 +315,8 @@ trait BCodeHelpers extends BCodeIdiomatic {
               case e => List(e)
             }
           }
-          for(arg <- flatArgs) {
+          for arg <- flatArgs do
             emitArgument(arrAnnotV, null, arg, bcodeStore)(innerClasesStore)
-          }
           arrAnnotV.visitEnd()
   /*
         case sb @ ScalaSigBytes(bytes) =>
@@ -337,6 +336,9 @@ trait BCodeHelpers extends BCodeIdiomatic {
           val desc = innerClasesStore.typeDescriptor(typ) // the class descriptor of the nested annotation class
           val nestedVisitor = av.visitAnnotation(name, desc)
           emitAssocs(nestedVisitor, assocs, bcodeStore)(innerClasesStore)
+
+        case Inlined(_, _, expansion) =>
+          emitArgument(av, name, arg = expansion, bcodeStore)(innerClasesStore)
 
         case t =>
           report.error(em"Annotation argument is not a constant", t.sourcePos)
