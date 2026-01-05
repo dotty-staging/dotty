@@ -20,6 +20,7 @@ import java.lang.reflect.{Field => JField, Method => JMethod}
 import scala.annotation.{implicitNotFound, tailrec}
 import scala.reflect.NameTransformer._
 import scala.util.matching.Regex
+import scala.annotation.experimental
 
 /** Defines a finite set of values specific to the enumeration. Typically
  *  these values enumerate all possible forms something can take and provide
@@ -280,6 +281,9 @@ abstract class Enumeration (initial: Int) extends Serializable {
   implicit object ValueOrdering extends Ordering[Value] {
     def compare(x: Value, y: Value): Int = x compare y
   }
+
+  @experimental
+  given canEqualValue: CanEqual[Value, Value] = CanEqual.derived
 
   /** A class for sets of values.
    *  Iterating through this set will yield values in increasing order of their ids.
