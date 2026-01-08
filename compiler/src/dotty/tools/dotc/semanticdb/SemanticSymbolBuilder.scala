@@ -2,16 +2,18 @@ package dotty.tools
 package dotc
 package semanticdb
 
-import core.*
+import dotty.tools.dotc.core.*
+import dotty.tools.dotc.core.NameOps.*
 import Contexts.*
 import Symbols.*
 import Flags.*
-import Names.Name
+import Names.*
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.util.control.NonFatal
 
-class SemanticSymbolBuilder:
+private[semanticdb] class SemanticSymbolBuilder:
   import Scala3.{_, given}
 
   private var nextLocalIdx: Int = 0
@@ -99,7 +101,7 @@ class SemanticSymbolBuilder:
         // this solves tests/best-effort/compiler-semanticdb-crash
         case _: MissingType if ctx.usedBestEffortTasty =>
 
-
+    @tailrec
     def addDescriptor(sym: Symbol): Unit =
       if sym.is(ModuleClass) then
         addDescriptor(sym.sourceModule)
@@ -111,7 +113,7 @@ class SemanticSymbolBuilder:
         b.append(Symbols.RootPackage)
       else if sym.isEmptyPackage then
         b.append(Symbols.EmptyPackage)
-      else if (sym.isScala2PackageObject) then
+      else if sym.isScala2PackageObject then
         b.append(Symbols.PackageObjectDescriptor)
       else
         addName(b, sym.name)
@@ -156,3 +158,105 @@ class SemanticSymbolBuilder:
         b.append(Symbols.LocalPrefix).append(localIdx(sym))
 
   end addSymName
+
+private[semanticdb] object SemanticSymbolBuilder:
+  def inverseSymbol(sym: String)(using ctx: Context): List[Symbol] =
+    def stripBackticks(s: String): String = s.stripPrefix("`").stripSuffix("`")
+
+    import Scala3.StringOps.*
+
+    val defns = ctx.definitions
+    import defns.*
+
+    def loop(s: String): List[Symbol] =
+      if !s.isSymbol || s.isRootPackage then RootPackage :: Nil
+      else if s.isEmptyPackage then EmptyPackageVal :: Nil
+      else if s.isPackage then
+        try
+          val pkg = s.split('/').map(stripBackticks).mkString(".")
+          requiredPackage(pkg) :: Nil
+        catch
+          case NonFatal(_) =>
+            Nil
+      else
+        val (desc, parent) = DescriptorParser(s)
+        val parentSymbol = loop(parent)
+
+        def tryMember(sym: Symbol): List[Symbol] =
+          sym match
+            case NoSymbol =>
+              Nil
+            case owner =>
+              desc match
+                case Descriptor.None =>
+                  Nil
+                case Descriptor.Type(value) =>
+                  val typeSym = owner.info.decl(typeName(value)).symbol
+                  // Semanticdb describes java static members as a reference from type
+                  //   while scalac puts static members into synthetic companion class - term
+                  // To avoid issues with resolving static members return type and term in case of Java type
+                  // Example:
+                  //   `java/nio/file/Files#exists()` - `exists` is a member of type `Files#`
+                  //   however in scalac this method is defined only in `module Files`
+                  if typeSym.is(JavaDefined) then
+                    typeSym :: owner.info.decl(termName(value)).symbol :: Nil
+                  /**
+                   * Looks like decl doesn't work for:
+                   *  package a:
+                   *   implicit class <<A>> (i: Int):
+                   *      def inc = i + 1
+                   */
+                  else if typeSym == NoSymbol then
+                    owner.info.member(typeName(value)).symbol :: Nil
+                  else typeSym :: Nil
+                  end if
+                case Descriptor.Term(value) =>
+                  val outSymbol = owner.info.decl(termName(value)).symbol
+                  if outSymbol.exists
+                  then outSymbol :: Nil
+                  else if owner.is(Package)
+                  then
+                    // Fallback for type companion objects,
+                    // e.g.
+                    // ```File.scala
+                    // package a
+                    // type Cow = Int
+                    // object Cow
+                    // ```
+                    // `ScalaTopLevelMtags` emits `a/Cow.`
+                    // but the symbol we look for is `a/File$package/Cow.`
+                    // (look: tests.pc.CompletionWorkspaceSuite.type-apply)
+                    owner.info.decls
+                      .filter { s =>
+                        s.isPackageObject && s.name.stripModuleClassSuffix.show.endsWith("$package")
+                      }
+                      .flatMap(tryMember)
+                  else Nil
+                  end if
+                case Descriptor.Package(value) =>
+                  owner.info.decl(termName(value)).symbol :: Nil
+                case Descriptor.Parameter(value) =>
+                  // TODO - need to check how to implement this properly
+                  // owner.paramSymss.flatten.filter(_.name.containsName(value))
+                  Nil
+                case Descriptor.TypeParameter(value) =>
+                  // TODO - need to check how to implement this properly
+                  // owner.typeParams.filter(_.name.containsName(value))
+                  Nil
+                case Descriptor.Method(value, _) =>
+                  owner.info
+                    .decl(termName(value))
+                    .alternatives
+                    .iterator
+                    .map(_.symbol)
+                    .filter(sym => symbolName(sym) == s)
+                    .toList
+          end match
+        end tryMember
+
+        parentSymbol.flatMap(tryMember)
+    try
+      val res = loop(sym)
+      res.filterNot(_ == NoSymbol)
+    catch case NonFatal(e) => Nil
+  end inverseSymbol

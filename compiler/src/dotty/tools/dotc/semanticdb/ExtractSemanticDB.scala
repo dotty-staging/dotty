@@ -24,7 +24,6 @@ import scala.jdk.CollectionConverters.*
 import scala.PartialFunction.condOpt
 import typer.ImportInfo.withRootImports
 
-import dotty.tools.dotc.reporting.Diagnostic.Warning
 import dotty.tools.dotc.{semanticdb => s}
 import dotty.tools.io.{AbstractFile, JarArchive}
 import dotty.tools.dotc.semanticdb.DiagnosticOps.*
@@ -124,15 +123,15 @@ class ExtractSemanticDB private (phaseMode: ExtractSemanticDB.PhaseMode) extends
   def run(using Context): Unit = unsupported("run")
 end ExtractSemanticDB
 
-object ExtractSemanticDB:
+private[semanticdb] object ExtractSemanticDB:
   import java.nio.file.Path
   import java.nio.file.Files
   import java.nio.file.Paths
 
-  val phaseNamePrefix: String = "extractSemanticDB"
-  val description: String = "extract info into .semanticdb files"
+  private val phaseNamePrefix: String = "extractSemanticDB"
+  private val description: String = "extract info into .semanticdb files"
 
-  enum PhaseMode:
+  private enum PhaseMode:
     case ExtractSemanticInfo
     case AppendDiagnostics
 

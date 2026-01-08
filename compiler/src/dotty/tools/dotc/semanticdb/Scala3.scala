@@ -19,7 +19,7 @@ import java.lang.Character.{isJavaIdentifierPart, isJavaIdentifierStart}
 import scala.annotation.internal.sharable
 import scala.annotation.switch
 
-object Scala3:
+private[semanticdb] object Scala3:
   import Symbols.*
   import core.NameOps.*
 
@@ -40,7 +40,7 @@ object Scala3:
     else
       val content = source.content()
       val (start, end) =
-        if content.lift(span.end - 1).exists(_ == '`') then
+        if content.lift(span.end - 1).contains('`') then
           (span.start + 1, span.end - 1)
         else (span.start, span.end)
       val nameInSource = content.slice(start, end).mkString
