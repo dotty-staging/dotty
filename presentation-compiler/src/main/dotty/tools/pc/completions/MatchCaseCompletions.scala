@@ -134,7 +134,7 @@ object CaseKeywordCompletion:
                 ),
                 Nil,
                 range = Some(completionPos.toEditRange),
-                command = Option(config.parameterHintsCommand()).flatMap(_.asScala),
+                command = Option(config.parameterHintsCommand()).flatMap(_.nn.asScala),
               )
             )
           else Nil
