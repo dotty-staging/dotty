@@ -26,6 +26,7 @@ import config.Feature
 
 import collection.mutable
 import config.Printers.{overload, typr, unapp}
+import inlines.Inlines
 import TypeApplications.*
 import Annotations.Annotation
 
@@ -902,11 +903,33 @@ trait Applications extends Compatibility {
       isPureExpr(arg)
       || arg.isInstanceOf[RefTree | Apply | TypeApply] && arg.symbol.name.is(DefaultGetterName)
 
-    val result:   Tree = {
+    def defaultsAddendum(args: List[Tree]): Unit =
+      def usesDefault(arg: Tree): Boolean = arg match
+        case TypeApply(Select(_, name), _) => name.is(DefaultGetterName)
+        case Apply(Select(_, name), _) => name.is(DefaultGetterName)
+        case Apply(fun, _) => usesDefault(fun)
+        case _ => false
+      ctx.reporter.mapBufferedMessages:
+        case dia: Diagnostic.Error =>
+          dia.msg match
+          case msg: TypeMismatch
+          if msg.inTree.exists: t =>
+            args.exists(arg => arg.span == t.span && usesDefault(arg))
+          =>
+            val noteText = i"Error occurred in an application involving default arguments."
+            val explained = i"Expanded application: ${cpy.Apply(app)(normalizedFun, args)}"
+            Diagnostic.Error(msg.append(s"\n$noteText").appendExplanation(s"\n\n$explained"), dia.pos)
+          case msg => dia
+        case dia => dia
+
+    val result: Tree = {
       var typedArgs = typedArgBuf.toList
       def app0 = cpy.Apply(app)(normalizedFun, typedArgs) // needs to be a `def` because typedArgs can change later
       val app1 =
-        if !success then app0.withType(UnspecifiedErrorType)
+        if !success then
+          if typedArgs.exists(_.tpe.isError) then
+            defaultsAddendum(typedArgs)
+          app0.withType(UnspecifiedErrorType)
         else {
           if !sameSeq(args, orderedArgs)
              && !isJavaAnnotConstr(methRef.symbol)

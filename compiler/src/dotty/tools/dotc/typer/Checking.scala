@@ -974,6 +974,8 @@ trait Checking {
     def recur(pat: Tree, pt: Type): Boolean =
       !sourceVersion.isAtLeast(`3.2`)
       || pt.hasAnnotation(defn.UncheckedAnnot)
+      || pat.tpe.isErroneous // avoid spurious warning
+      || pt.isErroneous
       || {
         patmatch.println(i"check irrefutable $pat: ${pat.tpe} against $pt")
         pat match
