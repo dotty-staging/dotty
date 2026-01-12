@@ -124,12 +124,11 @@ object Capabilities:
    */
   case class Reach(underlying: ObjectCapability) extends DerivedCapability
 
-  /** The global root capability referenced as `caps.any`. It does not subsume
-   *  other capabilities, except in arguments of `withCapAsRoot` calls.
+  /** A class for the global root capabilities referenced as `caps.any` and `caps.fresh`.
+   *  They do not subsume other capabilities, except in arguments of `withCapAsRoot` calls.
    */
-  @sharable // We override below all operations that access internal capability state
-  object GlobalCap extends RootCapability:
-    def descr(using Context) = "the universal root capability"
+  class GlobalCap(val fullName: String) extends RootCapability:
+    def descr(using Context) = s"the root capability $fullName"
     override val maybe = Maybe(this)
     override val readOnly = ReadOnly(this)
     override def restrict(cls: ClassSymbol)(using Context) = Restricted(this, cls)
@@ -138,6 +137,14 @@ object Capabilities:
     override def captureSetOfInfo(using Context) = singletonCaptureSet
     override def cached[C <: DerivedCapability](newRef: C): C = unsupported("cached")
     override def invalidateCaches() = ()
+
+  /** The global root capability referenced as `caps.any` */
+  @sharable // We override in GlobalCap all operations that access internal capability state
+  object GlobalAny extends GlobalCap("caps.any")
+
+  /** The global root capability referenced as `caps.fresh` */
+  @sharable // We override in GlobalCap all operations that access internal capability state
+  object GlobalFresh extends GlobalCap("caps.fresh")
 
   /** The class of local roots named "any". These do subsume other capabilties in scope.
    *  They track with hidden sets which other capabilities were subsumed.
@@ -256,7 +263,7 @@ object Capabilities:
    */
   case class ResultCap(binder: MethodicType) extends RootCapability:
 
-    private var myOrigin: RootCapability = GlobalCap
+    private var myOrigin: RootCapability = GlobalAny
     private var variants: SimpleIdentitySet[ResultCap] = SimpleIdentitySet.empty
 
     /** Every ResultCap capability has an origin. This is
@@ -265,7 +272,7 @@ object Capabilities:
      *   - Another ResultCap capability `r`, if the current capability was created
      *     via a chain of `derivedResult` calls from an original ResultCap `r`
      *     (which was not created using `derivedResult`).
-     *   - GlobalCap otherwise
+     *   - GlobalAny otherwise
      */
     def origin: RootCapability = myOrigin
 
@@ -273,8 +280,8 @@ object Capabilities:
      *  if separation checks are turned off).
      *  @pre The capability's origin was not yet set.
      */
-    def setOrigin(localCapOrigin: LocalCap | GlobalCap.type): this.type =
-      assert(myOrigin eq GlobalCap)
+    def setOrigin(localCapOrigin: LocalCap | GlobalCap): this.type =
+      assert(myOrigin.isInstanceOf[GlobalCap])
       myOrigin = localCapOrigin
       this
 
@@ -417,11 +424,6 @@ object Capabilities:
       case Maybe(ref1) => ref1.stripReach.maybe
       case _ => this
 
-    /** Is this reference the global root capability `caps.any` or a LocalCap instance? */
-    final def isGlobalOrLocalCap(using Context): Boolean = this match
-      case GlobalCap | _: LocalCap => true
-      case _ => false
-
     /** Is this reference a root capability or a derived version of one?
      *  These capabilities have themselves as their captureSetOfInfo.
      */
@@ -513,7 +515,7 @@ object Capabilities:
     final def pathOwner(using Context): Symbol = pathRoot match
       case tp1: ThisType => tp1.cls
       case tp1: NamedType => tp1.symbol.owner
-      case GlobalCap => defn.CapsModule.moduleClass
+      case _: GlobalCap => defn.CapsModule.moduleClass
       case tp1: LocalCap => tp1.ccOwner
       case _ => NoSymbol
 
@@ -828,14 +830,14 @@ object Capabilities:
           y match
             case y: ResultCap => vs.unify(x, y)
             case _ => y.derivesFromShared
-        case GlobalCap =>
+        case _: GlobalCap =>
           y match
-            case GlobalCap => true
+            case _: GlobalCap => this eq y
             case _: ResultCap => false
             case _: LocalCap if CCState.collapseLocalCaps => true
             case _ =>
               y.derivesFromShared
-              || canAddHidden && vs != VarState.HardSeparate && CCState.globalAnyIsRoot
+              || canAddHidden && vs != VarState.HardSeparate && CCState.globalCapIsRoot
         case Restricted(x1, cls) =>
           y.isKnownClassifiedAs(cls) && x1.maxSubsumes(y, canAddHidden)
         case _ =>
@@ -923,7 +925,7 @@ object Capabilities:
      *  and should only be used for printing or phases not related to CC.
      */
     def toType(using Context): Type = this match
-      case c: RootCapability => defn.captureRoot.termRef
+      case c: RootCapability => defn.Caps_any.termRef
       case c: CoreCapability => c
       case c: DerivedCapability =>
         val c1 = c.underlying.toType
@@ -1046,7 +1048,7 @@ object Capabilities:
   /** Map each occurrence of `caps.any` to a different LocalCap instance
    *  Exception: CapSet^ stays as it is.
    */
-  class GlobalToLocalCap(origin: Origin)(using Context) extends BiTypeMap, FollowAliasesMap:
+  class GlobalCapToLocal(origin: Origin)(using Context) extends BiTypeMap, FollowAliasesMap:
     thisMap =>
 
     override def apply(t: Type) =
@@ -1061,13 +1063,15 @@ object Capabilities:
           mapOver(CapturingType(this(parent), ann.toCaptureSet))
         case t @ AnnotatedType(parent, ann) =>
           t.derivedAnnotatedType(this(parent), ann)
-        case defn.RefinedFunctionOf(_) =>
-          t  // stop at dependent function types
+        case t @ defn.RefinedFunctionOf(mt) =>
+          if ccConfig.newScheme
+          then t.derivedRefinedType(refinedInfo = mapOver(mt))
+          else t
         case _ =>
           mapFollowingAliases(t)
 
     override def mapCapability(c: Capability, deep: Boolean): Capability = c match
-      case GlobalCap => LocalCap(origin)
+      case GlobalAny => LocalCap(origin)
       case _ => super.mapCapability(c, deep)
 
     override def fuse(next: BiTypeMap)(using Context) = next match
@@ -1082,7 +1086,7 @@ object Capabilities:
         case _ => mapFollowingAliases(t)
 
       override def mapCapability(c: Capability, deep: Boolean): Capability = c match
-        case _: LocalCap => GlobalCap
+        case _: LocalCap => GlobalAny
         case _ => super.mapCapability(c, deep)
 
       def inverse = thisMap
@@ -1090,7 +1094,7 @@ object Capabilities:
 
     lazy val inverse = Inverse()
 
-  end GlobalToLocalCap
+  end GlobalCapToLocal
 
   /** Maps caps.any to LocalCap instances. GlobalToLocalCap is a BiTypeMap since we don't want to
    *  freeze a set when it is mapped. On the other hand, we do not want LocalCap
@@ -1098,13 +1102,13 @@ object Capabilities:
    *  tests elsewhere. We therefore use `withoutMappedFutureElems` to prevent
    *  the map being installed for future use.
    */
-  def globalToLocalCap(tp: Type, origin: Origin)(using Context): Type =
+  def globalCapToLocal(tp: Type, origin: Origin)(using Context): Type =
     ccState.withoutMappedFutureElems:
-      GlobalToLocalCap(origin)(tp)
+      GlobalCapToLocal(origin)(tp)
 
   /** Maps all LocalCap instances to caps.any */
   def localCapToGlobal(param: Symbol, tp: Type)(using Context): Type =
-    GlobalToLocalCap(Origin.Parameter(param)).inverse(tp)
+    GlobalCapToLocal(Origin.Parameter(param)).inverse(tp)
 
   /** The local dual of a result type of a closure type.
    *  @param binder  the method type of the anonymous function whose result is mapped
@@ -1172,7 +1176,7 @@ object Capabilities:
   /** Map top-level free ResultCaps one-to-one to LocalCap instances */
   def resultToAny(tp: Type, origin: Origin)(using Context): Type =
     val subst = new TypeMap:
-      val seen = EqHashMap[ResultCap, LocalCap | GlobalCap.type]()
+      val seen = EqHashMap[ResultCap, LocalCap | GlobalCap]()
       var localBinders: SimpleIdentitySet[MethodType] = SimpleIdentitySet.empty
 
       def apply(t: Type): Type = t match
@@ -1216,7 +1220,7 @@ object Capabilities:
   class ToResult(localResType: Type, mt: MethodicType, sym: Symbol, fail: Message => Unit)(using Context) extends CapMap:
 
     def apply(t: Type) = t match
-      case defn.FunctionNOf(args, res, contextual) if t.typeSymbol.name.isImpureFunction =>
+      case defn.FunctionNOf(args, res, contextual) if t.typeSymbol.name.isImpureFunction && !(ccConfig.newScheme) =>
         if variance > 0 then
           super.mapOver:
             defn.FunctionNOf(args, res, contextual)
@@ -1226,17 +1230,22 @@ object Capabilities:
         mapOver(t)
 
     override def mapCapability(c: Capability, deep: Boolean) = c match
-      case c: (LocalCap | GlobalCap.type) =>
+      case c: (LocalCap | GlobalCap) =>
         if variance > 0 then
           c match
             case c: LocalCap =>
-              if sym.isAnonymousFunction && c.classifier.derivesFrom(defn.Caps_Unscoped)
-              then c
-              else ResultCap(mt).setOrigin(c)
-            case _ => ResultCap(mt)
+              if sym.isAnonymousFunction && c.classifier.derivesFrom(defn.Caps_Unscoped) then
+                c
+              else if sym.exists && !c.ccOwner.isContainedIn(sym.skipAnonymousOwners) then
+                //println(i"not mapping $c with ${c.ccOwner} in $sym")
+                c
+              else
+                ResultCap(mt).setOrigin(c)
+            case _ =>
+              if c == GlobalFresh || !(ccConfig.newScheme) then ResultCap(mt) else c
         else
           if variance == 0 then
-            fail(em"""$localResType captures the root capability `cap` in invariant position.
+            fail(em"""$localResType captures the root capability `any` in invariant position.
                       |This capability cannot be converted to an existential in the result type of a function.""")
           // we accept variance < 0, and leave the `any` as it is
           c
@@ -1253,7 +1262,7 @@ object Capabilities:
         case c @ ResultCap(`mt`) =>
           val primary = c.primaryResultCap
           primary.origin match
-            case GlobalCap =>
+            case _: GlobalCap =>
               val localCap = LocalCap(Origin.LocalInstance(mt.resType))
               primary.setOrigin(localCap)
               localCap
@@ -1283,8 +1292,14 @@ object Capabilities:
         case rt @ defn.RefinedFunctionOf(mt) =>
           rt.derivedRefinedType(refinedInfo =
             if rt.isInstanceOf[InferredRefinedType]
-            then mapOver(mt)
+            then mapOver(mt) // Don't map to Result for dependent function types created from non-dependent ones in inferred types
             else apply(mt))
+        case t @ AppliedType(tycon, args)
+        if defn.isNonRefinedFunction(t) && args.last.containsFresh && ccConfig.newScheme =>
+          // Convert to dependent function so that we have a binder for `fresh` in result type.
+          apply(
+            depFun(args.init, args.last,
+              isContextual = defn.isContextFunctionClass(tycon.classSymbol)))
         case t: MethodType if variance > 0 && t.marksExistentialScope =>
           val t1 = mapOver(t).asInstanceOf[MethodType]
           t1.derivedLambdaType(resType = toResult(t1.resType, t1, sym, fail))
