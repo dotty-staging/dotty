@@ -339,7 +339,7 @@ class InlineReducer(inliner: Inliner)(using Context):
 
     /** The initial scrutinee binding: `val $scrutineeN = <scrutinee>` */
     val scrutineeSym = newSym(InlineScrutineeName.fresh(), Synthetic, scrutType).asTerm
-    val scrutineeBinding = normalizeBinding(ValDef(scrutineeSym, scrutinee.ensureConforms(scrutType)))
+    val scrutineeBinding = normalizeBinding(ValDef(scrutineeSym, scrutinee))
 
     def reduceCase(cdef: CaseDef): MatchReduxWithGuard = {
       val caseBindingMap = new mutable.ListBuffer[(Symbol, MemberDef)]()
