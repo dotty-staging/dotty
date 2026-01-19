@@ -1946,7 +1946,7 @@ object Build {
     publishConfiguration ~= (_.withOverwrite(true)),
     publishLocalConfiguration ~= (_.withOverwrite(true)),
     projectID ~= {id =>
-      val line = "scala.versionLine" -> versionLine
+      val line = "info.scala.versionLine" -> versionLine
       id.withExtraAttributes(id.extraAttributes + line)
     },
     Test / publishArtifact := false,
