@@ -1,0 +1,27 @@
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/class-params.scala:11:13 ---------------------------------
+11 |  val _: C = c // error
+   |             ^
+   |             Found:    (c : C{val out: A^{o}}^{o})
+   |             Required: C
+   |
+   |             Note that capability o is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/class-params.scala:14:19 ---------------------------------
+14 |  val _: () -> C = cd // error
+   |                   ^^
+   |                   Found:    (cd : () ->{o} C{val out: A^{o}}^{o})
+   |                   Required: () -> C
+   |
+   |                   Note that capability o is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/class-params.scala:20:19 ---------------------------------
+20 |  val _: () -> D = dd // error
+   |                   ^^
+   |                   Found:    (dd : () ->{o} D^{})
+   |                   Required: () -> D
+   |
+   |                   Note that capability o is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`
