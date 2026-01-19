@@ -3,10 +3,9 @@
    |    ^
    |    Found:    LazyList[B^?]^{f, xs}
    |    Required: LazyList[B]^{f}
+   |
 19 |      this: (Mapped^{xs, f}) =>
-20 |      def isEmpty = false
-21 |      def head: B = f(xs.head)
-22 |      def tail: LazyList[B]^{this} = xs.tail.map(f)
+20 |...
 23 |    new Mapped
    |
    | longer explanation available when compiling with `-explain`
@@ -15,10 +14,9 @@
    |    ^
    |    Found:    LazyList[B^?]^{f, xs}
    |    Required: LazyList[B]^{xs}
+   |
 28 |      this: Mapped^{xs, f} =>
-29 |      def isEmpty = false
-30 |      def head: B = f(xs.head)
-31 |      def tail: LazyList[B]^{this} = xs.tail.map(f)
+29 |...
 32 |    new Mapped
    |
    | longer explanation available when compiling with `-explain`
@@ -35,10 +33,9 @@
    |    ^
    |    Found:    LazyList[B^?]^{f, xs}
    |    Required: LazyList[B]^{xs}
+   |
 46 |      this: (Mapped^{xs, f}) =>
-47 |      def isEmpty = false
-48 |      def head: B = f(xs.head)
-49 |      def tail: LazyList[B]^{xs, f} = xs.tail.map(f)
+47 |...
 50 |    new Mapped
    |
    | longer explanation available when compiling with `-explain`
@@ -46,4 +43,5 @@
 60 |    class Mapped2 extends Mapped:  // error
    |    ^
    |    references {f, xs} are not all included in allowed capture set {} of the self type of class Mapped2
+   |
 61 |      this: Mapped =>

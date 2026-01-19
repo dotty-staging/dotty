@@ -4,8 +4,7 @@
    |  Result of `try` cannot have type LazyList[Int]^ since
    |  that type captures the root capability `cap`.
    |  This is often caused by a locally generated exception capability leaking as part of its result.
+   |
 37 |    tabulate(10) { i =>
-38 |      if i > 9 then throw Ex1()
-39 |      i * i
-40 |    }
+38 |...
 41 |  catch case ex: Ex1 => LazyNil
