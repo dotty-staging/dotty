@@ -1,0 +1,18 @@
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/strip-implied-cs.scala:16:4 ------------------------------
+16 |    new Rand: // error
+   |    ^
+   |Found:    (s: State[Long]^) ?->'s1 Rand^{s, fresh}
+   |Required: (s²: State[Long]^) ?-> Rand^{s²}
+   |
+   |Note that capability `fresh` is not included in capture set {s}.
+   |
+   |where:    ^     refers to the root capability caps.any
+   |          fresh is a root capability associated with the result type of (using s: State[Long]^): Rand^{s, fresh}
+   |          s     is a reference to a value parameter
+   |          s²    is a reference to a value parameter
+   |
+17 |      override def range(min: Int, max: Int): Int =
+18 |...
+21 |        next
+   |
+   | longer explanation available when compiling with `-explain`

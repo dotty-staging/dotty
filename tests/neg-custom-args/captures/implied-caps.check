@@ -1,0 +1,36 @@
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/implied-caps.scala:26:16 ---------------------------------
+26 |  val _: A^{} = a  // error
+   |                ^
+   |                Found:    (a : A{val chan: OutputChannel^{out}}^{out})
+   |                Required: A
+   |
+   |                Note that capability `out` is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/implied-caps.scala:29:16 ---------------------------------
+29 |  val _: B^{} = b  // error
+   |                ^
+   |                Found:    (b : B{val chan: OutputChannel^{out}}^{out})
+   |                Required: B
+   |
+   |                Note that capability `out` is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/implied-caps.scala:45:14 ---------------------------------
+45 |  val _: A2 = a2 // error
+   |              ^^
+   |              Found:    (a2 : A2{val chan: OutputChannel2^{out2}}^{out2})
+   |              Required: A2
+   |
+   |              Note that capability `out2` is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`
+-- [E007] Type Mismatch Error: tests/neg-custom-args/captures/implied-caps.scala:48:14 ---------------------------------
+48 |  val _: B2 = b2 // error
+   |              ^^
+   |              Found:    (b2 : B2{val chan: OutputChannel2^{out2}}^{out2})
+   |              Required: B2
+   |
+   |              Note that capability `out2` is not included in capture set {}.
+   |
+   | longer explanation available when compiling with `-explain`

@@ -1048,6 +1048,8 @@ class CheckCaptures extends Recheck, SymTransformer:
       def impliedClassifiers(cls: Symbol): List[ClassSymbol] = cls match
         case cls: ClassSymbol =>
           var fieldClassifiers = knownFields(cls).flatMap(classifiersOfLocalCapsInType)
+          if cls.classifier != defn.AnyClass then
+            fieldClassifiers = cls.classifier :: fieldClassifiers
           val parentClassifiers =
             cls.parentSyms.map(impliedClassifiers).filter(_.nonEmpty)
           if fieldClassifiers.isEmpty && parentClassifiers.isEmpty
@@ -1056,7 +1058,7 @@ class CheckCaptures extends Recheck, SymTransformer:
         case _ => Nil
 
       def impliedReadOnly(cls: Symbol): Boolean = cls match
-        case cls: ClassSymbol =>
+        case cls: ClassSymbol if !cls.derivesFrom(defn.Caps_SharedCapability) =>
           val fieldsRO = knownFields(cls).forall(allLocalCapsInTypeAreRO)
           val parentsRO = cls.parentSyms.forall(impliedReadOnly)
           fieldsRO && parentsRO
