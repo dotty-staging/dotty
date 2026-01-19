@@ -1634,4 +1634,23 @@ class InlayHintsSuite extends BaseInlayHintsSuite {
          |""".stripMargin
     )
 
+  @Test def `xray-metals-i7999` =
+    check(
+      """|object Main{
+         |   case class User(
+         |      name: String = {
+         |         Map.toString
+         |      }
+         |   )
+         |}
+         |""".stripMargin,
+      """|object Main{
+         |   case class User(
+         |      name: String = {
+         |         Map.toString
+         |      }
+         |   )
+         |}
+         |""".stripMargin
+    )
 }
