@@ -234,7 +234,7 @@ final class InferredMethodProvider(
       val containerTypeStr = printType(container.tpe.widenDealias)
       
       val pos = insertPosition()
-      val indent = indentation(params.text(), pos.start - 1)
+      val indent = indentation(params.text().nn, pos.start - 1)
       val extensionSignature = s"extension (x: $containerTypeStr)\n  $indent$signature"
       
       val lspPos = pos.toLsp
