@@ -10,6 +10,7 @@
    |                                           ^
    |                                           Found:    (x: CT[Exception]^) ->? () ->{x} Nothing
    |                                           Required: (x$0: CanThrow[Exception]) => () -> Nothing
+   |
 30 |    (x: CanThrow[Exception]) => () => raise(new Exception)(using x)
 31 |  } {
    |
@@ -24,6 +25,7 @@
    |                        ^
    |                        Found:    () ->{x$0} Int
    |                        Required: () -> Int
+   |
 53 |  (ex: Exception) => () => 22
 54 |}
    |

@@ -17,6 +17,7 @@
    |  ^
    |  Found:    Int ->{x} Int
    |  Required: Matchable
+   |
 15 |  f
    |
    | longer explanation available when compiling with `-explain`
@@ -25,6 +26,7 @@
    |  ^
    |  Found:    A^{x}
    |  Required: A
+   |
 22 |    def m() = if x == null then y else y
 23 |  F(22)
    |
@@ -34,6 +36,7 @@
    |  ^
    |  Found:    A^{x}
    |  Required: A
+   |
 27 |    def m() = if x == null then y else y
    |
    | longer explanation available when compiling with `-explain`
