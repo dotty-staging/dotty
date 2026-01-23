@@ -40,35 +40,8 @@ object GenericSignatures {
 
   @noinline
   private final def javaSig0(sym0: Symbol, info: Type)(using Context): Option[String] = {
-    // This works as long as mangled names are always valid valid Java identifiers,
-    // if we change our name encoding, we'll have to `throw new UnknownSig` here for
-    // names which are not valid Java identifiers (see git history of this method).
-    def sanitizeName(name: Name): String = name.mangledString
-
     val builder = new StringBuilder(64)
     val isTraitSignature = sym0.enclosingClass.is(Trait)
-
-    // Collect class-level type parameter names to avoid conflicts with method-level type parameters
-    val usedNames = collection.mutable.Set.empty[String]
-    if(sym0.is(Method)) {
-      sym0.enclosingClass.typeParams.foreach { tp =>
-        usedNames += sanitizeName(tp.name)
-      }
-    }
-    val methodTypeParamRenaming = collection.mutable.Map.empty[String, String]
-    def freshTypeParamName(sanitizedName: String): String = {
-      if !usedNames.contains(sanitizedName) then sanitizedName
-      else {
-        var i = 1
-        var newName = sanitizedName + i
-        while usedNames.contains(newName) do
-          i += 1
-          newName = sanitizedName + i
-        methodTypeParamRenaming(sanitizedName) = newName
-        usedNames += newName
-        newName
-      }
-    }
 
     def superSig(cls: Symbol, parents: List[Type]): Unit = {
       def isInterfaceOrTrait(sym: Symbol) = sym.is(PureInterface) || sym.is(Trait)
@@ -159,28 +132,21 @@ object GenericSignatures {
           else
             Right(parent))
 
-    def tparamSig(param: TypeParamInfo): Unit = {
-      val freshName = freshTypeParamName(sanitizeName(param.paramName.lastPart))
-      builder.append(freshName)
+    def paramSig(param: TypeParamInfo): Unit = {
+      builder.append(sanitizeName(param.paramName.lastPart))
       boundsSig(hiBounds(param.paramInfo.bounds))
     }
 
     def polyParamSig(tparams: List[TypeParamInfo]): Unit =
       if (tparams.nonEmpty) {
         builder.append('<')
-        tparams.foreach(tparamSig)
+        tparams.foreach(paramSig)
         builder.append('>')
       }
 
     def typeParamSig(name: Name): Unit = {
       builder.append(ClassfileConstants.TVAR_TAG)
       builder.append(sanitizeName(name))
-      builder.append(';')
-    }
-
-    def typeParamSigWithName(sanitizedName: String): Unit = {
-      builder.append(ClassfileConstants.TVAR_TAG)
-      builder.append(sanitizedName)
       builder.append(';')
     }
 
@@ -192,6 +158,11 @@ object GenericSignatures {
       else
         jsig(finalType)
     }
+
+    // This works as long as mangled names are always valid valid Java identifiers,
+    // if we change our name encoding, we'll have to `throw new UnknownSig` here for
+    // names which are not valid Java identifiers (see git history of this method).
+    def sanitizeName(name: Name): String = name.mangledString
 
     // Anything which could conceivably be a module (i.e. isn't known to be
     // a type parameter or similar) must go through here or the signature is
@@ -272,11 +243,7 @@ object GenericSignatures {
           // don't emit type param name if the param is upper-bounded by a primitive type (including via a value class)
           if erasedUnderlying.isPrimitiveValueType then
             jsig(erasedUnderlying, toplevel = toplevel, unboxedVCs = unboxedVCs)
-          else {
-            val name = sanitizeName(ref.paramName.lastPart)
-            val nameToUse = methodTypeParamRenaming.getOrElse(name, name)
-            typeParamSigWithName(nameToUse)
-          }
+          else typeParamSig(ref.paramName.lastPart)
 
         case ref: TermRef if ref.symbol.isGetter =>
           // If the type of a val is a TermRef to another val, generating the generic signature
