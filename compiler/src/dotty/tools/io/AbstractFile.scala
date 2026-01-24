@@ -116,7 +116,7 @@ abstract class AbstractFile extends Iterable[AbstractFile] {
   }
 
   /** Returns the underlying Path if any and null otherwise. */
-  def jpath: JPath
+  def jpath: JPath | Null
 
   /** An underlying source, if known.  Mostly, a zip/jar file. */
   def underlyingSource: Option[AbstractFile] = None

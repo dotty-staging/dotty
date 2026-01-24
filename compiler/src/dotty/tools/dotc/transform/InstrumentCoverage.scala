@@ -71,7 +71,7 @@ class InstrumentCoverage extends MacroTransform with IdentityDenotTransformer:
     coverageExcludeClasslikePatterns = ctx.settings.coverageExcludeClasslikes.value.map(_.r.pattern)
     coverageExcludeFilePatterns = ctx.settings.coverageExcludeFiles.value.map(_.r.pattern)
 
-    ctx.base.coverage.nn.removeStatementsFromFile(ctx.compilationUnit.source.file.absolute.jpath)
+    ctx.base.coverage.nn.removeStatementsFromFile(ctx.compilationUnit.source.file.absolute.jpath.nn)
     ctx.base.coverage.nn.setNextStatementId(previousCoverage.nextStatementId())
 
     super.run
@@ -276,7 +276,7 @@ class InstrumentCoverage extends MacroTransform with IdentityDenotTransformer:
 
     override def transform(tree: Tree)(using Context): Tree =
       val path = tree.sourcePos.source.file.absolute.jpath
-      lastCompiledFiles += path.toString
+      if path != null then lastCompiledFiles += path.toString
 
       inContext(transformCtx(tree)) { // necessary to position inlined code properly
         tree match
