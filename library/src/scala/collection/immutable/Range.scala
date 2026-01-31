@@ -21,6 +21,9 @@ import scala.collection.convert.impl.RangeStepper
 import scala.collection.generic.CommonErrors
 import scala.collection.{AbstractIterator, AnyStepper, IterableFactoryDefaults, Iterator, Stepper, StepperShape}
 import scala.util.hashing.MurmurHash3
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
+import scala.annotation.unchecked.uncheckedOverride
 
 /** The `Range` class represents integer values in range
  *  ''[start;end)'' with non-zero step value `step`.
@@ -250,7 +253,10 @@ sealed abstract class Range(
     } else locationAfterN(idx)
   }
 
-  /*@`inline`*/ final override def foreach[@specialized(Unit) U](f: Int => U): Unit = {
+  @publicInBinary
+  @uncheckedOverride
+  @targetName("foreach")
+  private[scala] /*@`inline`*/ final def scala2Foreach[@specialized(Unit) U](f: Int => U): Unit = {
     // Implementation chosen on the basis of favorable microbenchmarks
     // Note--initialization catches step == 0 so we don't need to here
     if (!isEmpty) {
@@ -258,6 +264,20 @@ sealed abstract class Range(
       while (true) {
         f(i)
         if (i == lastElement) return
+        i += step
+      }
+    }
+  }
+
+  @targetName("foreachInline")
+  inline final def foreach[U](f: Int => U): Unit = scala.util.boundary {
+    // Implementation chosen on the basis of favorable microbenchmarks
+    // Note--initialization catches step == 0 so we don't need to here
+    if (!isEmpty) {
+      var i = start
+      while (true) {
+        f(i)
+        if (i == lastElement) scala.util.boundary.break()
         i += step
       }
     }
