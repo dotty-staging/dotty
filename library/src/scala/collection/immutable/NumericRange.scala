@@ -19,6 +19,8 @@ import scala.collection.Stepper.EfficientSplit
 import scala.collection.{AbstractIterator, AnyStepper, IterableFactoryDefaults, Iterator, Stepper, StepperShape}
 import scala.collection.generic.CommonErrors
 import scala.annotation.compileTimeOnly
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /** `NumericRange` is a more generic version of the
   *  `Range` class which works with arbitrary types.
@@ -114,7 +116,20 @@ sealed class NumericRange[T](
     else locationAfterN(idx)
   }
 
-  override def foreach[@specialized(Specializable.Unit) U](f: T => U): Unit = {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[@specialized(Specializable.Unit) U](f: T => U): Unit = {
+    var count = 0
+    var current = start
+    while (count < length) {
+      f(current)
+      current += step
+      count += 1
+    }
+  }
+
+  @targetName("foreachInline")
+  inline override def foreach[U](inline f: T => U): Unit = {
     var count = 0
     var current = start
     while (count < length) {

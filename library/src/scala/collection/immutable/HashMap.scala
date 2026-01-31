@@ -28,6 +28,8 @@ import scala.collection.{Iterator, MapFactory, MapFactoryDefaults, Stepper, Step
 import scala.runtime.AbstractFunction2
 import scala.runtime.Statics.releaseFence
 import scala.util.hashing.MurmurHash3
+import scala.annotation.targetName
+import scala.annotation.publicInBinary
 
 /** This class implements immutable maps using a Compressed Hash-Array Mapped Prefix-tree.
   * See paper https://michael.steindorfer.name/publications/oopsla15.pdf for more details.
@@ -270,7 +272,9 @@ final class HashMap[K, +V] private[immutable] (private[immutable] val rootNode: 
 
   override def last: (K, V) = reverseIterator.next()
 
-  override def foreach[U](f: ((K, V)) => U): Unit = rootNode.foreach(f)
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[U](f: ((K, V)) => U): Unit = rootNode.foreach(f)
 
   override def foreachEntry[U](f: (K, V) => U): Unit = rootNode.foreachEntry(f)
 

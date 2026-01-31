@@ -23,6 +23,8 @@ import scala.collection.mutable.{Builder, ImmutableBuilder, ListBuffer}
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.language.implicitConversions
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /** Utility class for long maps.
   */
@@ -212,7 +214,9 @@ sealed abstract class LongMap[+T] extends AbstractMap[Long, T]
   /**
     * Loops over the key, value pairs of the map in unsigned order of the keys.
     */
-  override final def foreach[U](f: ((Long, T)) => U): Unit = this match {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override final def scala2Foreach[U](f: ((Long, T)) => U): Unit = this match {
     case LongMap.Bin(_, _, left, right) => { left.foreach(f); right.foreach(f) }
     case LongMap.Tip(key, value) => f((key, value))
     case LongMap.Nil =>

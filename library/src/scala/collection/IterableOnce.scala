@@ -164,10 +164,16 @@ final class IterableOnceExtensionMethods[A](private val it: IterableOnce[A]) ext
   def toIndexedSeq: IndexedSeq[A] = it.iterator.toIndexedSeq
 
   @deprecated("Use .iterator.foreach(...) instead", "2.13.0")
-  @`inline` def foreach[U](f: A => U): Unit = it match {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] /*@`inline`*/ def scala2Foreach[U](f: A => U): Unit = it match {
     case it: Iterable[A] => it.foreach(f)
     case _ => it.iterator.foreach(f)
   }
+
+  @deprecated("Use .iterator.foreach(...) instead", "2.13.0")
+  @targetName("foreachInline")
+  inline def foreach[U](inline f: A => U): Unit = scala2Foreach(f)
 
   @deprecated("Use .iterator.to(factory) instead", "2.13.0")
   def to[C1](factory: Factory[A, C1]): C1 = factory.fromSpecific(it)
@@ -637,9 +643,10 @@ transparent trait IterableOnceOps[+A, +CC[_], +C] extends Any { this: IterableOn
     while(it.hasNext) f(it.next())
   }
 
+
+  @targetName("foreachInline")
   inline def foreach[U](inline f: A => U): Unit = {
-    val it = iterator
-    while(it.hasNext) f(it.next())
+    scala2Foreach(f)
   }
 
   /** Tests whether a predicate holds for all elements of this $coll.

@@ -21,6 +21,9 @@ import java.io.{ObjectInputStream, ObjectOutputStream}
 import scala.annotation.nowarn
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.mutable.Builder
+import scala.annotation.unchecked.uncheckedOverride
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 
 /** Base type of bitsets.
@@ -191,7 +194,9 @@ transparent trait BitSetOps[+C <: BitSet & BitSetOps[C]]
     else if (Ordering.Int isReverseOf ord) largestInt
     else super.min(using ord)
 
-  override def foreach[U](f: Int => U): Unit = {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[U](f: Int => U): Unit = {
     /* NOTE: while loops are significantly faster as of 2.11 and
        one major use case of bitsets is performance. Also, there
        is nothing to do when all bits are clear, so use that as

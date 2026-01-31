@@ -17,6 +17,8 @@ import scala.language.`2.13`
 import language.experimental.captureChecking
 
 import scala.annotation.{nowarn, tailrec}
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /** Base trait for linearly accessed sequences that have efficient `head` and
   *  `tail` operations.
@@ -135,7 +137,9 @@ transparent trait LinearSeqOps[+A, +CC[X] <: LinearSeq[X], +C <: LinearSeq[A] & 
     skipped.head
   }
 
-  override def foreach[U](f: A => U): Unit = {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[U](f: A => U): Unit = {
     var these: LinearSeq[A] = coll
     while (!these.isEmpty) {
       f(these.head)

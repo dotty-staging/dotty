@@ -22,6 +22,8 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.immutable.Map.Map4
 import scala.collection.mutable.{Builder, ReusableBuilder}
 import SeqMap.{SeqMap1, SeqMap2, SeqMap3, SeqMap4}
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /** Base type of immutable Maps. */
 trait Map[K, +V]
@@ -286,7 +288,9 @@ object Map extends MapFactory[Map] {
       else new Map2(key1, value1, key, value)
     def removed(key: K): Map[K, V] =
       if (key == key1) Map.empty else this
-    override def foreach[U](f: ((K, V)) => U): Unit = {
+    @publicInBinary
+    @targetName("foreach")
+    private[scala] override def scala2Foreach[U](f: ((K, V)) => U): Unit = {
       f((key1, value1))
     }
     override def exists(p: ((K, V)) => Boolean): Boolean = p((key1, value1))
@@ -368,7 +372,9 @@ object Map extends MapFactory[Map] {
       if (key == key1) new Map1(key2, value2)
       else if (key == key2) new Map1(key1, value1)
       else this
-    override def foreach[U](f: ((K, V)) => U): Unit = {
+    @publicInBinary
+    @targetName("foreach")
+    private[scala] override def scala2Foreach[U](f: ((K, V)) => U): Unit = {
       f((key1, value1)); f((key2, value2))
     }
     override def exists(p: ((K, V)) => Boolean): Boolean = p((key1, value1)) || p((key2, value2))
@@ -474,7 +480,9 @@ object Map extends MapFactory[Map] {
       else if (key == key2) new Map2(key1, value1, key3, value3)
       else if (key == key3) new Map2(key1, value1, key2, value2)
       else this
-    override def foreach[U](f: ((K, V)) => U): Unit = {
+    @publicInBinary
+    @targetName("foreach")
+    private[scala] override def scala2Foreach[U](f: ((K, V)) => U): Unit = {
       f((key1, value1)); f((key2, value2)); f((key3, value3))
     }
     override def exists(p: ((K, V)) => Boolean): Boolean = p((key1, value1)) || p((key2, value2)) || p((key3, value3))
@@ -597,7 +605,9 @@ object Map extends MapFactory[Map] {
       else if (key == key3) new Map3(key1, value1, key2, value2, key4, value4)
       else if (key == key4) new Map3(key1, value1, key2, value2, key3, value3)
       else this
-    override def foreach[U](f: ((K, V)) => U): Unit = {
+    @publicInBinary
+    @targetName("foreach")
+    private[scala] override def scala2Foreach[U](f: ((K, V)) => U): Unit = {
       f((key1, value1)); f((key2, value2)); f((key3, value3)); f((key4, value4))
     }
     override def exists(p: ((K, V)) => Boolean): Boolean = p((key1, value1)) || p((key2, value2)) || p((key3, value3)) || p((key4, value4))

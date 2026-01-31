@@ -26,6 +26,8 @@ import scala.collection.generic.DefaultSerializable
 import scala.collection.mutable.ReusableBuilder
 import scala.runtime.Statics.releaseFence
 import scala.util.hashing.MurmurHash3
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /** This class implements immutable sets using a Compressed Hash-Array Mapped Prefix-tree.
   * See paper https://michael.steindorfer.name/publications/oopsla15.pdf for more details.
@@ -184,7 +186,9 @@ final class HashSet[A] private[immutable](private[immutable] val rootNode: Bitma
 
   override def last: A = reverseIterator.next()
 
-  override def foreach[U](f: A => U): Unit = rootNode.foreach(f)
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[U](f: A => U): Unit = rootNode.foreach(f)
 
   /** Applies a function f to each element, and its corresponding **original** hash, in this Set. */
   @`inline` private[collection] def foreachWithHash(f: (A, Int) => Unit): Unit = rootNode.foreachWithHash(f)

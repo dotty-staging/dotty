@@ -26,6 +26,8 @@ import scala.collection.mutable.{Builder, ReusableBuilder, StringBuilder}
 import scala.language.implicitConversions
 import scala.runtime.Statics
 import caps.unsafe.untrackedCaptures
+import scala.annotation.targetName
+import scala.annotation.publicInBinary
 
 /**  This class implements an immutable linked list. We call it "lazy"
   *  because it computes its elements only when they are needed.
@@ -435,7 +437,9 @@ final class LazyListIterable[+A] private (lazyState: LazyListIterable.EmptyMarke
     *  unless the `f` throws an exception.
     */
   @tailrec
-  override def foreach[U](f: A => U): Unit = {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[U](f: A => U): Unit = {
     if (!isEmpty) {
       f(head)
       tail.foreach(f)

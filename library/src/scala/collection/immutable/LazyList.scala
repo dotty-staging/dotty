@@ -23,6 +23,8 @@ import scala.collection.generic.SerializeEnd
 import scala.collection.mutable.{Builder, ReusableBuilder, StringBuilder}
 import scala.language.implicitConversions
 import scala.runtime.Statics
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /**  This class implements an immutable linked list. We call it "lazy"
   *  because it computes its elements only when they are needed.
@@ -414,7 +416,9 @@ final class LazyList[+A] private (lazyState: AnyRef /* EmptyMarker.type | () => 
     *  unless the `f` throws an exception.
     */
   @tailrec
-  override def foreach[U](f: A => U): Unit = {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] override def scala2Foreach[U](f: A => U): Unit = {
     if (!isEmpty) {
       f(head)
       tail.foreach(f)
@@ -1445,4 +1449,3 @@ object LazyList extends SeqFactory[LazyList] {
     private def readResolve(): Any = coll
   }
 }
-

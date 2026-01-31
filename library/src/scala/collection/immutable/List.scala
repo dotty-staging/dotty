@@ -23,6 +23,7 @@ import scala.annotation.publicInBinary
 import mutable.{Builder, ListBuffer}
 import scala.collection.generic.{CommonErrors, DefaultSerializable}
 import scala.runtime.Statics.releaseFence
+import scala.annotation.targetName
 
 /** A class for immutable linked lists representing ordered collections
  *  of elements of type `A`.
@@ -321,7 +322,10 @@ sealed abstract class List[+A]
 
   // Overridden with an implementation identical to the inherited one (at this time)
   // solely so it can be finalized and thus inlinable.
-  @inline final override def foreach[U](f: A => U): Unit = {
+  @inline
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] final override def scala2Foreach[U](f: A => U): Unit = {
     var these = this
     while (!these.isEmpty) {
       f(these.head)

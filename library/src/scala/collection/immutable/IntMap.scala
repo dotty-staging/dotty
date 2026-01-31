@@ -21,6 +21,8 @@ import scala.collection.mutable.{Builder, ImmutableBuilder}
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.language.implicitConversions
+import scala.annotation.publicInBinary
+import scala.annotation.targetName
 
 /** Utility class for integer maps.
   */
@@ -217,7 +219,9 @@ sealed abstract class IntMap[+T] extends AbstractMap[Int, T]
   /**
     * Loops over the key, value pairs of the map in unsigned order of the keys.
     */
-  override final def foreach[U](f: ((Int, T)) => U): Unit = this match {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] final override def scala2Foreach[U](f: ((Int, T)) => U): Unit = this match {
     case IntMap.Bin(_, _, left, right) => { left.foreach(f); right.foreach(f) }
     case IntMap.Tip(key, value) => f((key, value))
     case IntMap.Nil =>
