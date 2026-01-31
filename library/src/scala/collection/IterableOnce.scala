@@ -25,6 +25,8 @@ import scala.reflect.ClassTag
 import scala.runtime.{AbstractFunction1, AbstractFunction2}
 
 import IterableOnce.elemsToCopyToArray
+import scala.annotation.targetName
+import scala.annotation.publicInBinary
 
 /**
   * A template trait for collections which can be traversed either once only
@@ -628,7 +630,14 @@ transparent trait IterableOnceOps[+A, +CC[_], +C] extends Any { this: IterableOn
   /** Applies `f` to each element for its side effects.
    *  Note: `U` parameter needed to help scalac's type inference.
    */
-  def foreach[U](f: A => U): Unit = {
+  @publicInBinary
+  @targetName("foreach")
+  private[scala] /*@`inline`*/ def scala2Foreach[U](f: A => U): Unit = {
+    val it = iterator
+    while(it.hasNext) f(it.next())
+  }
+
+  inline def foreach[U](inline f: A => U): Unit = {
     val it = iterator
     while(it.hasNext) f(it.next())
   }

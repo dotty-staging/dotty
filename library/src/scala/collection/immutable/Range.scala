@@ -16,13 +16,12 @@ package collection.immutable
 import scala.language.`2.13`
 import language.experimental.captureChecking
 
+import scala.annotation.{targetName, publicInBinary}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.convert.impl.RangeStepper
 import scala.collection.generic.CommonErrors
 import scala.collection.{AbstractIterator, AnyStepper, IterableFactoryDefaults, Iterator, Stepper, StepperShape}
 import scala.util.hashing.MurmurHash3
-import scala.annotation.publicInBinary
-import scala.annotation.targetName
 import scala.annotation.unchecked.uncheckedOverride
 
 /** The `Range` class represents integer values in range
@@ -253,8 +252,8 @@ sealed abstract class Range(
     } else locationAfterN(idx)
   }
 
-  @publicInBinary
   @uncheckedOverride
+  @publicInBinary
   @targetName("foreach")
   private[scala] /*@`inline`*/ final def scala2Foreach[@specialized(Unit) U](f: Int => U): Unit = {
     // Implementation chosen on the basis of favorable microbenchmarks
@@ -269,8 +268,7 @@ sealed abstract class Range(
     }
   }
 
-  @targetName("foreachInline")
-  inline final def foreach[U](f: Int => U): Unit = scala.util.boundary {
+  final inline override def foreach[U](inline f: Int => U): Unit = scala.util.boundary {
     // Implementation chosen on the basis of favorable microbenchmarks
     // Note--initialization catches step == 0 so we don't need to here
     if (!isEmpty) {
