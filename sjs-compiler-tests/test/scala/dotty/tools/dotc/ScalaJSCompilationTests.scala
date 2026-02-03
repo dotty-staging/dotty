@@ -39,6 +39,7 @@ class ScalaJSCompilationTests extends ParallelTesting {
 
   override protected def shouldSkipTestSource(testSource: TestSource): Boolean =
     testSource.allToolArgs.get(ToolName.ScalaJS).exists(_.contains("--skip"))
+    || super.shouldSkipTestSource(testSource)
 
   override def runMain(classPath: String, toolArgs: ToolArgs)(implicit summaryReport: SummaryReporting): Status =
     import scala.concurrent.ExecutionContext.Implicits.global
