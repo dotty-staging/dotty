@@ -1,3 +1,4 @@
 object Test {
-  val _ = List["a"]("a").foldLeft(Set.empty["a"]) { case (acc, a) => acc + a }
+  val x = Tuple1.apply("a")
+  Set.empty["a"] + x._1
 }
