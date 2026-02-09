@@ -9,6 +9,7 @@ import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Decorators.em
 import scala.tools.asm.ClassWriter
 import scala.tools.asm.tree.ClassNode
+import dotty.tools.backend.jvm.opt.*
 
 /**
  * Implements late stages of the backend, i.e.,
@@ -17,6 +18,14 @@ import scala.tools.asm.tree.ClassNode
 class PostProcessor(val frontendAccess: PostProcessorFrontendAccess, private val ts: CoreBTypes)(using Context) {
 
   private val backendUtils        = new BackendUtils(frontendAccess, ts)
+  private val byteCodeRepository  = new BCodeRepository(frontendAccess, backendUtils, ts)
+  private val bTypesFromClassfile = new BTypesFromClassfile(byteCodeRepository, ts, frontendAccess.compilerSettings.optInlinerEnabled)
+  val callGraph                   = new CallGraph(frontendAccess, byteCodeRepository, bTypesFromClassfile)
+  private val inlinerHeuristics   = new InlinerHeuristics(frontendAccess, backendUtils, byteCodeRepository, callGraph, ts)
+  private val localOpt            = new LocalOpt(backendUtils, frontendAccess, callGraph, ts, bTypesFromClassfile)
+  private val closureOptimizer    = new ClosureOptimizer(frontendAccess, backendUtils, byteCodeRepository, callGraph, ts, bTypesFromClassfile, localOpt)
+  private val heuristics          = new InlinerHeuristics(frontendAccess, backendUtils, byteCodeRepository, callGraph, ts)
+  private val inliner             = new Inliner(frontendAccess, backendUtils, callGraph, bTypesFromClassfile, byteCodeRepository, heuristics, closureOptimizer, localOpt)
   val classfileWriters            = new ClassfileWriters(frontendAccess)
   val classfileWriter             = classfileWriters.ClassfileWriter()
 
