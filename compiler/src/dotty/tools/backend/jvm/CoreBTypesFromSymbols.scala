@@ -60,7 +60,8 @@ final class CoreBTypesFromSymbols(val ppa: PostProcessorFrontendAccess, val supe
         interfaces = Nil,
         flags = asm.Opcodes.ACC_SUPER | asm.Opcodes.ACC_PUBLIC | asm.Opcodes.ACC_FINAL,
         nestedClasses = LazyWithoutLock(getMemberClasses(mcs).map(classBTypeFromSymbol)),
-        nestedInfo = LazyWithoutLock(None)
+        nestedInfo = LazyWithoutLock(None),
+        inlineInfo = EmptyInlineInfo
       ))
     )
   }
@@ -162,7 +163,7 @@ final class CoreBTypesFromSymbols(val ppa: PostProcessorFrontendAccess, val supe
 
     val nestedInfo = buildNestedInfo(classSym)
 
-    ClassInfo(superClass, interfaces, flags, LazyWithoutLock(memberClasses), LazyWithoutLock(nestedInfo))
+    ClassInfo(superClass, interfaces, flags, LazyWithoutLock(memberClasses), LazyWithoutLock(nestedInfo), EmptyInlineInfo)
   }
 
   /** For currently compiled classes: All locally defined classes including local classes.
