@@ -100,7 +100,7 @@ object Inliner:
    *   - Function types in applications are undefined. This is necessary since we copy at
    *     the same time as establishing the proper context in which the copied tree should
    *     be evaluated. This matters for opaque types, see neg/i14653.scala.
-   *   - The application is spurious (in the sense of isSpuriousTypeApply). We leave
+   *   - The application is spurious (in the sense of isSpuriousApply). We leave
    *     the application around to be eliminated later by the inline typer.
    */
   private class InlineCopier() extends TypedTreeCopier:
