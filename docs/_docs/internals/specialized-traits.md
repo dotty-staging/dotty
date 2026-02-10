@@ -1,6 +1,6 @@
 # Specialized Traits and Classes
 
-Specialization is one of the few remaining desirable features from Scala 2 that's are as yet missing in Scala 3. We could try to port the Scala 2 scheme, which would be non-trivial since the implementation is quite complex. But that scheme is problematic enough to suggest that we also look for alternatives. A possible alternative is described here. It is meant to complement the [proposal on inline traits](https://github.com/lampepfl/dotty/issues/15532). That proposal also contains a more detailed critique of Scala 2 specialization.
+Specialization is one of the few remaining desirable features from Scala 2 that are still missing in Scala 3. We could try to port the Scala 2 scheme, which would be non-trivial since the implementation is quite complex. But that scheme is problematic enough to suggest that we also look for alternatives. A possible alternative is described here. It is meant to complement the [proposal on inline traits](https://github.com/lampepfl/dotty/issues/15532). That proposal also contains a more detailed critique of Scala 2 specialization.
 The parts in that proposal that mention a proposed new specialization design should be ignored; they are superseded by the proposal here.
 
 The main problem of Scala-2 specialization is code bloat. We have to pro-actively generate up to 11 copies of functions and classes when they have a specialized type parameter, and this grows exponentially with the number of such type parameters. Miniboxing tries to reduce the number under the exponent from ~10 to 3 or 4, but it has problems dealing with arrays.
@@ -62,11 +62,11 @@ The restrictions ensure that each time we create an instance of a specialized tr
 
 ## Expansion of Specialized Traits
 
-A type instance of a specialized trait such as Vec[Tp] has a special erasure, which depends on the specializing supertype of `Tp`.
+A type instance of a specialized trait such as `Vec[Tp]` has a special erasure, which depends on the specializing supertype of `Tp`.
 
 **Definition**: A _simple class type_ is a reference to a static class that does not have type parameters. References to traits and references containing non-static prefixes or refinements are excluded.
 
-**Definition**: A top class is one of `Any`, `AnyVal`, or `Object`.
+**Definition**: A _top class_ is one of `Any`, `AnyVal`, or `Object`.
 
 **Definition**: The _specializing supertype_ `SpecType(Tp)` of a type `Tp` is the smallest simple class type `C` such that
 
@@ -408,7 +408,7 @@ This proposal
  1. _Inline traits._ With them one can create specialized modules and classes, but no specialization on type parameters is possible. Inline traits also enable new patterns for meta programming.
  2. _Specialized traits and classes._ With them one can create class hierarchies that can require and exploit statically known type parameters.
  3. _Specialized overloads and path splitting_. With these additions one can create structures that can take advantage of statically known type parameters when they are available while still working for other type parameters as well. They also allow retro-fitting specializaton to existing libraries.
- 4. _Hand-written specializations_. They allow to make use-defined algorithmic optimizations based on statically known type parameters.
+ 4. _Hand-written specializations_. They allow to make user-defined algorithmic optimizations based on statically known type parameters.
 
 
 
