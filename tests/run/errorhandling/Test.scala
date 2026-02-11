@@ -76,28 +76,29 @@ def resultTest() = {
 
 def validateTest() = {
   import Validator.validate
-  case class Form(name: String, age: Int, confirmed: Boolean)
+  case class Form(name: String, age: Int)
 
-  def validate(form: Form): Result[Form, List[String]] =
-    form.validate: v =>
-      v.ensure(!form.name.isEmpty, "Missing name", abort = true)
-      v.ensure(form.name.head.isUpper, s"${form.name} does not start with uppercase letter")
-      v.ensure(form.age >= 18, s"Age ${form.age} is below minimum agge 18")
-      v.ensure(form.confirmed, "Missing confirmation")
+  def validatedForm(name: String, age: Int, confirmed: Boolean): Result[Form, List[String]] =
+    validate[String]: v =>
+        v.ensure(!name.isEmpty, "Missing name", abort = true)
+        v.ensure(name.head.isUpper, s"${name} does not start with uppercase letter")
+        v.ensure(age >= 18, s"Age ${age} is below minimum age 18")
+        v.ensure(confirmed, "Missing confirmation")
+      .ifOK:
+        Form(name, age)
 
-  val p1 = Form("Bob", 21, true)
-  val p2 = Form("bob", 21, true)
-  val p3 = Form("Bob", 16, true)
-  val p4 = Form("Bob", 21, false)
-  val p5 = Form("bob", 16, false)
-  val p6 = Form("", 16, false)
-  println(validate(p1))
-  println(validate(p2))
-  println(validate(p3))
-  println(validate(p4))
-  println(validate(p5))
-  println(validate(p6))
-
+  val p1 = validatedForm("Bob", 21, true)
+  val p2 = validatedForm("bob", 21, true)
+  val p3 = validatedForm("Bob", 16, true)
+  val p4 = validatedForm("Bob", 21, false)
+  val p5 = validatedForm("bob", 16, false)
+  val p6 = validatedForm("", 16, false)
+  println(p1)
+  println(p2)
+  println(p3)
+  println(p4)
+  println(p5)
+  println(p6)
 }
 
 @main def Test =

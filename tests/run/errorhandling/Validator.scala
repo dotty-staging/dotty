@@ -3,20 +3,23 @@ import boundary.{break, Label}
 import collection.mutable
 
 object Validator {
-  extension [T] (x: T)
-    def validate[E](op: Validator[T, E] => Unit): Result[T, List[E]] =
-      boundary: lbl ?=>
-        val v = Validator[T, E]()
-        op(v)
-        if v.errors.isEmpty then Ok(x) else Err(v.errors.toList)
+  def validate[E](op: Validator[E] => Unit): Validator[E] =
+    boundary: lbl ?=>
+      val v = Validator[E]()
+      op(v)
+      v
 }
 
-class Validator[T, E] private()(using lbl: Label[Result[T, List[E]]]) {
+class Validator[E] private()(using lbl: Label[Validator[E]]) {
   private val errors = mutable.ListBuffer[E]()
 
   def ensure(p: Boolean, e: => E, abort: Boolean = false): Unit =
     if !p then
       errors += e
-      if abort then break(Err(errors.toList))
+      if abort then break(this)
+
+  def ifOK[T](t: => T): Result[T, List[E]] =
+    if errors.isEmpty then Ok(t) else Err(errors.toList)
+
 }
 
