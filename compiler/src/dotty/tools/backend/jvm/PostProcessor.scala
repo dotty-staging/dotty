@@ -96,6 +96,7 @@ class PostProcessor(val frontendAccess: PostProcessorFrontendAccess, private val
 
   private def getClassfileWriter(mainClasses: List[String]): classfileWriters.ClassfileWriter = {
     if classfileWriter eq null then
+      // TODO: once Xmain-class is removed, remove this altogether, see conversation at https://github.com/scala/scala3/pull/25215#issuecomment-3895551590
       val jarManifestMainClass: Option[String] = frontendAccess.compilerSettings.mainClass.orElse {
         mainClasses match {
           case List(name) => Some(name)

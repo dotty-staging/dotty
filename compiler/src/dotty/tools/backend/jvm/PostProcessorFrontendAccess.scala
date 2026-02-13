@@ -110,6 +110,7 @@ object PostProcessorFrontendAccess {
       override val debug: Boolean = ctx.debug
       override val dumpClassesDirectory: Option[String] = s.Xdumpclasses.valueSetByUser
       override val outputDirectory: AbstractFile = s.outputDir.value
+      @annotation.nowarn("cat=deprecation")
       override val mainClass: Option[String] = s.XmainClass.valueSetByUser
       override val jarCompressionLevel: Int = s.XjarCompressionLevel.value
       override val backendParallelism: Int = s.YbackendParallelism.value
