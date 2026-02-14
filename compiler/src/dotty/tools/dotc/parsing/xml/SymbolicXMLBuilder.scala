@@ -13,6 +13,7 @@ import Names.*, StdNames.*, ast.Trees.*, ast.{tpd, untpd}
 import Symbols.*, Contexts.*
 import util.Spans.*
 import Parsers.Parser
+import dotty.tools.dotc.ast.tpd.TreeOps
 
 /** This class builds instance of `Tree` that represent XML.
  *
