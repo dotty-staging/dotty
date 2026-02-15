@@ -1,0 +1,204 @@
+[[syntax trees at end of                  inlining]] // tests/printing/inlining/i24347.scala
+package <empty> {
+  @SourceFile("tests/printing/inlining/i24347.scala") case class Point(x: Int,
+    y: Int) extends Object(), _root_.scala.Product, _root_.scala.Serializable {
+    override def hashCode(): Int =
+      {
+        var acc: Int = -889275714
+        acc = scala.runtime.Statics.mix(acc, 77292912)
+        acc = scala.runtime.Statics.mix(acc, Point.this.x)
+        acc = scala.runtime.Statics.mix(acc, Point.this.y)
+        scala.runtime.Statics.finalizeHash(acc, 2)
+      }
+    override def equals(x$0: Any): Boolean =
+      (this eq x$0.$asInstanceOf[Object]) ||
+        (x$0 match
+          {
+            case x$0 @ _:Point @unchecked =>
+              this.x == x$0.x && this.y == x$0.y && x$0.canEqual(this)
+            case _ => false
+          }
+        )
+    override def toString(): String = scala.runtime.ScalaRunTime._toString(this)
+    override def canEqual(that: Any): Boolean =
+      that.isInstanceOf[Point @unchecked]
+    override def productArity: Int = 2
+    override def productPrefix: String = "Point"
+    override def productElement(n: Int): Any =
+      n match
+        {
+          case 0 => this._1
+          case 1 => this._2
+          case _ => throw new IndexOutOfBoundsException(n.toString())
+        }
+    override def productElementName(n: Int): String =
+      n match
+        {
+          case 0 => "x"
+          case 1 => "y"
+          case _ => throw new IndexOutOfBoundsException(n.toString())
+        }
+    val x: Int
+    val y: Int
+    def copy(x: Int, y: Int): Point = new Point(x, y)
+    def copy$default$1: Int @uncheckedVariance = Point.this.x
+    def copy$default$2: Int @uncheckedVariance = Point.this.y
+    def _1: Int = this.x
+    def _2: Int = this.y
+  }
+  final lazy module val Point: Point = new Point()
+  @SourceFile("tests/printing/inlining/i24347.scala") final module class Point()
+     extends AnyRef(), scala.deriving.Mirror.Product { this: Point.type =>
+    private def writeReplace(): AnyRef =
+      new scala.runtime.ModuleSerializationProxy(classOf[Point.type])
+    def apply(x: Int, y: Int): Point = new Point(x, y)
+    def unapply(x$1: Point): Point = x$1
+    override def toString: String = "Point"
+    type MirroredMonoType = Point
+    def fromProduct(x$0: Product): Point.MirroredMonoType =
+      {
+        val x$1: Int = x$0.productElement(0).$asInstanceOf[Int]
+        val y$1: Int = x$0.productElement(1).$asInstanceOf[Int]
+        new Point(x$1, y$1)
+      }
+  }
+  @SourceFile("tests/printing/inlining/i24347.scala") case class Line(
+    p1: Point, p2: Point) extends Object(), _root_.scala.Product, _root_.scala.
+    Serializable {
+    override def hashCode(): Int =
+      scala.util.hashing.MurmurHash3.productHash(this, 308983819, true)
+    override def equals(x$0: Any): Boolean =
+      (this eq x$0.$asInstanceOf[Object]) ||
+        (x$0 match
+          {
+            case x$0 @ _:Line @unchecked =>
+              this.p1 == x$0.p1 && this.p2 == x$0.p2 && x$0.canEqual(this)
+            case _ => false
+          }
+        )
+    override def toString(): String = scala.runtime.ScalaRunTime._toString(this)
+    override def canEqual(that: Any): Boolean =
+      that.isInstanceOf[Line @unchecked]
+    override def productArity: Int = 2
+    override def productPrefix: String = "Line"
+    override def productElement(n: Int): Any =
+      n match
+        {
+          case 0 => this._1
+          case 1 => this._2
+          case _ => throw new IndexOutOfBoundsException(n.toString())
+        }
+    override def productElementName(n: Int): String =
+      n match
+        {
+          case 0 => "p1"
+          case 1 => "p2"
+          case _ => throw new IndexOutOfBoundsException(n.toString())
+        }
+    val p1: Point
+    val p2: Point
+    def copy(p1: Point, p2: Point): Line = new Line(p1, p2)
+    def copy$default$1: Point @uncheckedVariance = Line.this.p1
+    def copy$default$2: Point @uncheckedVariance = Line.this.p2
+    def _1: Point = this.p1
+    def _2: Point = this.p2
+  }
+  final lazy module val Line: Line = new Line()
+  @SourceFile("tests/printing/inlining/i24347.scala") final module class Line()
+     extends AnyRef(), scala.deriving.Mirror.Product { this: Line.type =>
+    private def writeReplace(): AnyRef =
+      new scala.runtime.ModuleSerializationProxy(classOf[Line.type])
+    def apply(p1: Point, p2: Point): Line = new Line(p1, p2)
+    def unapply(x$1: Line): Line = x$1
+    override def toString: String = "Line"
+    type MirroredMonoType = Line
+    def fromProduct(x$0: Product): Line.MirroredMonoType =
+      {
+        val p1$1: Point = x$0.productElement(0).$asInstanceOf[Point]
+        val p2$1: Point = x$0.productElement(1).$asInstanceOf[Point]
+        new Line(p1$1, p2$1)
+      }
+  }
+  final lazy module val i24347$package: i24347$package = new i24347$package()
+  @SourceFile("tests/printing/inlining/i24347.scala") final module class
+    i24347$package() extends Object() { this: i24347$package.type =>
+    private def writeReplace(): AnyRef =
+      new scala.runtime.ModuleSerializationProxy(classOf[i24347$package.type])
+    inline def size[T >: Nothing <: Any]: Int =
+      (inline compiletime.package$package.erasedValue[T] match
+        {
+          case i @ _:Int =>
+            1
+          case p @ _:Point =>
+            2
+          case vec @ _:Line =>
+            size[Point] + size[Point]
+          case _ =>
+            compiletime.package$package.error("Unsupported type")
+        }
+      ):Int
+    inline def encode(mem: Array[Int], baseOffset: Int,
+      inline relativeOffset: Int, v: Any): Unit =
+      (inline v match
+        {
+          case v @ _:Int =>
+            mem.update(baseOffset + relativeOffset, v)
+          case p @ _:Point =>
+            encode(mem, baseOffset, relativeOffset, p.x)
+            encode(mem, baseOffset, relativeOffset + size[Int], p.y)
+          case vec @ _:Line =>
+            encode(mem, baseOffset, relativeOffset, vec.p1)
+            encode(mem, baseOffset, relativeOffset + size[Point], vec.p2)
+          case _ =>
+            compiletime.package$package.error("Unsupported type")
+        }
+      ):Unit
+    inline def encode(mem: Array[Int], baseOffset: Int, v: Any): Unit =
+      encode(mem, baseOffset, 0, v):Unit
+    @main def Main: Unit =
+      {
+        val l: Array[Int] = Array.apply(0, [0,0,0 : Int]*)
+        val offset: Int = ???
+        {
+          val v$proxy1: Line =
+            Line.apply(Point.apply(10, 20), Point.apply(30, 40))
+          {
+            val vec: Line = v$proxy1
+            {
+              val p: Point = vec.p1
+              {
+                val v: Int = p.x
+                l.update(offset + 0, v)
+              }:Unit
+              {
+                val v: Int = p.y
+                l.update(offset + 1, v)
+              }:Unit
+            }:Unit
+            {
+              val p: Point = vec.p2
+              {
+                val v: Int = p.x
+                l.update(offset + 2, v)
+              }:Unit
+              {
+                val v: Int = p.y
+                l.update(offset + 3, v)
+              }:Unit
+            }:Unit
+          }:Unit:Unit
+        }
+        println(wrapIntArray(l).toList)
+      }
+  }
+  @SourceFile("tests/printing/inlining/i24347.scala") final class Main() extends
+     Object() {
+    <static> def main(args: Array[String]): Unit =
+      try Main catch
+        {
+          case error @ _:scala.util.CommandLineParser.ParseError =>
+            scala.util.CommandLineParser.showError(error)
+        }
+  }
+}
+
