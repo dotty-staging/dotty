@@ -837,7 +837,10 @@ class Inliner(ppa: PostProcessorFrontendAccess, backendUtils: BackendUtils,
 
       case mi: MethodInsnNode if isInternal(mi.owner) => Right(false)
       case mi: MethodInsnNode =>
-        if (mi.owner.charAt(0) == '[') {
+        if (mi.owner.startsWith("jdk/internal")) {
+          // TODO: We should handle Java modules and their dependencies more generally...
+          Right(false)
+        } else if (mi.owner.charAt(0) == '[') {
           // ensure the result ClassBType is cached (for stack map frame calculation)
           if (mi.name == "getClass") bTypesFromClassfile.bTypeForDescriptorFromClassfile("Ljava/lang/Class;")
           // array methods are accessible
