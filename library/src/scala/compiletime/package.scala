@@ -1,6 +1,8 @@
 package scala
 package compiletime
 
+import language.experimental.captureChecking
+
 import annotation.{compileTimeOnly, experimental}
 
 /** Use this method when you have a type, do not have a value for it but want to
@@ -23,7 +25,6 @@ import annotation.{compileTimeOnly, experimental}
  *  the branches.
  *  @syntax markdown
  */
-// TODO add `erased` once it is not an experimental feature anymore
 def erasedValue[T]: T = erasedValue[T]
 
 /** Used as the initializer of a mutable class or object field, like this:
@@ -184,11 +185,11 @@ inline def summonAll[T <: Tuple]: T =
 def byName[T](x: => T): T = x
 
 /** Casts a value to be `Matchable`. This is needed if the value's type is an unconstrained
-  *  type parameter and the value is the scrutinee of a match expression.
-  *  This is normally disallowed since it violates parametricity and allows
-  *  to uncover implementation details that were intended to be hidden.
-  *  The `asMatchable` escape hatch should be used sparingly. It's usually
-  *  better to constrain the scrutinee type to be `Matchable` in the first place.
-  */
+ *  type parameter and the value is the scrutinee of a match expression.
+ *  This is normally disallowed since it violates parametricity and allows
+ *  to uncover implementation details that were intended to be hidden.
+ *  The `asMatchable` escape hatch should be used sparingly. It's usually
+ *  better to constrain the scrutinee type to be `Matchable` in the first place.
+ */
 extension [T](x: T)
   transparent inline def asMatchable: x.type & Matchable = x.asInstanceOf[x.type & Matchable]

@@ -287,8 +287,8 @@ object JavaParsers {
       }
 
     def typ(): Tree =
-      annotations()
-      optArrayBrackets {
+      var annots = annotations()
+      val tp = optArrayBrackets {
         if (in.token == FINAL) in.nextToken()
         if (in.token == IDENTIFIER) {
           var t = typeArgs(atSpan(in.offset)(Ident(ident())))
@@ -300,7 +300,9 @@ object JavaParsers {
           }
           while (in.token == DOT) {
             in.nextToken()
-            annotations()
+            // Read annotations from nested type in Java.
+            // For example, the syntax for annotating `Map.Entry` is `Map.@A Entry`.
+            annots ++= annotations()
             t = typeArgs(atSpan(t.span.start, in.offset)(typeSelect(t, ident())))
           }
           convertToTypeId(t)
@@ -308,6 +310,7 @@ object JavaParsers {
         else
           basicType()
       }
+      annots.foldLeft(tp)((tp, ann) => Annotated(tp, ann))
 
     def typeArgs(t: Tree): Tree = {
       var wildnum = 0
@@ -509,7 +512,7 @@ object JavaParsers {
               if (isPackageAccess && !inInterface) thisPackageName
               else tpnme.EMPTY
 
-            return Modifiers(flags, privateWithin) withAnnotations annots.toList
+            return Modifiers(flags, privateWithin).withAnnotations(annots.toList)
         }
       assert(false, "should not be here")
       throw new RuntimeException
@@ -554,7 +557,7 @@ object JavaParsers {
     def formalParam(): ValDef = {
       val start = in.offset
       if (in.token == FINAL) in.nextToken()
-      annotations()
+      val annots = annotations()
       var t = typ()
       if (in.token == DOTDOTDOT) {
         in.nextToken()
@@ -563,7 +566,7 @@ object JavaParsers {
         }
       }
       atSpan(start, in.offset) {
-        varDecl(Modifiers(Flags.JavaDefined | Flags.Param), t, ident().toTermName)
+        varDecl(Modifiers(Flags.JavaDefined | Flags.Param, annotations = annots), t, ident().toTermName)
       }
     }
 
@@ -646,7 +649,7 @@ object JavaParsers {
                   atSpan(nameOffset) {
                     New(Select(Select(scalaDot(nme.annotation), nme.internal), tpnme.AnnotationDefaultATTR), Nil)
                   }
-                mods1 = mods1 withAddedAnnotation annot
+                mods1 = mods1.withAddedAnnotation(annot)
                 val unimplemented = unimplementedExpr
                 skipTo(SEMI)
                 accept(SEMI)
@@ -879,9 +882,14 @@ object JavaParsers {
         fieldsByName -= name
       end for
 
+      // accessor for record's vararg field  (T...) returns array type (T[])
+      def adaptVarargsType(tpt: Tree) = tpt match
+        case PostfixOp(tpt2, Ident(tpnme.raw.STAR)) => arrayOf(tpt2)
+        case _ => tpt
+
       val accessors =
         (for (name, (tpt, annots)) <- fieldsByName yield
-          DefDef(name, List(Nil), tpt, unimplementedExpr)
+          DefDef(name, ListOfNil, adaptVarargsType(tpt), unimplementedExpr)
             .withMods(Modifiers(Flags.JavaDefined | Flags.Method | Flags.Synthetic))
         ).toList
 
@@ -916,7 +924,7 @@ object JavaParsers {
         }
         else
           List(ObjectTpt())
-      val permittedSubclasses = permittedSubclassesOpt(mods is Flags.Sealed)
+      val permittedSubclasses = permittedSubclassesOpt(mods.is(Flags.Sealed))
       val (statics, body) = typeBody(INTERFACE, name)
       val iface = atSpan(start, nameOffset) {
         TypeDef(

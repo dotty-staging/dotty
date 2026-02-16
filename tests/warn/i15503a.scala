@@ -39,6 +39,10 @@ object FooGiven:
 
   val foo = summon[Int]
 
+object SomeGivenImports:
+  given Int = 0
+  given String = "foo"
+
 /**
  * Import used as type name are considered
  * as used.
@@ -69,7 +73,7 @@ object InlineChecks:
   object InlinedBar:
     import collection.mutable.Set // warn (don't be fooled by inline expansion)
     import collection.mutable.Map // warn
-    val a = InlineFoo.getSet
+    val a = InlineFoo.getSet      // expansion is attributed mutable.Set.apply(1)
 
 object MacroChecks:
   object StringInterpol:
@@ -85,18 +89,12 @@ object InnerMostCheck:
     val a = Set(1)
 
 object IgnoreExclusion:
-  import collection.mutable.{Set => _} // OK
-  import collection.mutable.{Map => _} // OK
+  import collection.mutable.{Map => _, Set => _, *} // OK??
   import collection.mutable.{ListBuffer} // warn
   def check =
     val a = Set(1)
     val b = Map(1 -> 2)
-/**
-  * Some given values for the test
-  */
-object SomeGivenImports:
-  given Int = 0
-  given String = "foo"
+    def c = Seq(42)
 
 /* BEGIN : Check on packages*/
 package nestedpackageimport:
@@ -460,3 +458,11 @@ package ancient:
     }
   }
 end ancient
+
+object `i22970 assign lhs was ignored`:
+  object X:
+    var global = 0
+  object Main:
+    import X.global // no warn
+    def main(args: Array[String]): Unit =
+      global = 1

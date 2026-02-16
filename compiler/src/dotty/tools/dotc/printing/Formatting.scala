@@ -2,8 +2,6 @@ package dotty.tools
 package dotc
 package printing
 
-import scala.collection.mutable
-
 import core.*
 import Texts.*, Types.*, Flags.*, Symbols.*, Contexts.*
 import Decorators.*
@@ -12,6 +10,17 @@ import util.{DiffUtil, SimpleIdentitySet}
 import Highlighting.*
 
 object Formatting {
+
+  /** Essentially, a function Context => T, which can be created with `delay` */
+  abstract class Delay[T]:
+    def apply(c: Context): T
+
+  /** Delay a Context => T computation so that it is generated from the embedded
+   *  context of a string formatter instead of the enclosing context. This is needed
+   *  to make disambiguation work for such embedded computations.
+   */
+  def delay[T](fn: Context ?=> T): Delay[T] = new Delay[T]:
+    def apply(c: Context) = fn(using c)
 
   object ShownDef:
     /** Represents a value that has been "shown" and can be consumed by StringFormatter.
@@ -52,7 +61,7 @@ object Formatting {
 
     class ShowImplicits4:
       given [X: Show]: Show[X | Null] with
-        def show(x: X | Null) = if x == null then "null" else CtxShow(toStr(x.nn))
+        def show(x: X | Null) = if x == null then "null" else CtxShow(toStr(x))
 
     class ShowImplicits3 extends ShowImplicits4:
       given Show[Product] = ShowAny
@@ -75,6 +84,9 @@ object Formatting {
 
       given [X: Show]: Show[Seq[X]] with
         def show(x: Seq[X]) = CtxShow(x.map(toStr))
+
+      given [X: Show]: Show[Delay[X]] = new Show:
+        def show(x: Delay[X]) = CtxShow(c ?=> x(c))
 
       given Show[Seq[Nothing]] with
         def show(x: Seq[Nothing]) = CtxShow(x)
@@ -130,6 +142,7 @@ object Formatting {
       given Show[Class[?]]                            = ShowAny
       given Show[Throwable]                           = ShowAny
       given Show[StringBuffer]                        = ShowAny
+      given Show[StringBuilder]                       = ShowAny
       given Show[CompilationUnit]                     = ShowAny
       given Show[Phases.Phase]                        = ShowAny
       given Show[TyperState]                          = ShowAny

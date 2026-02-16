@@ -1,10 +1,10 @@
 import caps.Mutable
-import caps.cap
+import caps.any
 
 class Ref extends Mutable:
   var x = 0
   def get: Int = x
-  mut def put(y: Int): Unit = x = y
+  update def put(y: Int): Unit = x = y
 
 class Pair[+X, +Y](val fst: X, val snd: Y)
 

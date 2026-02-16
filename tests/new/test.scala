@@ -1,8 +1,4 @@
-type Person = (name: String, age: Int)
-
-trait A:
-  type T
-
-class B:
-  type U =:= A { type T = U }
-
+trait FileSystem:
+  def read(): Unit
+def process(fs: FileSystem^): Unit =
+  val f: () -> Unit = () => fs.read()  // Error: fs cannot flow into {}

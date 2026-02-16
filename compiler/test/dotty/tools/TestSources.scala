@@ -48,12 +48,16 @@ object TestSources {
 
   def negScala2LibraryTastyExcludelistFile: String = "compiler/test/dotc/neg-scala2-library-tasty.excludelist"
   def negInitGlobalScala2LibraryTastyExcludelistFile: String = "compiler/test/dotc/neg-init-global-scala2-library-tasty.excludelist"
+  def negExplicitNullsScala2LibraryTastyExcludelistFile: String = "compiler/test/dotc/neg-explicit-nulls-scala2-library-tasty.excludelist"
 
   def negScala2LibraryTastyExcludelisted: List[String] =
     if Properties.usingScalaLibraryTasty then loadList(negScala2LibraryTastyExcludelistFile)
     else Nil
   def negInitGlobalScala2LibraryTastyExcludelisted: List[String] =
     if Properties.usingScalaLibraryTasty then loadList(negInitGlobalScala2LibraryTastyExcludelistFile)
+    else Nil
+  def negExplicitNullsScala2LibraryTastyExcludelisted: List[String] =
+    if Properties.usingScalaLibraryTasty then loadList(negExplicitNullsScala2LibraryTastyExcludelistFile)
     else Nil
 
   // patmat tests lists
@@ -71,6 +75,12 @@ object TestSources {
 
   def negBestEffortPicklingExcludelisted: List[String] = loadList(negBestEffortPicklingExcludelistFile)
   def negBestEffortUnpicklingExcludelisted: List[String] = loadList(negBestEffortUnpicklingExcludelistFile)
+
+  // scoverage tests lists
+
+  def scoverageIgnoreExcludelistFile: String = "compiler/test/dotc/scoverage-ignore.excludelist"
+
+  def scoverageIgnoreExcludelisted: List[String] = loadList(scoverageIgnoreExcludelistFile)
 
   // load lists
 
