@@ -226,7 +226,7 @@ object Signatures {
         val alternativeIndex = bestAlternative(alternatives, params, paramssListIndex)
         (alternativeIndex, alternatives)
 
-    if alternativeIndex < alternatives.length then
+    if alternativeIndex < alternatives.length && alternatives(alternativeIndex).symbol.paramSymss.nonEmpty then
       val alternativeSymbol = alternatives(alternativeIndex).symbol
       val safeParamssListIndex = paramssListIndex min (alternativeSymbol.paramSymss.length - 1)
       val previousArgs = alternativeSymbol.paramSymss.take(safeParamssListIndex).foldLeft(0)(_ + _.length)
