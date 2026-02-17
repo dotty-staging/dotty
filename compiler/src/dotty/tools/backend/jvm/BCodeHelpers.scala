@@ -299,7 +299,7 @@ trait BCodeHelpers extends BCodeIdiomatic {
         // Check if the symbol's pre-erasure type was a singleton of a Java enum value.
         case t: tpd.RefTree if atPhase(erasurePhase) {
           t.symbol.info.finalResultType match
-            case tr: TermRef => tr.termSymbol.owner.linkedClass.isAllOf(JavaEnum)
+            case tr: TermRef => tr.termSymbol.owner.linkedClass.isAllOf(JavaEnumTrait)
             case _ => false
         } =>
           val enumRef = atPhase(erasurePhase)(t.symbol.info.finalResultType.asInstanceOf[TermRef])
