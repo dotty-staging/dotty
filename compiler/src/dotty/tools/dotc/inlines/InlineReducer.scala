@@ -344,31 +344,25 @@ class InlineReducer(inliner: Inliner)(using Context):
     def reduceCase(cdef: CaseDef): MatchReduxWithGuard = {
       val caseBindingMap = new mutable.ListBuffer[(Symbol, MemberDef)]()
 
-      def substBindings(
-          bindings: List[(Symbol, MemberDef)],
-          bbuf: mutable.ListBuffer[MemberDef],
-          from: List[Symbol], to: List[Symbol]): (List[MemberDef], List[Symbol], List[Symbol]) =
-        bindings match {
-          case (sym, binding) :: rest =>
-            bbuf += binding.subst(from, to).asInstanceOf[MemberDef]
-            if (sym.exists) substBindings(rest, bbuf, sym :: from, binding.symbol :: to)
-            else substBindings(rest, bbuf, from, to)
-          case Nil => (bbuf.toList, from, to)
-        }
+      def substBindings(bindings: List[(Symbol, MemberDef)]): (List[MemberDef], List[Symbol], List[Symbol]) =
+        val (from, to) = bindings.collect { case (sym, bnd) if sym.exists => (sym, bnd.symbol) }.unzip
+        to.foreach(sym => sym.info = sym.info.substSym(from, to))
+        val substituted = bindings.map { case (sym, bnd) => bnd.subst(from, to) }
+        (substituted, from, to)
 
       if (!isImplicit) caseBindingMap += ((NoSymbol, scrutineeBinding))
       val gadtCtx = ctx.fresh.setFreshGADTBounds.addMode(Mode.GadtConstraintInference)
       if (reducePattern(caseBindingMap, scrutineeSym.termRef, cdef.pat)(using gadtCtx)) {
-        val (caseBindings, from, to) = substBindings(caseBindingMap.toList, mutable.ListBuffer(), Nil, Nil)
+        val (caseBindings, from, to) = substBindings(caseBindingMap.toList)
         val (guardOK, canReduceGuard) =
           if cdef.guard.isEmpty then (true, true)
           else stripInlined(typer.typed(cdef.guard.subst(from, to), defn.BooleanType)) match {
             case ConstantValue(v: Boolean) => (v, true)
             case _ => (false, false)
           }
-        if guardOK then Some((caseBindings.map(_.subst(from, to)), cdef.body.subst(from, to), canReduceGuard))
+        if guardOK then Some((caseBindings, cdef.body.subst(from, to), canReduceGuard))
         else if canReduceGuard then None
-        else Some((caseBindings.map(_.subst(from, to)), cdef.body.subst(from, to), canReduceGuard))
+        else Some((caseBindings, cdef.body.subst(from, to), canReduceGuard))
       }
       else None
     }
