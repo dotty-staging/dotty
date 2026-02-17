@@ -12,7 +12,7 @@ import ast.desugar, ast.desugar.*
 import ProtoTypes.*
 import util.Spans.*
 import util.Property
-import collection.mutable
+import collection.mutable, mutable.ListBuffer
 import tpd.tpes
 import Variances.alwaysInvariant
 import config.{Config, Feature}
@@ -1116,7 +1116,7 @@ class Namer { typer: Typer =>
      *                      extension method.
      */
     private def exportForwarders(exp: Export, pathMethod: Symbol)(using Context): List[tpd.MemberDef] =
-      val buf = new mutable.ListBuffer[tpd.MemberDef]
+      val buf = ListBuffer.empty[tpd.MemberDef]
       val Export(expr, selectors) = exp
       if expr.isEmpty then
         report.error(em"Export selector must have prefix and `.`", exp.srcPos)
@@ -1440,12 +1440,17 @@ class Namer { typer: Typer =>
         forwarders
     end exportForwarders
 
-    /** Add forwarders as required by the export statements in this class */
-    private def processExports(using Context): Unit =
+    /** Add forwarders as required by the export statements in this class.
+     *  @return true if forwarders were added
+     */
+    private def processExports(using Context): Boolean =
+
+      var exported = false
 
       def processExport(exp: Export, pathSym: Symbol)(using Context): Unit =
         for forwarder <- exportForwarders(exp, pathSym) do
           forwarder.symbol.entered
+          exported = true
 
       def exportPathSym(path: Tree, ext: ExtMethods)(using Context): Symbol =
         def fail(msg: String): Symbol =
@@ -1488,6 +1493,8 @@ class Namer { typer: Typer =>
       // import contexts for nothing.
       if hasExport(rest) then
         process(rest)
+      // was a forwarder entered for an export
+      exported
     end processExports
 
     /** Ensure constructor is completed so that any parameter accessors
@@ -1689,9 +1696,10 @@ class Namer { typer: Typer =>
       cls.invalidateMemberCaches() // we might have checked for a member when parents were not known yet.
       cls.setNoInitsFlags(parentsKind(parents), untpd.bodyKind(rest))
       cls.setStableConstructor()
-      processExports(using localCtx)
       defn.patchStdLibClass(cls)
       addConstructorProxies(cls)
+      if processExports(using localCtx) then
+        addConstructorProxies(cls)
       cleanup()
     }
   }
@@ -1700,7 +1708,7 @@ class Namer { typer: Typer =>
   private enum CanForward:
     case Yes
     case No(whyNot: String)
-    case Skip  // for members that have never forwarders
+    case Skip  // for members that never have forwarders
 
   class SuspendCompleter extends LazyType, SymbolLoaders.SecondCompleter {
 
