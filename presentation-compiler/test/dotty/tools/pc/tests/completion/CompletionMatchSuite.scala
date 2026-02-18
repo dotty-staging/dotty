@@ -629,7 +629,7 @@ class CompletionMatchSuite extends BaseCompletionSuite:
           |
           |}
           |""".stripMargin,
-      filter = _.contains("exhaustive"),
+      filter = _.contains("exhaustive")
     )
 
   @Test def `type-alias-sealed-trait` =
@@ -668,7 +668,7 @@ class CompletionMatchSuite extends BaseCompletionSuite:
           |
           |}
           |""".stripMargin,
-      filter = _.contains("exhaustive"),
+      filter = _.contains("exhaustive")
     )
 
   @Test def `union-type` =

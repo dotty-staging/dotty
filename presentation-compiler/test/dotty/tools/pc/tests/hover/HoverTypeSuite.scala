@@ -120,13 +120,13 @@ class HoverTypeSuite extends BaseHoverSuite:
     )
 
     /* Currently there is no way to differentiate between
-   * trailing using params in extension parameter and the
-   * starting using params for the actual method.
-   * As user can actually supply params to them by hand when
-   * invoking the extension method, we always show them next to the
-   * method itself.
-   * https://github.com/lampepfl/dotty/issues/13123
-   */
+     * trailing using params in extension parameter and the
+     * starting using params for the actual method.
+     * As user can actually supply params to them by hand when
+     * invoking the extension method, we always show them next to the
+     * method itself.
+     * https://github.com/lampepfl/dotty/issues/13123
+     */
   @Test def `extension-methods-complex` =
     check(
       """|class A
@@ -294,7 +294,7 @@ class HoverTypeSuite extends BaseHoverSuite:
          |
          |""".stripMargin,
       """|type Ident: Ident
-         |""".stripMargin.hover,
+         |""".stripMargin.hover
     )
 
   @Test def `macro2` =
@@ -314,8 +314,8 @@ class HoverTypeSuite extends BaseHoverSuite:
          |
          |""".stripMargin,
       """|type Ident: Ident
-         |""".stripMargin.hover,
-  )
+         |""".stripMargin.hover
+    )
 
   @Test def `nested-selectable` =
     check(
@@ -325,8 +325,8 @@ class HoverTypeSuite extends BaseHoverSuite:
          |val bar = sel.foo.ba@@r
          |""".stripMargin,
       """|def bar: Int
-         |""".stripMargin.hover,
-  )
+         |""".stripMargin.hover
+    )
 
   @Test def `nested-selectable2` =
     check(
@@ -342,7 +342,7 @@ class HoverTypeSuite extends BaseHoverSuite:
          |val k = node.child.ch@@ild
          |""".stripMargin,
       """|val child: Unit
-         |""".stripMargin.hover,
+         |""".stripMargin.hover
     )
 
   @Test def `very-nested-selectable` =
@@ -353,7 +353,7 @@ class HoverTypeSuite extends BaseHoverSuite:
          |val bar = sel.foo.bar.dd@@d
          |""".stripMargin,
       """|val ddd: Int
-         |""".stripMargin.hover,
+         |""".stripMargin.hover
     )
 
   @Test def `infix-extension` =
@@ -366,7 +366,7 @@ class HoverTypeSuite extends BaseHoverSuite:
          |  val a = MyIntOut(1).un@@even
          |""".stripMargin,
       """|extension (i: MyIntOut) def uneven: Boolean
-         |""".stripMargin.hover,
+         |""".stripMargin.hover
     )
 
   @Test def `recursive-enum-without-type` =
@@ -393,4 +393,3 @@ class HoverTypeSuite extends BaseHoverSuite:
         |```
         |""".stripMargin
     )
-

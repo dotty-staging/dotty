@@ -1,11 +1,12 @@
 package dotty.tools.pc.tests.completion
 
-import dotty.tools.pc.base.BaseCompletionSuite
-
-import org.junit.Test
-import org.junit.Before
 import java.nio.file.Path
+
+import dotty.tools.pc.base.BaseCompletionSuite
 import dotty.tools.pc.utils.JRE
+
+import org.junit.Before
+import org.junit.Test
 
 class CompletionRelease8Suite extends BaseCompletionSuite:
 
