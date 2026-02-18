@@ -103,7 +103,7 @@ class TastyPrinter(bytes: Array[Byte]) {
     unpickle(new TreeSectionUnpickler(sb))
     unpickle(new PositionSectionUnpickler(sb))
     unpickle(new CommentSectionUnpickler(sb))
-    sb.result
+    sb.result()
   }
 
   class TreeSectionUnpickler(sb: StringBuilder) extends SectionUnpickler[Unit](ASTsSection) {

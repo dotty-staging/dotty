@@ -555,7 +555,7 @@ class ReplDriver(settings: Array[String],
         state
       else
         def flatten(f: AbstractFile): Iterator[AbstractFile] =
-          if (f.isClassContainer) f.iterator.flatMap(flatten)
+          if (f.isClassContainer) f.iterator().flatMap(flatten)
           else Iterator(f)
 
         def tryClassLoad(classFile: AbstractFile): Option[String] = {

@@ -58,7 +58,7 @@ object Bench {
   }
 
   def paramsFromFile(file: String): Array[(String, Array[String])] = {
-    Using(Source.fromFile(file))(_.getLines.toArray).get.map { l =>
+    Using(Source.fromFile(file))(_.getLines().toArray).get.map { l =>
       val Array(param, values) = l split ':'
       (param, values split ',')
     }

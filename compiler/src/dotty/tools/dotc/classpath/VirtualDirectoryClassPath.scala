@@ -15,7 +15,7 @@ case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath wi
     var file: AbstractFile = base
     val dirParts = pathParts.init.iterator
     while (dirParts.hasNext) {
-      val dirPart = dirParts.next
+      val dirPart = dirParts.next()
       file = file.lookupName(dirPart, directory = true)
       if (file == null)
         return null
@@ -27,7 +27,7 @@ case class VirtualDirectoryClassPath(dir: VirtualDirectory) extends ClassPath wi
   protected def getSubDir(packageDirName: String): Option[AbstractFile] =
     Option(lookupPath(dir)(packageDirName.split(java.io.File.separator).toIndexedSeq, directory = true))
   protected def listChildren(dir: AbstractFile, filter: Option[AbstractFile => Boolean] = None): Array[F] = filter match {
-    case Some(f) => dir.iterator.filter(f).toArray
+    case Some(f) => dir.iterator().filter(f).toArray
     case _ => dir.toArray
   }
   def getName(f: AbstractFile): String = f.name
