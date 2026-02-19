@@ -40,23 +40,19 @@ import org.eclipse.lsp4j as l
 
 object CaseKeywordCompletion:
 
-  /** A `case` completion showing the valid subtypes of the type being
-   *  deconstructed.
+  /** A `case` completion showing the valid subtypes of the type being deconstructed.
    *
-   *  @param selector `selector` of `selector match { cases }` or `EmptyTree`
-   *    when not in a match expression (for example
-   *    `List(1).foreach { case@@ }`.
+   *  @param selector `selector` of `selector match { cases }`  or `EmptyTree` when
+   *                 not in a match expression (for example `List(1).foreach { case@@ }`.
    *  @param completionPos the position of the completion
    *  @param typedtree typed tree of the file, used for generating auto imports
    *  @param indexedContext
    *  @param config
-   *  @param parent the parent tree node of the pattern match, for example
-   *    `Apply(_, _)` when in `List(1).foreach { cas@@ }`, used as fallback to
-   *    compute the type of the selector when it's `EmptyTree`.
-   *  @param patternOnly `None` for `case@@`, `Some(query)` for
-   *    `case query@@ =>` or `case ab: query@@ =>`
-   *  @param hasBind `true` when `case _: @@ =>`, if hasBind we don't need
-   *    unapply completions
+   *  @param parent the parent tree node of the pattern match, for example `Apply(_, _)` when in
+   *               `List(1).foreach { cas@@ }`, used as fallback to compute the type of the selector when
+   *               it's `EmptyTree`.
+   *  @param patternOnly `None` for `case@@`, `Some(query)` for `case query@@ =>` or `case ab: query@@ =>`
+   *  @param hasBind `true` when `case _: @@ =>`, if hasBind we don't need unapply completions
    */
   def contribute(
       selector: Tree,
@@ -138,7 +134,7 @@ object CaseKeywordCompletion:
                   ),
                   Nil,
                   range = Some(completionPos.toEditRange),
-                  command = Option(config.parameterHintsCommand()).flatMap(_.nn.asScala)
+                  command = Option(config.parameterHintsCommand()).flatMap(_.nn.asScala),
                 )
               )
             else Nil
@@ -148,7 +144,7 @@ object CaseKeywordCompletion:
 
             val isBottom = Set[Symbol](
               definitions.NullClass,
-              definitions.NothingClass
+              definitions.NothingClass,
             )
             val tpes = Set(selectorSym, selectorSym.companion).filter(_ != NoSymbol)
             def isSubclass(sym: Symbol) = tpes.exists(par => sym.isSubClass(par))
@@ -204,7 +200,7 @@ object CaseKeywordCompletion:
                   completionGenerator.toCompletionValue(
                     si.sym,
                     label,
-                    autoImportsGen.renderImports(si.importSel.toList)
+                    autoImportsGen.renderImports(si.importSel.toList),
                   )
                 )
 
@@ -219,7 +215,7 @@ object CaseKeywordCompletion:
                     selectorSym.info,
                     sealedMembers0,
                     completionPos.sourceUri,
-                    search
+                    search,
                   )
                 sealedMembers match
                   case (_, label) :: tail if tail.length > 0 =>
@@ -233,7 +229,7 @@ object CaseKeywordCompletion:
                             s"$newLine${label} $$0\n$addIndent"
                           else s"$newLine${label}\n$addIndent",
                           s"\n$addIndent",
-                          if addNewLineAfter then "\n" else ""
+                          if addNewLineAfter then "\n" else "",
                         )
                     )
                     val allImports =
@@ -243,7 +239,7 @@ object CaseKeywordCompletion:
                       s"case (exhaustive)",
                       insertText,
                       importEdit.toList,
-                      s" ${printer.tpe(selTpe)} (${res.length} cases)"
+                      s" ${printer.tpe(selTpe)} (${res.length} cases)",
                     )
                     exhaustive :: caseItems
                   case _ => caseItems
@@ -253,12 +249,10 @@ object CaseKeywordCompletion:
       .getOrElse(Nil)
   end contribute
 
-  /** A `match` keyword completion to generate an exhaustive pattern match for
-   *  sealed types.
+  /** A `match` keyword completion to generate an exhaustive pattern match for sealed types.
    *
-   *  @param selector the match expression being deconstructed or `EmptyTree`
-   *    when not in a match expression (for example
-   *    `List(1).foreach { case@@ }`.
+   *  @param selector the match expression being deconstructed or `EmptyTree` when
+   *                 not in a match expression (for example `List(1).foreach { case@@ }`.
    *  @param completionPos the position of the completion
    *  @param typedtree typed tree of the file, used for generating auto imports
    */
@@ -360,9 +354,9 @@ object CaseKeywordCompletion:
     )
 
   def subclassesForType(tpe: Type)(using Context): List[Symbol] =
-    /** Split type made of & and | types to a list of simple types. For example,
-     *  `(A | D) & (B & C)` returns `List(A, D, B, C). Later we use them to
-     *  generate subclasses of each of these types.
+    /** Split type made of & and | types to a list of simple types.
+     *  For example, `(A | D) & (B & C)` returns `List(A, D, B, C).
+     *  Later we use them to generate subclasses of each of these types.
      */
     def getParentTypes(tpe: Type, acc: List[Symbol]): List[Symbol] =
       tpe match
@@ -373,8 +367,8 @@ object CaseKeywordCompletion:
         case t =>
           tpe.typeSymbol :: acc
 
-    /** Check if `sym` is a subclass of type `tpe`. For
-     *  `class A extends B with C with D` we have to construct B & C & D type,
+    /** Check if `sym` is a subclass of type `tpe`.
+     *  For `class A extends B with C with D` we have to construct B & C & D type,
      *  because `A <:< (B & C) == false`.
      */
     def isExhaustiveMember(sym: Symbol): Boolean =
@@ -461,7 +455,7 @@ class CompletionValueGenerator(
       List(
         CompletionValue.Keyword(
           label,
-          Some(label + suffix)
+          Some(label + suffix),
         )
       )
     else Nil
@@ -544,6 +538,7 @@ class MatchCaseExtractor(
               ) == ' ' || text.charAt(completionPos.queryStart - 1) == '.') =>
           Some(qualifier)
         case _ => None
+
   object CaseExtractor:
     def unapply(path: List[Tree])(using Context): Option[(Tree, Tree, Option[NewLineOptions])] =
       path match
@@ -589,7 +584,7 @@ class MatchCaseExtractor(
             (
               EmptyTree,
               apply,
-              Some(NewLineOptions(moveToNewLine, addNewLineAfter))
+              Some(NewLineOptions(moveToNewLine, addNewLineAfter)),
             )
           )
 

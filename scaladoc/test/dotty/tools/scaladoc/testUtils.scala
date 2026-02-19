@@ -18,7 +18,7 @@ case class ReportedDiagnostics(errors: List[Diagnostic], warnings: List[Diagnost
 
 extension (c: CompilerContext) def reportedDiagnostics: ReportedDiagnostics =
   val t = c.reporter.asInstanceOf[TestReporter]
-  ReportedDiagnostics(t.errors.result, t.warnings.result, t.infos.result)
+  ReportedDiagnostics(t.errors.result(), t.warnings.result(), t.infos.result())
 
 def assertNoWarning(diag: ReportedDiagnostics) = assertEquals("Warnings should be empty", Nil, diag.warningMsgs)
 def assertNoErrors(diag: ReportedDiagnostics) = assertEquals("Erros should be empty", Nil, diag.errorMsgs)

@@ -64,27 +64,25 @@ class Completions(
       case _ :: (_: UnApply) :: _ => false
       case _ => true
 
-  private lazy val isContinuedApply = path match
-    /* In case of `method@@()` we should not add snippets and the path
-     * will contain apply as the parent of the current tree.
-     */
-    case (fun) :: (appl: GenericApply) :: _ if appl.fun == fun => false
-    /* In case of `T@@[]` we should not add snippets.
-     */
-    case tpe :: (appl: AppliedTypeTree) :: _ if appl.tpt == tpe => false
-    case sel :: (funSel @ Select(fun, name)) :: (appl: GenericApply) :: _
-        if appl.fun == funSel && sel == fun => false
-    case _ => true
-
-  private lazy val isDerivingTemplate = adjustedPath match
-    /* In case of `class X derives TC@@` we shouldn't add `[]`
-     */
-    case Ident(_) :: (templ: untpd.DerivingTemplate) :: _ =>
-      val pos = completionPos.toSourcePosition
-      !templ.derived.exists(_.sourcePos.contains(pos))
-    case _ => true
-
-  private lazy val shouldAddSuffix = shouldAddSnippet && isContinuedApply && isDerivingTemplate
+  private lazy val shouldAddSuffix = shouldAddSnippet &&
+    (path match
+      /* In case of `method@@()` we should not add snippets and the path
+       * will contain apply as the parent of the current tree.
+       */
+      case (fun) :: (appl: GenericApply) :: _ if appl.fun == fun => false
+      /* In case of `T@@[]` we should not add snippets.
+       */
+      case tpe :: (appl: AppliedTypeTree) :: _ if appl.tpt == tpe => false
+      case sel :: (funSel @ Select(fun, name)) :: (appl: GenericApply) :: _
+          if appl.fun == funSel && sel == fun => false
+      case _ => true) &&
+    (adjustedPath match
+      /* In case of `class X derives TC@@` we shouldn't add `[]`
+       */
+      case Ident(_) :: (templ: untpd.DerivingTemplate) :: _ =>
+        val pos = completionPos.toSourcePosition
+        !templ.derived.exists(_.sourcePos.contains(pos))
+      case _ => true)
 
   private lazy val isNew: Boolean = Completion.isInNewContext(adjustedPath)
 
@@ -157,7 +155,7 @@ class Completions(
 
     val application = CompletionApplication.fromPath(path)
     val ordering = completionOrdering(application)
-    val sorted = all.sorted(using ordering)
+    val sorted = all.sorted(ordering)
     val values = application.postProcess(sorted)
     (values, result)
   end completions
@@ -270,10 +268,13 @@ class Completions(
         val constructors = sym.info.member(nme.CONSTRUCTOR).allSymbols.map(_.asSingleDenotation)
           .filter(_.symbol.isAccessibleFrom(denot.info))
         constructors -> true
+
+      // <accessor> handling is LTS specific: It's a workaround to mittigate lack of https://github.com/scala/scala3/pull/18874 backport
+      // which was required in backport of https://github.com/scala/scala3/pull/18914 to achive the improved completions semantics.
       else if shouldAddSnippet && completionMode.is(Mode.Term) && sym.name.isTermName &&
-        !sym.is(
-          Flags.JavaDefined
-        ) && (sym.isClass || sym.is(Module) || (sym.isField && denot.info.isInstanceOf[TermRef]))
+        !sym.is(Flags.JavaDefined) && (sym.isClass || sym.isOneOf(
+          Flags.Module | Flags.Accessor
+        ) || (sym.isField && denot.info.isInstanceOf[TermRef]))
       then
 
         val constructors = if sym.isAllOf(ConstructorProxyModule) then
@@ -328,8 +329,8 @@ class Completions(
 
   end completionsWithAffix
 
-  /** @return Tuple of completionValues and flag. If the latter boolean value is
-   *    true Metals should provide advanced completions only.
+  /** @return Tuple of completionValues and flag. If the latter boolean value is true
+   *         Metals should provide advanced completions only.
    */
   private def advancedCompletions(
       path: List[Tree],
@@ -354,7 +355,7 @@ class Completions(
       case _
           if MultilineCommentCompletion.isMultilineCommentCompletion(
             pos,
-            text
+            text,
           ) =>
         val values = MultilineCommentCompletion.contribute(config)
         (values, true)
@@ -374,7 +375,7 @@ class Completions(
             autoImports,
             options.contains("-no-indent")
           ),
-          false
+          false,
         )
 
       case MatchCaseExtractor.TypedCasePatternExtractor(
@@ -394,7 +395,7 @@ class Completions(
             patternOnly = Some(identName),
             hasBind = true
           ),
-          false
+          false,
         )
 
       case MatchCaseExtractor.CasePatternExtractor(
@@ -413,7 +414,7 @@ class Completions(
             autoImports,
             patternOnly = Some(identName)
           ),
-          false
+          false,
         )
 
       case MatchCaseExtractor.CaseExtractor(
@@ -432,7 +433,7 @@ class Completions(
             autoImports,
             includeExhaustive = includeExhaustive
           ),
-          true
+          true,
         )
 
       // unapply pattern
@@ -448,7 +449,7 @@ class Completions(
             autoImports,
             patternOnly = Some(name.decoded)
           ),
-          false
+          false,
         )
       case Select(_, name) :: (unapp: UnApply) :: _ =>
         (
@@ -462,7 +463,7 @@ class Completions(
             autoImports,
             patternOnly = Some(name.decoded)
           ),
-          false
+          false,
         )
 
       // class FooImpl extends Foo:
@@ -479,7 +480,7 @@ class Completions(
             autoImports,
             fallbackName
           ),
-          exhaustive
+          exhaustive,
         )
 
       // class Fo@@
@@ -519,7 +520,7 @@ class Completions(
             workspace,
             rawFileName
           ),
-          true
+          true,
         )
 
       case (imp @ Import(_, selectors)) :: _
@@ -532,7 +533,7 @@ class Completions(
             completionPos,
             text
           ),
-          true
+          true,
         )
 
       case (tree: (Import | Export)) :: _
@@ -612,7 +613,7 @@ class Completions(
                 sym.decodedName,
                 CompletionValue.Workspace(_, _, _, sym)
               ).map(visit).forall(_ == true)
-        else false
+        else false,
       )
       Some(search.search(query, buildTargetIdentifier, visitor).nn)
     else if completionMode.is(Mode.Member) && query.nonEmpty then
@@ -624,7 +625,7 @@ class Completions(
             owner.info
               .membersBasedOnFlags(
                 Flags.ParamAccessor,
-                Flags.EmptyFlags
+                Flags.EmptyFlags,
               )
               .headOption
               .map(_.info)
@@ -648,9 +649,9 @@ class Completions(
           completionsWithAffix(
             sym,
             sym.decodedName,
-            CompletionValue.ImplicitClass(_, _, _, sym.maybeOwner)
+            CompletionValue.ImplicitClass(_, _, _, sym.maybeOwner),
           ).map(visit).forall(_ == true)
-        else false
+        else false,
       )
       Some(search.searchMethods(query, buildTargetIdentifier, visitor).nn)
     else Some(SymbolSearch.Result.INCOMPLETE)
@@ -674,8 +675,7 @@ class Completions(
         sym.showFullName + sigString
       else sym.fullName.stripModuleClassSuffix.show
 
-  /** If we try to complete TypeName, we should favor types over terms with same
-   *  name value and without suffix.
+  /** If we try to complete TypeName, we should favor types over terms with same name value and without suffix.
    */
   def deduplicateCompletions(completions: List[CompletionValue]): List[CompletionValue] =
     val (symbolicCompletions, rest) = completions.partition:
@@ -787,7 +787,7 @@ class Completions(
 
   private def computeRelevancePenalty(
       completion: CompletionValue,
-      application: CompletionApplication
+      application: CompletionApplication,
   ): Int =
     import scala.meta.internal.pc.MemberOrdering.*
 
@@ -946,7 +946,7 @@ class Completions(
       private def workspaceMemberPriority(symbol: Symbol): Int =
         completionItemPriority
           .workspaceMemberPriority(
-            SemanticdbSymbols.symbolName(symbol)
+            SemanticdbSymbols.symbolName(symbol),
           ).nn
 
       def compareFrequency(o1: CompletionValue, o2: CompletionValue): Int =
@@ -960,7 +960,7 @@ class Completions(
       def compareByRelevance(o1: CompletionValue, o2: CompletionValue): Int =
         Integer.compare(
           computeRelevancePenalty(o1, application),
-          computeRelevancePenalty(o2, application)
+          computeRelevancePenalty(o2, application),
         )
 
       def fuzzyScore(o: CompletionValue.Symbolic): Int =
@@ -1034,7 +1034,7 @@ class Completions(
             )
           case (
                 sym1: CompletionValue.Symbolic,
-                sym2: CompletionValue.Symbolic
+                sym2: CompletionValue.Symbolic,
               ) =>
             if compareCompletionValue(sym1, sym2) then 0
             else if compareCompletionValue(sym2, sym1) then 1

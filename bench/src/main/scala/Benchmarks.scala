@@ -91,7 +91,7 @@ object Bench {
   }
 
   def readCompileOptions: Seq[String] =
-    Using(Source.fromFile(COMPILE_OPTS_FILE))(_.getLines.toSeq).get
+    Using(Source.fromFile(COMPILE_OPTS_FILE))(_.getLines().toSeq).get
 }
 
 @State(Scope.Benchmark)
