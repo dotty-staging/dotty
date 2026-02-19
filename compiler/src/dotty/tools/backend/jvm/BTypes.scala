@@ -14,11 +14,10 @@ import dotty.tools.backend.jvm.BackendReporting.*
 import dotty.tools.backend.jvm.opt.InlineInfoAttribute
 import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Decorators.*
-import dotty.tools.dotc.core.Flags.{Final, JavaDefined, Method, Sealed}
+import dotty.tools.dotc.core.Flags.{Final, JavaDefined, Method, ModuleVal, Sealed}
 import dotty.tools.dotc.core.Phases.picklerPhase
 import dotty.tools.dotc.core.Symbols.{requiredClass as _, *}
 import DottyBackendInterface.given
-
 import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.Types.abstractTermNameFilter
 
@@ -670,8 +669,12 @@ final case class ClassInfo(superClass: Option[ClassBType], interfaces: List[Clas
         val name = methodSym.javaSimpleName // same as in genDefDef
         val signature = (name, ts.asmMethodType(methodSym).descriptor)
 
+        // In a trait, accesses to "modules" like enums are translated by the frontend as final methods,
+        // even though they are logically not final since classes implementing the trait will also have that method,
+        // so we must explicitly consider them to be non-final.
+        // TODO: This feels like something fundamentally weird in trees that should not exist.
         val info = MethodInlineInfo(
-          effectivelyFinal = methodSym.isEffectivelyFinal,
+          effectivelyFinal = methodSym.isEffectivelyFinal && !methodSym.is(ModuleVal),
           annotatedInline = methodSym.hasAnnotation(defn.InlineAnnot),
           annotatedNoInline = methodSym.hasAnnotation(defn.NoInlineAnnot))
 
