@@ -332,6 +332,7 @@ private sealed trait XSettings:
   val XprintSuspension: Setting[Boolean] = BooleanSetting(AdvancedSetting, "Xprint-suspension", "Show when code is suspended until macros are compiled.")
   val Xprompt: Setting[Boolean] = BooleanSetting(AdvancedSetting, "Xprompt", "Display a prompt after each error (debugging option).")
   val XreplDisableDisplay: Setting[Boolean] = BooleanSetting(AdvancedSetting, "Xrepl-disable-display", "Do not display definitions in REPL.")
+  val XreplDisableTruncation: Setting[Boolean] = BooleanSetting(AdvancedSetting, "XreplDisableTruncation", "Do not truncate output in the REPL.")
   val XreplInterruptInstrumentation: Setting[String] = StringSetting(
     AdvancedSetting,
     "Xrepl-interrupt-instrumentation",
