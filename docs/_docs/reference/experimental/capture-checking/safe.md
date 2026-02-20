@@ -15,7 +15,7 @@ To distinguish between these two usage modes, there is a safe language subset th
   import language.experimental.safe
 ```
 
-It makes sense for agent tooling to subject all compilations of agent-generated code to be compiled in _safe mode_ using this language import. Safe mode imposes the following restrictions:
+It makes sense for agentic tooling to subject all compilations of agent-generated code to be compiled in _safe mode_ using this language import. Safe mode imposes the following restrictions:
 
   1. No unchecked type casts or pattern matches.
   1. No use of features from the `caps.unsafe` module.
@@ -37,7 +37,7 @@ is done, the library module can be made available for use by safe code.
 
 This scheme is supported by a new `@assumeSafe` annotation, available in
 module `caps`.
-Modules tagged with this annotation are assumed to be callable from  agent-generated code. `@assumeSafe` comes with none of the restrictions that `safe` implies. Instead it is the obligation of the programmer to verify that the module is indeed safe. Example:
+Modules tagged with this annotation are assumed to be callable from  agent-generated code. `@assumeSafe` comes with none of the restrictions that `safe` implies. Instead it is the obligation of the programmer to verify that the module is indeed safe. For instance caching a function results could be implemented like this:
 ```scala
 import caps.unsafe.untrackedCaptures
 import caps.assumeSafe
@@ -50,6 +50,20 @@ class Memoized[A, B](f: A -> B) {
   private val cached = HashMap[A, B]()
 
   def apply(x: A) = cached.getOrElseUpdate(x, f(x))
+}
+```
+Or, here is an outline of an email function that prompts a user for confirmation before
+sending. Here, we assume that the `Mailer` object is neither safe nor assumed safe.
+Agents can still send email through `CheckedMailer`, but only after user confirmation.
+```scala
+import caps.assumeSafe
+
+@assumeSafe
+object CheckedMailer {
+
+  def sendMail(email: Email) =
+    if userPrompt(s"OK to send email?\n\n$email") then
+      Mailer.send(email)
 }
 ```
 There's also the `@rejectSafe` annotation in `caps`, which can be seen to be a dual to `@assumeSafe`. It renders selected members of assumed safe components inaccessible in safe mode.
