@@ -2,9 +2,9 @@ package dotty.tools.pc.tests.edit
 
 import java.net.URI
 
+import scala.language.unsafeNulls
 import scala.meta.internal.jdk.CollectionConverters.*
 import scala.meta.internal.metals.CompilerOffsetParams
-import scala.language.unsafeNulls
 
 import dotty.tools.pc.base.BaseCodeActionSuite
 import dotty.tools.pc.utils.TextEdits
@@ -598,18 +598,17 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
     )
 
   @Test def `backticks-4` =
-  checkEdit(
-    """|case class `Foo-Foo`(i: Int)
+    checkEdit(
+      """|case class `Foo-Foo`(i: Int)
        |object O{
        |  val <<foo>> = `Foo-Foo`(1)
        |}""".stripMargin,
-    """|case class `Foo-Foo`(i: Int)
+      """|case class `Foo-Foo`(i: Int)
        |object O{
        |  val foo: `Foo-Foo` = `Foo-Foo`(1)
        |}
        |""".stripMargin
-  )
-
+    )
 
   @Test def `backticks-5` =
     checkEdit(
@@ -628,7 +627,6 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
          |}
          |""".stripMargin
     )
-
 
   @Test def `backticks-6` =
     checkEdit(
@@ -1040,10 +1038,9 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
       """|object A{
          |  val <<alpha>>:String = 123
          |}""".stripMargin,
-
       """|object A{
          |  val alpha: Int = 123
-         |}""".stripMargin,
+         |}""".stripMargin
     )
 
   @Test def `Adjust type for val2` =
@@ -1053,7 +1050,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
          |}""".stripMargin,
       """|object A{
          |  val alpha: Int = 123
-         |}""".stripMargin,
+         |}""".stripMargin
     )
 
   @Test def `Adjust type for val3` =
@@ -1063,7 +1060,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
          |}""".stripMargin,
       """|object A{
          |  val alpha: Int = 123
-         |}""".stripMargin,
+         |}""".stripMargin
     )
 
   @Test def `Adjust type for def` =
@@ -1071,10 +1068,9 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
       """|object A{
          |  def <<alpha>>:String = 123
          |}""".stripMargin,
-
       """|object A{
          |  def alpha: Int = 123
-         |}""".stripMargin,
+         |}""".stripMargin
     )
 
   @Test def `Adjust type for def2` =
@@ -1084,9 +1080,8 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
          |}""".stripMargin,
       """|object A{
          |  def alpha: Int = 123
-         |}""".stripMargin,
+         |}""".stripMargin
     )
-
 
   @Test def `Adjust type for def3` =
     checkEdit(
@@ -1095,9 +1090,8 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite:
          |}""".stripMargin,
       """|object A{
          |  def alpha: Int = 123
-         |}""".stripMargin,
+         |}""".stripMargin
     )
-
 
   def checkEdit(
       original: String,

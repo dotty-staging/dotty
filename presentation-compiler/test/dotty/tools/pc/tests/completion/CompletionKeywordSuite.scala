@@ -59,7 +59,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite:
         |  **/
         |}
         |""".stripMargin,
-     "",
+      "",
       includeCommitCharacter = true
     )
 
@@ -421,7 +421,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite:
         |}
       """.stripMargin,
       """|def
-         |""".stripMargin,
+         |""".stripMargin
     )
 
   @Test def `protected-val` =
@@ -475,7 +475,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite:
          |}""".stripMargin,
       """|using (commit: '')
          |""".stripMargin,
-      includeCommitCharacter = true,
+      includeCommitCharacter = true
     )
 
   @Test def `not-using` =
@@ -483,7 +483,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite:
       """|object A{
          |  def hello(a: String, u@@)
          |}""".stripMargin,
-      "",
+      ""
     )
 
   @Test def `extends-class` =

@@ -3,19 +3,21 @@ package dotty.tools.pc
 import java.util as ju
 
 import scala.meta.internal.metals.Report
-import scala.meta.pc.reports.ReportContext
 import scala.meta.internal.pc.ScalaHover
 import scala.meta.pc.ContentType
 import scala.meta.pc.HoverSignature
 import scala.meta.pc.OffsetParams
 import scala.meta.pc.SymbolSearch
+import scala.meta.pc.reports.ReportContext
 
 import dotty.tools.dotc.ast.tpd.*
+import dotty.tools.dotc.ast.untpd.InferredTypeTree
 import dotty.tools.dotc.core.Constants.*
 import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Decorators.*
 import dotty.tools.dotc.core.Flags.*
 import dotty.tools.dotc.core.Names.*
+import dotty.tools.dotc.core.StdNames
 import dotty.tools.dotc.core.StdNames.*
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
@@ -80,13 +82,12 @@ object HoverProvider:
               |- ${path.map(_.toString()).mkString("\n- ")}
               |trees:
               |- ${unit
-               .map(u => List(u.tpdTree))
-               .getOrElse(driver.openedTrees(uri).map(_.tree))
-               .map(_.toString()).mkString("\n- ")}
+              .map(u => List(u.tpdTree))
+              .getOrElse(driver.openedTrees(uri).map(_.tree))
+              .map(_.toString()).mkString("\n- ")}
               |""".stripMargin,
           s"$uri::$posId"
         )
-      end report
       reportContext.unsanitized.nn.create(() => report, /*ifVerbose =*/ true)
       ju.Optional.empty().nn
     else
@@ -158,7 +159,6 @@ object HoverProvider:
               ).nn
             case _ =>
               ju.Optional.empty().nn
-          end match
       end match
     end if
   end hover
@@ -178,7 +178,7 @@ object HoverProvider:
             val resultType =
               rest match
                 case Select(_, asInstanceOf) :: TypeApply(_, List(tpe)) :: _ if asInstanceOf == nme.asInstanceOfPM =>
-                    tpe.tpe.widenTermRefExpr.deepDealiasAndSimplify
+                  tpe.tpe.widenTermRefExpr.deepDealiasAndSimplify
                 case _ if n == nme.selectDynamic => tpe.resultType
                 case _ => tpe
 
@@ -212,7 +212,7 @@ object HoverProvider:
           else extractRefinements(t1)
         case t: TermRef => extractRefinements(t.widen)
         case t: TypeProxy => List(t.termSymbol.info.deepDealiasAndSimplify)
-        case AndType(l , r) => List(extractRefinements(l), extractRefinements(r)).flatten
+        case AndType(l, r) => List(extractRefinements(l), extractRefinements(r)).flatten
         case _ => Nil
 
       val refTpe: List[Type] = extractRefinements(sel.typeOpt)
@@ -242,5 +242,3 @@ object SelectDynamicExtractor:
         Some(sel, n, name, rest)
       case _ => None
     end match
-  end unapply
-end SelectDynamicExtractor

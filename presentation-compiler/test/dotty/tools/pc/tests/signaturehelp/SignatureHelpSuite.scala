@@ -2,7 +2,7 @@ package dotty.tools.pc.tests.signaturehelp
 
 import dotty.tools.pc.base.BaseSignatureHelpSuite
 
-import org.junit.{ Ignore, Test }
+import org.junit.{Ignore, Test}
 
 class SignatureHelpSuite extends BaseSignatureHelpSuite:
 
@@ -767,12 +767,12 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
         |""".stripMargin,
       """|deployment(fst: String, snd: Int): Option[Int]
          |           ^^^^^^^^^^^
-         |""".stripMargin,
+         |""".stripMargin
     )
 
   @Test def `local-method2` =
-      check(
-        """
+    check(
+      """
           |object Main {
           |  val foo = {
           |    def deployment(
@@ -783,10 +783,10 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
           |  }
           |}
           |""".stripMargin,
-        """|deployment(fst: String, snd: Int): Option[Int]
+      """|deployment(fst: String, snd: Int): Option[Int]
            |           ^^^^^^^^^^^
-           |""".stripMargin,
-      )
+           |""".stripMargin
+    )
 
   @Test def `local-method3` =
     check(
@@ -884,7 +884,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment(fst: String, snd: Int): Option[Int]
          |           ^^^^^^^^^^^
          |""".stripMargin
-     )
+    )
 
   @Test def `multiline-after-first` =
     check(
@@ -902,7 +902,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment(fst: String, snd: Int): Option[Int]
          |                        ^^^^^^^^
          |""".stripMargin
-     )
+    )
 
   @Test def `multiline-between-first-and-second-a` =
     check(
@@ -922,7 +922,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment(fst: String, snd: Int): Option[Int]
          |           ^^^^^^^^^^^
          |""".stripMargin
-     )
+    )
 
   @Test def `multiline-between-first-and-second-b` =
     check(
@@ -942,7 +942,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment(fst: String, snd: Int): Option[Int]
          |                        ^^^^^^^^
          |""".stripMargin
-     )
+    )
 
   @Test def `multiline-end` =
     check(
@@ -960,7 +960,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment(fst: String, snd: Int): Option[Int]
          |                        ^^^^^^^^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-multiline-before` =
     check(
@@ -981,7 +981,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment[A, B](fst: A, snd: B): Option[Int]
          |           ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-multiline-after` =
     check(
@@ -1002,7 +1002,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment[A, B](fst: A, snd: B): Option[Int]
          |              ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-multiline-between-first-and-second-a` =
     check(
@@ -1025,7 +1025,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment[A, B](fst: A, snd: B): Option[Int]
          |           ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-multiline-between-first-and-second-b` =
     check(
@@ -1048,7 +1048,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment[A, B](fst: A, snd: B): Option[Int]
          |              ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-multiline-end` =
     check(
@@ -1069,7 +1069,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|deployment[A, B](fst: A, snd: B): Option[Int]
          |              ^
          |""".stripMargin
-     )
+    )
 
   @Test def `dont-show-directly-after-parenthesis` =
     check(
@@ -1079,7 +1079,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |}
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-directly-after-parenthesis-2` =
     check(
@@ -1088,7 +1088,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |  test(1, 2)@@
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-directly-when-unclosed` =
     check(
@@ -1098,7 +1098,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |}
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-1` =
     check(
@@ -1108,7 +1108,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |}
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-2` =
     check(
@@ -1118,7 +1118,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |}
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-newline` =
     check(
@@ -1129,7 +1129,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |}
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-newline-last-statement` =
     check(
@@ -1141,7 +1141,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-newline-last-statement-unclosed-1` =
     check(
@@ -1153,7 +1153,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-newline-last-statement-unclosed-2` =
     check(
@@ -1165,7 +1165,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |
          |""".stripMargin,
       ""
-     )
+    )
 
   @Test def `dont-show-after-parenthesis-unclosed-2` =
     check(
@@ -1176,8 +1176,8 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |  @@
          |}
          |""".stripMargin,
-       ""
-     )
+      ""
+    )
 
   @Test def `select-arg-detection` =
     check(
@@ -1341,7 +1341,6 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |""".stripMargin
     )
 
-
   @Test def `multiple-implicits-2` =
     check(
       """|object M:
@@ -1491,7 +1490,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|Test[A, B]: Test
          |        ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-position-8` =
     check(
@@ -1504,7 +1503,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|Test[A, B]: Test
          |        ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-position-9` =
     check(
@@ -1517,7 +1516,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|Test[A, B]: Test
          |        ^
          |""".stripMargin
-     )
+    )
 
   @Test def `type-var-position-10` =
     check(
@@ -1530,7 +1529,7 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
       """|Test[A, B]: Test
          |     ^
          |""".stripMargin
-     )
+    )
 
   @Test def `correct-alternative` =
     check(
@@ -1624,7 +1623,6 @@ class SignatureHelpSuite extends BaseSignatureHelpSuite:
          |      ^^^^^^^
          |""".stripMargin
     )
-
 
   @Test def `opaque-type-parameter` =
     check(
