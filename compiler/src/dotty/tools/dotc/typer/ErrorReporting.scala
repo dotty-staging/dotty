@@ -180,12 +180,21 @@ object ErrorReporting {
         // use normalized types if that also shows an error, and both sides stripped
         // the same number of context functions. Use original types otherwise.
 
-      def missingElse = tree match
+      def moreNotes = tree match
         case If(_, _, elsep @ Literal(Constant(()))) if elsep.span.isSynthetic =>
-          "\nMaybe you are missing an else part for the conditional?"
-        case _ => ""
-
-      errorTree(tree, TypeMismatch(treeTp, expectedTp, Some(tree), implicitFailure.whyNoConversion, missingElse))
+          "\n\nMaybe you are missing an else part for the conditional?" :: Nil
+        case Literal(Constant(())) if tree.span.isZeroExtent =>
+          ctx.tree match
+            case Block(stats, EmptyTree) if stats.nonEmpty =>
+              def after = stats.last match
+                case stat: MemberDef => i" after the definition of `${stat.name}`"
+                case _ => ""
+              i"\n\nMaybe the enclosing block is missing a final expression$after?" :: Nil
+            case _ =>
+              Nil
+        case _ =>
+          Nil
+      errorTree(tree, TypeMismatch(treeTp, expectedTp, Some(tree), implicitFailure.whyNoConversion, moreNotes.mkString))
     }
 
     /** A subtype log explaining why `found` does not conform to `expected` */
