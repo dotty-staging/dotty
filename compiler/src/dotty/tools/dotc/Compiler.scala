@@ -10,6 +10,7 @@ import Phases.Phase
 import transform.*
 import backend.jvm.{CollectSuperCalls, GenBCode}
 import localopt.StringInterpolatorOpt
+import semanticdb.ExtractSemanticDB.{ExtractSemanticInfo, AppendDiagnostics as AppendSemanticDiagnostics}
 
 /** The central class of the dotc compiler. The job of a compiler is to create
  *  runs, which process given `phases` in a given `rootContext`.
@@ -39,7 +40,7 @@ class Compiler {
          CheckShadowing()) ::       // Check for shadowed elements
     List(new YCheckPositions) ::    // YCheck positions
     List(new sbt.ExtractDependencies) :: // Sends information on classes' dependencies to sbt via callbacks
-    List(new semanticdb.ExtractSemanticDB.ExtractSemanticInfo) :: // Extract info into .semanticdb files
+    List(ExtractSemanticInfo()) ::  // Extract info into .semanticdb files
     List(new PostTyper) ::          // Additional checks and cleanups after type checking
     List(new sjs.PrepJSInterop) ::  // Additional checks and transformations for Scala.js (Scala.js only)
     List(new sbt.ExtractAPI) ::     // Sends a representation of the API of classes to sbt via callbacks
@@ -54,7 +55,6 @@ class Compiler {
     List(new Staging) ::            // Check staging levels and heal staged types
     List(new Splicing) ::           // Replace level 1 splices with holes
     List(new PickleQuotes) ::       // Turn quoted trees into explicit run-time data structures
-    List(new CheckUnused.PostInlining) ::  // Check for unused elements
     Nil
 
   /** Phases dealing with the transformation from pickled trees to backend trees */
@@ -71,7 +71,6 @@ class Compiler {
          new ExpandSAMs,             // Expand single abstract method closures to anonymous classes
          new ElimRepeated,           // Rewrite vararg parameters and arguments
          new RefChecks) ::           // Various checks mostly related to abstract members and overriding
-    List(new semanticdb.ExtractSemanticDB.AppendDiagnostics) :: // Attach warnings to extracted SemanticDB and write to .semanticdb file
     List(new init.Checker) ::        // Check initialization of objects
     List(new ProtectedAccessors,     // Add accessors for protected members
          new ExtensionMethods,       // Expand methods of value classes with extension methods
@@ -87,6 +86,8 @@ class Compiler {
     List(new TestRecheck) ::         // Test only: run rechecker, enabled under -Yrecheck-test
     List(new CheckCaptures.Pre) ::   // Preparations for check captures phase, enabled under captureChecking
     List(new CheckCaptures) ::       // Check captures, enabled under captureChecking
+    List(CheckUnused.PostPatMat()) :: // Check for unused elements and report
+    List(AppendSemanticDiagnostics()) :: // Attach warnings to extracted SemanticDB and write to .semanticdb file
     List(new ElimOpaque,             // Turn opaque into normal aliases
          new sjs.ExplicitJSClasses,  // Make all JS classes explicit (Scala.js only)
          new ExplicitOuter,          // Add accessors to outer classes from nested ones.
