@@ -17,6 +17,6 @@ object Version:
     extension (v: Version) def increment: Version
 
   object Increment:
-    given Increment[MajorVersion]:
+    given Increment[MajorVersion] with
       extension (v: Version)
         inline def increment: Version = Version(MajorVersion.reset)

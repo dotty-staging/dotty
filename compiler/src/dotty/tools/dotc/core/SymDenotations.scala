@@ -1036,10 +1036,10 @@ object SymDenotations {
      */
     def matchNullaryLoosely(using Context): Boolean = {
       def test(sym: Symbol) =
-        sym.is(JavaDefined) ||
-        sym.owner == defn.AnyClass ||
-        sym == defn.Object_clone ||
-        sym.owner.is(Scala2x)
+           sym.is(JavaDefined)
+        || sym.owner == defn.AnyClass
+        || sym == defn.Object_clone
+        || sym.owner.is(Scala2x)
       this.exists && (test(symbol) || allOverriddenSymbols.exists(test))
     }
 
@@ -1397,7 +1397,7 @@ object SymDenotations {
     final def nextOverriddenSymbol(using Context): Symbol = {
       val overridden = allOverriddenSymbols
       if (overridden.hasNext)
-        overridden.next
+        overridden.next()
       else
         NoSymbol
     }
@@ -1475,10 +1475,10 @@ object SymDenotations {
       val candidates = owner.info.decls.lookupAll(name)
       def test(sym: Symbol): Symbol =
         if (sym == symbol || sym.signature == signature) sym
-        else if (candidates.hasNext) test(candidates.next)
+        else if (candidates.hasNext) test(candidates.next())
         else NoSymbol
       if (candidates.hasNext) {
-        val sym = candidates.next
+        val sym = candidates.next()
         if (candidates.hasNext) test(sym) else sym
       }
       else NoSymbol

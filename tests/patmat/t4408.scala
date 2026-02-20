@@ -10,7 +10,7 @@ object Test {
       for(i <- head){
         print(i)
       }
-      println
+      println()
       println(s)
   }
 }

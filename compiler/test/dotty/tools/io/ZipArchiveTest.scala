@@ -76,7 +76,7 @@ class ZipArchiveTest {
     val jar = createTestJar()
     val archive = new ManifestResources(manifestAt(jar.toUri))
     try {
-      val it = archive.iterator
+      val it = archive.iterator()
       assertTrue(it.hasNext)
       val f = it.next()
       assertFalse(it.hasNext)
