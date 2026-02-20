@@ -19,7 +19,7 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.tools.asm
 import scala.tools.asm.Opcodes.*
-import scala.tools.asm.Type
+import scala.tools.asm.{Opcodes, Type}
 import scala.tools.asm.tree.*
 import scala.tools.asm.tree.analysis.Value
 import dotty.tools.dotc.core.Decorators.em
@@ -483,6 +483,25 @@ class Inliner(ppa: PostProcessorFrontendAccess, backendUtils: BackendUtils,
     }
 
     val numSavedParamSlots = BackendUtils.maxLocals(callsite.callsiteMethod) + calleeFirstNonParamSlot - nextLocalIndex
+
+    callsiteCallee.calleePreciseInstanceClass match
+      case Some(precise) =>
+
+        val pcAnalyzer = new ProdConsAnalyzer(callsiteCallee.callee, callsiteCallee.calleeDeclarationClass.internalName)
+        clonedInstructions.iterator.asScala foreach {
+          case methodInsn: MethodInsnNode if methodInsn.getOpcode == Opcodes.INVOKEVIRTUAL =>
+            // extract the argument size (see Javadoc of that method), and subtract one to become 0-based
+            val thisIndex = (Type.getArgumentsAndReturnSizes(methodInsn.desc) >> 2) - 1
+            val thisProducers = pcAnalyzer.initialProducersForValueAt(methodInsn, thisIndex)
+            if thisProducers.size == 1 then thisProducers.head match {
+              case ParameterProducer(0) =>
+                methodInsn.owner = precise.internalName // TODO if we only need the name...
+              case _ =>
+                ()
+            }
+          case _ => ()
+        }
+      case None => ()
 
     // local var indices in the callee are adjusted
     val localVarShift = BackendUtils.maxLocals(callsite.callsiteMethod) - numSavedParamSlots

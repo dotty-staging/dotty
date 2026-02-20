@@ -416,6 +416,7 @@ class ClosureOptimizer(ppa: PostProcessorFrontendAccess, backendUtils: BackendUt
         Callee(
           callee = bodyMethodNode,
           calleeDeclarationClass = bodyDeclClassType,
+          calleePreciseInstanceClass = None,
           isStaticallyResolved = true,
           sourceFilePath = sourceFilePath,
           annotatedInline = false,

@@ -55,7 +55,7 @@ class InlinerHeuristics(ppa: PostProcessorFrontendAccess, backendUtils: BackendU
     compilingMethods.map(methodNode => {
       var requests = Set.empty[InlineRequest]
       callGraph.callsites.get(methodNode).valuesIterator foreach {
-        case callsite @ Callsite(_, _, _, Right(Callee(callee, _, _, _, _, _, _, callsiteWarning)), _, _, _, pos, _, _) =>
+        case callsite @ Callsite(_, _, _, Right(Callee(callee, _, _, _, _, _, _, _, callsiteWarning)), _, _, _, pos, _, _) =>
           inlineRequest(callsite) match {
             case Some(Right(req)) => requests += req
 
