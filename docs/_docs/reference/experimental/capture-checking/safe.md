@@ -11,7 +11,7 @@ Safe mode is an extension of capture checking that enforces that a program is wr
 Full Scala 3 has elements that are incompatible with capability safety, such as type casts and other unsafe features. These are essential escape hatches in some situations. But they should be used with care, and should not be available in agent-generated code or other untrusted code that does not pass review.
 
 To distinguish between these two usage modes, there is a safe language subset that can be specified with a command-line option or a language import:
-```scala
+```scala sc:nocompile
   import language.experimental.safe
 ```
 
@@ -38,7 +38,7 @@ is done, the library module can be made available for use by safe code.
 This scheme is supported by a new `@assumeSafe` annotation, available in
 module `caps`.
 Modules tagged with this annotation are assumed to be callable from  agent-generated code. `@assumeSafe` comes with none of the restrictions that `safe` implies. Instead it is the obligation of the programmer to verify that the module is indeed safe. For instance caching a function results could be implemented like this:
-```scala
+```scala sc:nocompile
 import caps.unsafe.untrackedCaptures
 import caps.assumeSafe
 import scala.collection.mutable.HashMap
@@ -55,7 +55,7 @@ class Memoized[A, B](f: A -> B) {
 Or, here is an outline of an email function that prompts a user for confirmation before
 sending. Here, we assume that the `Mailer` object is neither safe nor assumed safe.
 Agents can still send email through `CheckedMailer`, but only after user confirmation.
-```scala
+```scala sc:nocompile
 import caps.assumeSafe
 
 @assumeSafe
