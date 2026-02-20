@@ -519,10 +519,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             |The `fresh` capability may only be used in the result of a function type,
             |following a function arrow such as `=>` or `->`.""")
 
-    val origin =
-      if typeArgFormal.exists then Origin.TypeArg(tp)
-      else Origin.InDecl(sym)
-    globalCapToLocal(tp2, origin)
+    globalCapToLocal(tp2, Origin.InDecl(sym))
   end transformExplicitType
 
   /** Update info of `sym` for CheckCaptures phase only */
