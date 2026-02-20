@@ -49,7 +49,7 @@ class PostProcessor(val frontendAccess: PostProcessorFrontendAccess, private val
           frontendAccess.backendReporting.error(em"Could not write class $internalName because it exceeds JVM code size limits. ${e.getMessage}")
           null
         case ex: Throwable =>
-          if frontendAccess.compilerSettings.debug then ex.printStackTrace()
+          if true || frontendAccess.compilerSettings.debug then ex.printStackTrace()
           frontendAccess.backendReporting.error(em"Error while emitting $internalName\n${ex.getMessage}")
           null
 

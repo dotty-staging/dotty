@@ -81,8 +81,12 @@ abstract class CoreBTypes(private val frontendAccess: PostProcessorFrontendAcces
     ClassBType(internalName, t, fromSymbol, this, classBTypeCache.get)(init)
 
   /** Obtain a previously constructed ClassBType for a given internal name. */
-  def classBTypeFromInternalName(internalName: InternalName): ClassBType =
-    classBTypeCache.get.get(internalName)
+  def classBTypeFromInternalName(internalName: InternalName): ClassBType = {
+    val result = classBTypeCache.get.get(internalName)
+    if result eq null then
+      throw IllegalArgumentException("ClassBType not previously constructed: " + internalName)
+    result
+  }
 
   def classBTypeFromSymbol(classSym: Symbol): ClassBType
   def mirrorClassBTypeFromSymbol(moduleClassSym: Symbol): ClassBType
