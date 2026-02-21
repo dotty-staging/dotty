@@ -89,3 +89,15 @@ type Labels = (x: String, y: String)
   val cityMap = city.toSeqMap
   val _: SeqMap[String, String | Int] = cityMap
   assert(cityMap == ListMap("name" -> "Lausanne", "zip" -> 1000, "pop" -> 140000))
+
+  val cityNames = city.toNamesIArray
+  assert(cityNames.sameElements(IArray("name", "zip", "pop")))
+
+  val cityNamesList = city.toNamesList
+  assert(cityNamesList == List("name", "zip", "pop"))
+
+  val cityNamesTup = city.toNames
+  assert(cityNamesTup == ("name", "zip", "pop"))
+
+  val cityNamesIt = city.toNamesIterator
+  assert(cityNamesIt.sameElements(Iterator("name", "zip", "pop")))

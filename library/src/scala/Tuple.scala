@@ -272,6 +272,11 @@ object Tuple {
     case _ *: xs => Contains[xs, Y]
     case EmptyTuple => false
 
+  type ContainsAll[X <: Tuple, Y] <: Boolean = X match
+    case Y *: xs => ContainsAll[xs, Y]
+    case _ *: _ => false
+    case EmptyTuple => true
+
   /** A type level Boolean indicating whether the type `Y` contains
    *  none of the elements of `X`.
    *  @pre  The elements of `X` and `Y` are assumed to be singleton types

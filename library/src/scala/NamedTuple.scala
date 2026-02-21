@@ -3,6 +3,7 @@ import compiletime.ops.boolean.*
 import collection.immutable.{SeqMap, ListMap}
 
 import language.experimental.captureChecking
+import scala.annotation.publicInBinary
 
 object NamedTuple:
 
@@ -34,6 +35,9 @@ object NamedTuple:
     apply, size, init, head, last, tail, take, drop, splitAt, ++, map, reverse, zip, toList, toArray, toIArray, toSeqMap
   }
 
+  extension (x: AnyNamedTuple)
+    inline def toTuple: Tuple = x.asInstanceOf[Tuple]
+
   extension [N <: Tuple, V <: Tuple](x: NamedTuple[N, V])
 
     // ALL METHODS DEPENDING ON `toTuple` MUST BE EXPORTED FROM `NamedTupleDecomposition`
@@ -46,6 +50,23 @@ object NamedTuple:
 
     // inline def :* [L] (x: L): NamedTuple[Append[N, ???], Append[V, L] = ???
     // inline def *: [H] (x: H): NamedTuple[??? *: N], H *: V] = ???
+
+    /** A list consisting of all element names. */
+    inline def toNamesList: List[String] =
+      toNamesIterator.toList
+
+    /** An immutable array consisting of all element names. */
+    inline def toNamesIArray: IArray[String] =
+      IArray.from(toNamesIterator)
+
+    /** A tuple consisting of all element names. */
+    inline def toNames: N = compiletime.constValueTuple[N]
+
+    /** An iterator consisting of all element names. */
+    inline def toNamesIterator: Iterator[String] =
+      inline compiletime.erasedValue[Tuple.ContainsAll[N, String]] match
+        case _: true => // for a safe-cast we should ensure that N is a tuple of strings
+          toNames.productIterator.asInstanceOf[Iterator[String]]
 
   end extension
 
@@ -139,7 +160,7 @@ end NamedTuple
 
 /** Separate from NamedTuple object so that we can match on the opaque type NamedTuple. */
 object NamedTupleDecomposition:
-  import NamedTuple.*
+  import NamedTuple.{AnyNamedTuple, NamedTuple, Elem, Size, Head, Last, Init, Tail, Take, Drop, Split, Concat, Map, Reverse, Zip}
   extension [N <: Tuple, V <: Tuple](x: NamedTuple[N, V])
       /** The value (without the name) at index `n` of this tuple. */
     inline def apply(n: Int): Elem[NamedTuple[N, V], n.type] =
