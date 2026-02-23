@@ -542,6 +542,42 @@ class ReplCompilerTests extends ReplTest:
     run(":he")
     assertTrue(storedOutput().contains("The REPL has several commands available"))
 
+  @Test def `VreplHeight setting truncates large output` = initially {
+    run("val xs = (1 to 10000).toList")
+    val output = storedOutput()
+    assertTrue(s"Output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
+  @Test def `VreplHeight truncates Map output` = initially {
+    run("val m = (1 to 5000).map(i => i -> i*i).toMap")
+    val output = storedOutput()
+    assertTrue(s"Map output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
+  @Test def `VreplHeight truncates Set output` = initially {
+    run("val s = (1 to 5000).toSet")
+    val output = storedOutput()
+    assertTrue(s"Set output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
+  @Test def `VreplHeight truncates nested list` = initially {
+    run("val nested = List.fill(200)(List.fill(200)(1))")
+    val output = storedOutput()
+    assertTrue(s"Nested list output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
+  @Test def `VreplHeight truncates Vector output` = initially {
+    run("val v = Vector.fill(5000)(1)")
+    val output = storedOutput()
+    assertTrue(s"Vector output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
+  @Test def `VreplHeight truncates Array output` = initially {
+    run("val arr = Array.fill(5000)(1)")
+    val output = storedOutput()
+    assertTrue(s"Array output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
 object ReplCompilerTests:
 
   private val pattern = Pattern.compile("\\r[\\n]?|\\n");
@@ -634,3 +670,40 @@ class ReplUnrollTests extends ReplTest(ReplTest.defaultOptions ++ Seq("-experime
         s"Output: '$output' did not contain expected definition: ${defn}",
         normalizedOutput.contains(normalizedDefn)
       )
+
+end ReplUnrollTests
+
+class ReplWidthHeightTests extends ReplTest(
+  options = ReplTest.defaultOptions ++ Array("-Vrepl-height", "10")
+):
+
+  private def lines() = storedOutput().trim.linesIterator.toList
+
+  @Test def `lower height truncates more output` = initially {
+    run("val xs = (1 to 500).toList")
+    val output = storedOutput()
+    assertTrue(s"Output should be truncated with '...' ellipsis, got: $output", output.contains("..."))
+  }
+
+class ReplNoTruncationTests extends ReplTest(
+  options = ReplTest.defaultOptions ++ Array("-Vrepl-height", "10000", "-Vrepl-width", "500")
+):
+
+  @Test def `large height prevents truncation` = initially {
+    run("val xs = (1 to 1000).toList")
+    val output = storedOutput()
+    assertFalse(s"Output should NOT be truncated with large height, got: $output", output.contains("..."))
+    assertTrue(s"Output should contain last element 1000, got: $output", output.contains("1000"))
+  }
+
+  @Test def `large height prevents Map truncation` = initially {
+    run("val m = (1 to 1000).map(i => i -> i*i).toMap")
+    val output = storedOutput()
+    assertFalse(s"Map output should NOT be truncated with large height, got: $output", output.contains("..."))
+  }
+
+  @Test def `large height prevents Set truncation` = initially {
+    run("val s = (1 to 1000).toSet")
+    val output = storedOutput()
+    assertFalse(s"Set output should NOT be truncated with large height, got: $output", output.contains("..."))
+  }

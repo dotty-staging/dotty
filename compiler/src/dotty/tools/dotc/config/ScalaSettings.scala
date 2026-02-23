@@ -153,6 +153,8 @@ private sealed trait VerboseSettings:
   val VprofileDetails = IntSetting(VerboseSetting, "Vprofile-details", "Show metrics about sources and internal representations of the most complex methods", 0)
   val VreplMaxPrintElements: Setting[Int] = IntSetting(VerboseSetting, "Vrepl-max-print-elements", "Number of elements to be printed before output is truncated.", 1000)
   val VreplMaxPrintCharacters: Setting[Int] = IntSetting(VerboseSetting, "Vrepl-max-print-characters", "Number of characters to be printed before output is truncated.", 50000)
+  val VreplWidth: Setting[Int] = IntSetting(VerboseSetting, "Vrepl-width", "Width for REPL output truncation.", 100)
+  val VreplHeight: Setting[Int] = IntSetting(VerboseSetting, "Vrepl-height", "Height for REPL output truncation.", 50)
 
 /** -W "Warnings" settings
  */
