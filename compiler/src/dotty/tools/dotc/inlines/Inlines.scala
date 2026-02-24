@@ -823,7 +823,7 @@ object Inlines:
         owner = ctx.owner,
         name = name,
         flags = flags &~ withoutFlags,
-        info = inlinerTypeMap(sym.info),
+        info = inlinerTypeMap(sym.info).substSym(substFrom, substTo),
         coord = spanCoord(parent.span)).entered
 
     private def inlinedValDef(vdef: ValDef, inlinedSym: Symbol)(using Context): ValDef =
@@ -880,7 +880,7 @@ object Inlines:
         // TODO make version of inlined that does not return bindings?
         Inlined(tpd.ref(parentSym), Nil, inlined(rhs)._2).withSpan(parent.span)
 
-    private val defsAdapter =
+    private def defsAdapter =
       val typeMap = new DeepTypeMap {
         override def apply(tp: Type): Type = tp match {
           case TypeRef(_, sym: Symbol) if innerClassNewSyms.contains(sym) =>
