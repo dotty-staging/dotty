@@ -50,7 +50,7 @@ object ConfiguredCodec:
   ): Expr[ConfiguredCodec[A]] = {
     mirror match {
       case '{ // LTS specific warnings
-            ${ _ }: Mirror.ProductOf[A] { // warn
+            ${ _ }: Mirror.ProductOf[A] {
               type MirroredLabel = l // warn
               type MirroredElemLabels = el // warn
               type MirroredElemTypes = et // warn
