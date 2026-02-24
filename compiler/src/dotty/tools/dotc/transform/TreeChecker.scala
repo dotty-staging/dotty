@@ -701,8 +701,7 @@ object TreeChecker {
       // If we have `F[T]` with captured `F` and `T`, we should list `F` and `T` separately in the args.
       def isAllowedTypeArg(tp: Type): Boolean = tp.dealias match
         case _: TypeRef => true
-        case AndType(_: TermRef, _: TypeRef) => true
-        case AndType(_: TypeRef, _: TermRef) => true
+        case tp: AndType => isAllowedTypeArg(tp.tp1) && isAllowedTypeArg(tp.tp2)
         case _ => false
 
       for arg <- args do
