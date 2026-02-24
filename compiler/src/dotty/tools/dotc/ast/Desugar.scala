@@ -1142,7 +1142,7 @@ object desugar {
     }
   }
 
-  /** The selector of a match, which depends of the given `checkMode`.
+  /** The selector of a match, which depends on the given `checkMode`.
    *  @param  sel  the original selector
    *  @return if `checkMode` is
    *           - None              :  sel @unchecked
