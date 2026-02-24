@@ -1,4 +1,4 @@
-[[syntax trees at end of MegaPhase{dropOuterAccessors, checkNoSuperThis, flatten, transformWildcards, moveStatic, expandPrivate, restoreScopes, selectStatic, Collect entry points, collectSuperCalls, repeatableAnnotations}]] // tests/printing/transformed/lazy-vals-new-offset.scala
+[[syntax trees at end of MegaPhase{dropOuterAccessors, checkNoSuperThis, flatten, transformWildcards, moveStatic, expandPrivate, restoreScopes, selectStatic, Collect entry points, repeatableAnnotations}]] // tests/printing/transformed/lazy-vals-new-offset.scala
 package <empty> {
   @SourceFile("tests/printing/transformed/lazy-vals-new-offset.scala") final
     module class A extends Object {

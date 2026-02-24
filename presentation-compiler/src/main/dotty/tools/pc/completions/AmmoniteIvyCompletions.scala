@@ -32,8 +32,8 @@ object AmmoniteIvyCompletions:
               CoursierComplete.inferEditRange(pos.point, text)
             pos.withStart(rangeStart).withEnd(rangeEnd).toLsp
         val completions = coursierComplete.complete(dependency.nn)
-        val normalized = dependency.replace(":::", ":").replace("::", ":")
-        val isVersionCompletion = normalized.split(":").length >= 3
+        val normalized = dependency.nn.replace(":::", ":").nn.replace("::", ":").nn
+        val isVersionCompletion = normalized.split(":").nn.length >= 3
         completions
           .map(insertText =>
             CompletionValue.Coursier(

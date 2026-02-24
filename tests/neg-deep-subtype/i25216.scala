@@ -1,6 +1,6 @@
 trait X[A]
 
-given [A <: X[B], B <: A] => A => B = ???
+given [A <: X[B], B <: A]: (A => B) = ???
 
 type Z = {
   val v: Int
