@@ -151,6 +151,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     var isCZParcelable             = false
     var isCZStaticModule           = false
 
+    // keep track of interfaces that are used in super calls, as they need to be directly inherited even if they are also indirectly inherited
+    val superCallTargets = mutable.LinkedHashSet[ClassBType]()
+
     /* ---------------- idiomatic way to ask questions to typer ---------------- */
 
     def paramTKs(app: Apply, take: Int = -1): List[BType] = app match {
@@ -179,8 +182,6 @@ trait BCodeSkelBuilder extends BCodeHelpers {
       thisName          = internalName(claszSymbol)
 
       cnode = new ClassNode1()
-
-      initJClass(cnode)
 
       val cd = if (isCZStaticModule) {
         // Move statements from the primary constructor following the superclass constructor call to
@@ -291,11 +292,12 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       addClassFields()
       gen(cd.rhs)
+      // This needs to wait until now since it uses `superCallTargets` which is populating while emitting the class body
+      initJClass(cnode)
 
       if (AsmUtils.traceClassEnabled && cnode.name.contains(AsmUtils.traceClassPattern))
         AsmUtils.traceClass(cnode)
 
-      cnode.innerClasses
       assert(cd.symbol == claszSymbol, "Someone messed up BCodePhase.claszSymbol during genPlainClass().")
 
     } // end of method genPlainClass()
@@ -307,7 +309,17 @@ trait BCodeSkelBuilder extends BCodeHelpers {
 
       val ps = claszSymbol.info.parents
       val superClass: String = if (ps.isEmpty) ObjectRef.internalName else internalName(ps.head.typeSymbol)
-      val interfaceNames0 = classBTypeFromSymbol(claszSymbol).info.interfaces.map(_.internalName)
+
+      // We need to emit not only directly implemented interfaces, but also any indirectly implemented ones that are the target of super calls.
+      // (This somewhat convoluted sequence of operations exists to maintain the exact order of inheritance from a previous version.
+      //  It could be cleaned up given some work to make sure changing the order isn't a problem.)
+      val directInterfaces = claszSymbol.directlyInheritedTraits
+      val directInterfacesBTypes = directInterfaces.map(classBTypeFromSymbol)
+      val baseClassesBTypes = directInterfaces.iterator.flatMap(_.asClass.baseClasses.drop(1)).map(classBTypeFromSymbol).toSet
+      val additionalBTypes = superCallTargets.filter(!directInterfacesBTypes.contains(_))
+      val interfaces = directInterfacesBTypes.filter(t => !baseClassesBTypes(t) || superCallTargets(t)) ++ additionalBTypes
+
+      val interfaceNames0 = interfaces.iterator.map(_.internalName).toList
       /* To avoid deadlocks when combining objects, lambdas and multi-threading,
        * lambdas in objects are compiled to instance methods of the module class
        * instead of static methods (see tests/run/deadlock.scala and
