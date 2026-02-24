@@ -25,6 +25,7 @@ import localopt.StringInterpolatorOpt
 import inlines.Inlines
 import scala.util.matching.Regex
 import java.util.regex.Pattern
+import scala.annotation.internal.sharable
 
 /** Implements code coverage by inserting calls to scala.runtime.coverage.Invoker
   * ("instruments" the source code).
@@ -670,8 +671,8 @@ object InstrumentCoverage:
   val name: String = "instrumentCoverage"
   val description: String = "instrument code for coverage checking"
   val ExcludeMethodFlags: FlagSet = Artifact | Erased
-  val scoverageLocalOn: Regex = """^\s*//\s*\$COVERAGE-ON\$""".r
-  val scoverageLocalOff: Regex = """^\s*//\s*\$COVERAGE-OFF\$""".r
+  @sharable val scoverageLocalOn: Regex = """^\s*//\s*\$COVERAGE-ON\$""".r
+  @sharable val scoverageLocalOff: Regex = """^\s*//\s*\$COVERAGE-OFF\$""".r
 
   /**
    * An instrumented Tree, in 3 parts.
