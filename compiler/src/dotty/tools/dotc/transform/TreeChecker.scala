@@ -700,7 +700,7 @@ object TreeChecker {
       // Check that we only add the captured type `T` instead of a more complex type like `List[T]`.
       // If we have `F[T]` with captured `F` and `T`, we should list `F` and `T` separately in the args.
       def isAllowedTypeArg(tp: Type): Boolean = tp.dealias match
-        case _: TypeRef => true
+        case _: TypeRef | _: TermRef | _: ThisType => true
         case tp: AndType => isAllowedTypeArg(tp.tp1) && isAllowedTypeArg(tp.tp2)
         case _ => false
 
