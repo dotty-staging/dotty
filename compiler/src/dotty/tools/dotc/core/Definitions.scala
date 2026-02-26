@@ -701,6 +701,8 @@ class Definitions {
   @tu lazy val JavaUtilObjectsClass: ClassSymbol = requiredModule("java.util.Objects").moduleClass.asClass
   def Objects_hashCode(using Context): Symbol =
     JavaUtilObjectsClass.info.member(nme.hashCode_).suchThat(_.info.firstParamTypes.length == 1).symbol
+  def Objects_equals(using Context): Symbol =
+    JavaUtilObjectsClass.info.member(nme.equals_).suchThat(_.info.firstParamTypes.length == 2).symbol
 
   @tu lazy val JavaEnumClass: ClassSymbol = {
     val cls = requiredClass("java.lang.Enum")

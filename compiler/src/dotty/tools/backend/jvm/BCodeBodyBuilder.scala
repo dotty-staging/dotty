@@ -1713,27 +1713,12 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
           genCallMethod(defn.Any_equals, InvokeStyle.Virtual)
           genCZJUMP(success, failure, Primitives.NE, BOOL, targetIfNoJump)
         } else {
-          // l == r -> if (l eq null) r eq null else l.equals(r)
-          val eqEqTempLocal = locals.makeLocal(ObjectRef, nme.EQEQ_LOCAL_VAR.mangledString, defn.ObjectType, r.span)
-          val lNull    = new asm.Label
-          val lNonNull = new asm.Label
-
+          // l == r -> Objects.equals(l, r)
           genLoad(l, ObjectRef)
           stack.push(ObjectRef)
           genLoad(r, ObjectRef)
           stack.pop()
-          locals.store(eqEqTempLocal)
-          bc dup ObjectRef
-          genCZJUMP(lNull, lNonNull, Primitives.EQ, ObjectRef, targetIfNoJump = lNull)
-
-          markProgramPoint(lNull)
-          bc drop ObjectRef
-          locals.load(eqEqTempLocal)
-          genCZJUMP(success, failure, Primitives.EQ, ObjectRef, targetIfNoJump = lNonNull)
-
-          markProgramPoint(lNonNull)
-          locals.load(eqEqTempLocal)
-          genCallMethod(defn.Any_equals, InvokeStyle.Virtual)
+          genCallMethod(defn.Objects_equals, InvokeStyle.Static)
           genCZJUMP(success, failure, Primitives.NE, BOOL, targetIfNoJump)
         }
       }
