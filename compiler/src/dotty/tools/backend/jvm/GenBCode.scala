@@ -16,13 +16,6 @@ class GenBCode extends Phase { self =>
 
   override def description: String = GenBCode.description
 
-  private val superCallsMap = new MutableSymbolMap[List[ClassSymbol]]
-  def registerSuperCall(sym: Symbol, calls: ClassSymbol): Unit = {
-    val old = superCallsMap.getOrElse(sym, List.empty)
-    if (!old.contains(calls))
-      superCallsMap.update(sym, old :+ calls)
-  }
-
   private val entryPoints = new mutable.HashSet[String]()
   def registerEntryPoint(s: String): Unit = entryPoints += s
 
@@ -33,7 +26,7 @@ class GenBCode extends Phase { self =>
       val backendCtx = ctx match
         case fc: FreshContext => fc
         case ctx => ctx.fresh
-      _backendInterface = DottyBackendInterface(superCallsMap)(using backendCtx)
+      _backendInterface = DottyBackendInterface(using backendCtx)
     _backendInterface
   }
 
