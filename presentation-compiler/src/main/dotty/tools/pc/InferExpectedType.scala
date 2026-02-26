@@ -97,5 +97,5 @@ object InferCompletionType:
       // f(@@)
       case ApplyExtractor(app) =>
         val idx = app.args.indexWhere(_.span.contains(span))
-        app.fun.tpe.widenTermRefExpr.paramInfoss.flatten.get(idx)
+        if idx < 0 then None else app.fun.tpe.widenTermRefExpr.paramInfoss.flatten.lift(idx)
       case _ => None
