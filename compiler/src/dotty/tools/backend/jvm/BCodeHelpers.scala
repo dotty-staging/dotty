@@ -447,6 +447,9 @@ trait BCodeHelpers extends BCodeIdiomatic {
       val jReturnType = toTypeKind(methodInfo.resultType)
       val mdesc = MethodBType(paramJavaTypes, jReturnType).descriptor
       val mirrorMethodName = m.javaSimpleName
+      if !BCodeUtils.checkConstantStringLength(jgensig, mirrorMethodName, mdesc) then
+        report.error("Mirror method signature is too long for the JVM", m.srcPos)
+        return
       val mirrorMethod: asm.MethodVisitor = jclass.visitMethod(
         flags,
         mirrorMethodName,
@@ -609,6 +612,9 @@ trait BCodeHelpers extends BCodeIdiomatic {
       val mirrorName = bType.internalName
 
       val mirrorClass = new asm.tree.ClassNode
+      if !BCodeUtils.checkConstantStringLength(null, mirrorName) then
+        report.error("Mirror class name is too long for the JVM", moduleClass.srcPos)
+        return mirrorClass // not filled, but we cannot create it, and we just reported an error
       mirrorClass.visit(
         backendUtils.classfileVersion,
         bType.info.flags,

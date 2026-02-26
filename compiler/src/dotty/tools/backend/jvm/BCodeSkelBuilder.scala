@@ -343,6 +343,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
       val flags = javaFlags(claszSymbol)
 
       val thisSignature = getGenericSignature(claszSymbol, claszSymbol.owner)
+      if !BCodeUtils.checkConstantStringLength(thisSignature, thisName) then
+        report.error("Class name is too long for the JVM", claszSymbol.srcPos)
+        return
       cnode.visit(backendUtils.classfileVersion, flags,
                   thisName, thisSignature,
                   superClass, interfaceNames.toArray)
@@ -723,7 +726,7 @@ trait BCodeSkelBuilder extends BCodeHelpers {
     /*
      * must-single-thread
      */
-    def initJMethod(flags: Int, params: List[Symbol]): Unit = {
+    private def initJMethod(flags: Int, params: List[Symbol]): Unit = {
 
       val jgensig = getGenericSignature(methSymbol, claszSymbol)
       val (excs, others) = methSymbol.annotations.partition(_.symbol eq defn.ThrowsAnnot)
@@ -734,6 +737,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
         else jMethodName
 
       val mdesc = asmMethodType(methSymbol).descriptor
+      if !BCodeUtils.checkConstantStringLength(jgensig, bytecodeName, mdesc) then
+        report.error("Method signature is too long for the JVM", methSymbol.srcPos)
+        return
       mnode = cnode.visitMethod(
         flags,
         bytecodeName,
@@ -865,7 +871,9 @@ trait BCodeSkelBuilder extends BCodeHelpers {
       // TODO needed? for(ann <- m.symbol.annotations) { ann.symbol.initialize }
       val paramSyms = params.map(_.symbol)
       initJMethod(flags, paramSyms)
-
+      if mnode eq null then
+        // we failed to emit the method header, no point in continuing
+        return
 
       if (!isAbstractMethod && !isNative) {
         // #14773 Reuse locals slots for tailrec-generated mutable vars
