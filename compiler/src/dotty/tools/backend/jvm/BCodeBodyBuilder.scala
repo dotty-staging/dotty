@@ -22,6 +22,7 @@ import dotty.tools.dotc.core.Phases.*
 import dotty.tools.dotc.core.Decorators.em
 import dotty.tools.dotc.report
 import dotty.tools.dotc.ast.Trees.SyntheticUnit
+import dotty.tools.dotc.util.SrcPos
 
 /*
  *
@@ -444,7 +445,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
             case (IntTag,   LONG  ) => bc.lconst(value.longValue);       generatedType = LONG
             case (FloatTag, DOUBLE) => bc.dconst(value.doubleValue);     generatedType = DOUBLE
             case (NullTag,  _     ) => bc.emit(asm.Opcodes.ACONST_NULL); generatedType = srNullRef
-            case _                  => genConstant(value);               generatedType = tpeTK(tree)
+            case _                  => genConstant(value, l.srcPos);     generatedType = tpeTK(tree)
           }
 
         case blck @ Block(stats, expr) =>
@@ -570,7 +571,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
         case StringTag  =>
           assert(const.value != null, const) // TODO this invariant isn't documented in `case class Constant`
-          if BCodeUtils.checkConstantStringLength(null, const.stringValue) then
+          if BCodeUtils.checkConstantStringLength(const.stringValue) then
             mnode.visitLdcInsn(const.stringValue) // `stringValue` special-cases null, but not for a const with StringTag
           else
             report.error("String constant is too long for the JVM", pos)
@@ -589,7 +590,7 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
             )
           else
             val toASM = tp.toASMType
-            if BCodeUtils.checkConstantStringLength(null, toASM.getInternalName) then
+            if BCodeUtils.checkConstantStringLength(toASM.getInternalName) then
               mnode.visitLdcInsn(toASM)
             else
               report.error("Type name is too long for the JVM", pos)
