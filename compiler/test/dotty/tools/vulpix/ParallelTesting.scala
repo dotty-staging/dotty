@@ -198,7 +198,7 @@ trait ParallelTesting extends RunnerOrchestration:
         val compiler = groupSuffixParts.collectFirst { case Compiler(c) => c }.getOrElse("")
         Group(ordinal, compiler)
 
-      dir.listFiles
+      listFilesOrEmpty(dir)
         .filter(isSourceFile)
         .groupBy(groupFor)
         .toList
@@ -490,7 +490,7 @@ trait ParallelTesting extends RunnerOrchestration:
       import scala.util.Properties.*
 
       def flattenFiles(f: JFile): Array[JFile] =
-        if (f.isDirectory) f.listFiles.flatMap(flattenFiles)
+        if (f.isDirectory) listFilesOrEmpty(f).flatMap(flattenFiles)
         else Array(f)
 
       val files: Array[JFile] = files0.flatMap(flattenFiles)
@@ -723,7 +723,7 @@ trait ParallelTesting extends RunnerOrchestration:
 
     /** Returns all files in directory or the file if not a directory */
     private def flattenFiles(f: JFile): Array[JFile] =
-      if (f.isDirectory) f.listFiles.flatMap(flattenFiles)
+      if (f.isDirectory) listFilesOrEmpty(f).flatMap(flattenFiles)
       else Array(f)
   }
 
@@ -1224,7 +1224,7 @@ trait ParallelTesting extends RunnerOrchestration:
     private def copyToDir(dir: JFile, file: JFile): JFile = {
       val target = Paths.get(dir.getPath, file.getName)
       Files.copy(file.toPath, target, REPLACE_EXISTING)
-      if (file.isDirectory) file.listFiles.map(copyToDir(target.toFile, _))
+      if (file.isDirectory) listFilesOrEmpty(file).foreach(f => copyToDir(target.toFile, f))
       target.toFile
     }
 
@@ -1275,7 +1275,7 @@ trait ParallelTesting extends RunnerOrchestration:
     def delete(): Unit = targets.foreach(t => delete(t.outDir))
 
     private def delete(file: JFile): Unit = {
-      if (file.isDirectory) file.listFiles.foreach(delete)
+      if (file.isDirectory) listFilesOrEmpty(file).foreach(delete)
       try Files.delete(file.toPath)
       catch {
         case _: NoSuchFileException => // already deleted, everything's fine
@@ -1333,7 +1333,7 @@ trait ParallelTesting extends RunnerOrchestration:
 
   /** Separates directories from files and returns them as `(dirs, files)` */
   private def compilationTargets(sourceDir: JFile, fileFilter: FileFilter = FileFilter.NoFilter): (List[JFile], List[JFile]) =
-    sourceDir.listFiles.foldLeft((List.empty[JFile], List.empty[JFile])) { case ((dirs, files), f) =>
+    listFilesOrEmpty(sourceDir).foldLeft((List.empty[JFile], List.empty[JFile])) { case ((dirs, files), f) =>
       if (!fileFilter.accept(f.getName)) (dirs, files)
       else if (f.isDirectory) (f :: dirs, files)
       else if (isSourceFile(f)) (dirs, f :: files)
@@ -1377,7 +1377,7 @@ trait ParallelTesting extends RunnerOrchestration:
 
     def flatten(f: JFile): Array[JFile] =
       if (f.isDirectory) {
-        val files = f.listFiles
+        val files = listFilesOrEmpty(f)
         if (recursive) files.flatMap(flatten) else files
       }
       else Array(f)
@@ -1580,6 +1580,15 @@ trait ParallelTesting extends RunnerOrchestration:
 object ParallelTesting:
 
   def defaultOutputDir: String = "out"+JFile.separator
+
+  /** Like `File.listFiles()` but returns an empty array when the result is null.
+   *  listFiles() can return null on I/O error or when the directory was deleted
+   *  (e.g. by another thread during parallel test cleanup on Windows).
+   */
+  def listFilesOrEmpty(dir: JFile): Array[JFile] = {
+    val a = dir.listFiles
+    if (a == null) Array.empty else a
+  }
 
   def isSourceFile(f: JFile): Boolean = {
     val name = f.getName
