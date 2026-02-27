@@ -9,7 +9,7 @@ class CompletionStaleSymbolSuite extends BaseCompletionSuite:
   @Test def `multiple-requests` =
     checkRenamedToplevel(
       "Metals",
-      (contents, max) => contents.replace("object Metals", s"object Metals$max"),
+      (contents, max) => contents.replace("object Metals", s"object Metals$max").nn,
       s"""|B example
           |Metals123456789 example
           |""".stripMargin
@@ -18,7 +18,7 @@ class CompletionStaleSymbolSuite extends BaseCompletionSuite:
   @Test def `multiple-requests-backtick` =
     checkRenamedToplevel(
       "`M Metals M`",
-      (contents, max) => contents.replace("Metals M", "Metals M "),
+      (contents, max) => contents.replace("Metals M", "Metals M ").nn,
       s"""|B example
           |M Metals M example
           |""".stripMargin
