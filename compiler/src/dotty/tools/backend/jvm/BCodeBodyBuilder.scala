@@ -3,18 +3,15 @@ package backend
 package jvm
 
 import scala.language.unsafeNulls
-
 import scala.annotation.{switch, tailrec}
 import scala.collection.mutable.SortedMap
-
 import scala.tools.asm
 import scala.tools.asm.{Handle, Opcodes}
 import BCodeHelpers.InvokeStyle
-
 import dotty.tools.dotc.ast.tpd
 import dotty.tools.dotc.CompilationUnit
 import dotty.tools.dotc.core.Constants.*
-import dotty.tools.dotc.core.Flags.{Label => LabelFlag, _}
+import dotty.tools.dotc.core.Flags.{Label as LabelFlag, *}
 import dotty.tools.dotc.core.Types.*
 import dotty.tools.dotc.core.StdNames.{nme, str}
 import dotty.tools.dotc.core.Symbols.*
@@ -25,6 +22,7 @@ import dotty.tools.dotc.core.Phases.*
 import dotty.tools.dotc.core.Decorators.em
 import dotty.tools.dotc.report
 import dotty.tools.dotc.ast.Trees.SyntheticUnit
+import dotty.tools.dotc.util.SrcPos
 
 /*
  *
@@ -442,12 +440,12 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
               genLoad(t, generatedType)
           }
 
-        case Literal(value) =>
+        case l @ Literal(value) =>
           if (value.tag != UnitTag) (value.tag, expectedType) match {
             case (IntTag,   LONG  ) => bc.lconst(value.longValue);       generatedType = LONG
             case (FloatTag, DOUBLE) => bc.dconst(value.doubleValue);     generatedType = DOUBLE
             case (NullTag,  _     ) => bc.emit(asm.Opcodes.ACONST_NULL); generatedType = srNullRef
-            case _                  => genConstant(value);               generatedType = tpeTK(tree)
+            case _                  => genConstant(value, l.srcPos);     generatedType = tpeTK(tree)
           }
 
         case blck @ Block(stats, expr) =>
@@ -555,8 +553,8 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
      *   must-single-thread
      * Otherwise it's safe to call from multiple threads.
      */
-    def genConstant(const: Constant): Unit = {
-      (const.tag/*: @switch*/) match {
+    private def genConstant(const: Constant, pos: SrcPos): Unit = {
+      (const.tag: @switch) match {
 
         case BooleanTag => bc.boolconst(const.booleanValue)
 
@@ -573,7 +571,10 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
         case StringTag  =>
           assert(const.value != null, const) // TODO this invariant isn't documented in `case class Constant`
-          mnode.visitLdcInsn(const.stringValue) // `stringValue` special-cases null, but not for a const with StringTag
+          if BCodeUtils.checkConstantStringLength(const.stringValue) then
+            mnode.visitLdcInsn(const.stringValue) // `stringValue` special-cases null, but not for a const with StringTag
+          else
+            report.error("String constant is too long for the JVM", pos)
 
         case NullTag    => emit(asm.Opcodes.ACONST_NULL)
 
@@ -588,7 +589,11 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
               jlClassRef.descriptor
             )
           else
-            mnode.visitLdcInsn(tp.toASMType)
+            val toASM = tp.toASMType
+            if BCodeUtils.checkConstantStringLength(toASM.getInternalName) then
+              mnode.visitLdcInsn(toASM)
+            else
+              report.error("Type name is too long for the JVM", pos)
 
         case _ => abort(s"Unknown constant value: $const")
       }

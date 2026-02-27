@@ -405,7 +405,7 @@ trait BCodeHelpers extends BCodeIdiomatic {
      *         Machine Specification, §4.3.4, or `null` if `sym` doesn't need a generic signature.
      * @see https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.3.4
      */
-    def getGenericSignature(sym: Symbol, owner: Symbol): String = {
+    def getGenericSignature(sym: Symbol, owner: Symbol): String | Null = {
       atPhase(erasurePhase) {
         val memberTpe =
           if (sym.is(Method)) sym.denot.info
@@ -447,6 +447,11 @@ trait BCodeHelpers extends BCodeIdiomatic {
       val jReturnType = toTypeKind(methodInfo.resultType)
       val mdesc = MethodBType(paramJavaTypes, jReturnType).descriptor
       val mirrorMethodName = m.javaSimpleName
+      val lengthOk = if jgensig ne null then BCodeUtils.checkConstantStringLength(jgensig)
+                                        else BCodeUtils.checkConstantStringLength(mirrorMethodName, mdesc)
+      if !lengthOk then
+        report.error("Mirror method signature is too long for the JVM", m.srcPos)
+        return
       val mirrorMethod: asm.MethodVisitor = jclass.visitMethod(
         flags,
         mirrorMethodName,
@@ -609,6 +614,9 @@ trait BCodeHelpers extends BCodeIdiomatic {
       val mirrorName = bType.internalName
 
       val mirrorClass = new asm.tree.ClassNode
+      if !BCodeUtils.checkConstantStringLength(mirrorName) then
+        report.error("Mirror class name is too long for the JVM", moduleClass.srcPos)
+        return mirrorClass // not filled, but we cannot create it, and we just reported an error
       mirrorClass.visit(
         backendUtils.classfileVersion,
         bType.info.flags,
