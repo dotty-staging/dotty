@@ -2538,7 +2538,7 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     }
     val vdef1 = assignType(cpy.ValDef(vdef)(name, tpt1, rhs1), sym)
     postProcessInfo(vdef1, sym)
-    vdef1.setDefTree
+    if (!ctx.isAfterInlining) vdef1.setDefTree
     val nnInfo = rhs1.notNullInfo
     vdef1.withNotNullInfo(if sym.is(Lazy) then nnInfo.retractedInfo else nnInfo)
   }
@@ -2668,7 +2668,8 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     if !sym.is(Module) && !sym.isConstructor && sym.info.finalResultType.isErasedClass then
       sym.setFlag(Erased)
     mdef.ensureHasSym(sym)
-    mdef.setDefTree
+    if (!ctx.isAfterInlining) mdef.setDefTree
+    else mdef
 
   def typedTypeDef(tdef: untpd.TypeDef, sym: Symbol)(using Context): Tree = ctx.profiler.onTypedDef(sym) {
     val TypeDef(name, rhs) = tdef
