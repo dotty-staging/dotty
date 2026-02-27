@@ -69,7 +69,7 @@ class SymbolicXMLBuilder(parser: Parser, preserveWS: Boolean)(using Context) {
 
   // convenience methods
   private def LL[A](x: A*): List[List[A]] = List(List(x:_*))
-// Changing type to String causes a compiler crash in pickler phase,
+  // Changing type to String causes a compiler crash in pickler phase,
   // so we leave it as Any for now.
   private def const(x: Any) = 
     val lit = Literal(Constant(x))
