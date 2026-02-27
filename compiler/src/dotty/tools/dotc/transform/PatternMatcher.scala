@@ -399,14 +399,15 @@ object PatternMatcher {
       // begin patternPlan
       swapBind(tree) match {
         case Typed(pat, tpt) =>
-          val isTrusted = pat match {
+          def isTrusted(pattern: Tree): Boolean = pattern match {
             case UnApply(extractor, _, _) =>
               extractor.symbol.is(Synthetic)
               && extractor.symbol.owner.linkedClass.is(Case)
               && !hasExplicitTypeArgs(extractor)
+            case Bind(_, body) => isTrusted(body)
             case _ => false
           }
-          TestPlan(TypeTest(tpt, isTrusted), scrutinee, tree.span,
+          TestPlan(TypeTest(tpt, isTrusted(pat)), scrutinee, tree.span,
             letAbstract(ref(scrutinee).cast(tpt.tpe)) { casted =>
               nonNull += casted
               patternPlan(casted, pat, onSuccess)
