@@ -205,6 +205,11 @@ object Tuple {
     }
   }
 
+  type Fill[A, I <: Int] <: Tuple = I match {
+    case S[i] => A *: Fill[A, i]
+    case 0 => EmptyTuple
+  }
+
   /** Given two tuples, `A1 *: ... *: An * At` and `B1 *: ... *: Bn *: Bt`
    *  where at least one of `At` or `Bt` is `EmptyTuple`,
    *  returns the tuple type `(A1, B1) *: ... *: (An, Bn) *: EmptyTuple`.
