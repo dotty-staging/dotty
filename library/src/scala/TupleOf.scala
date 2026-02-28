@@ -7,8 +7,9 @@ object TupleOf {
   opaque type AnyTupleOf[A] = Tuple
   opaque type TupleOf[A, I <: Int] <: AnyTupleOf[A] = Tuple.Fill[A, I]
 
-  def fromTuple[A]()[T <: Tuple](tuple: T)(using ev: T <:< Tuple.Fill[A, Tuple.Size[T]]): TupleOf[A, Tuple.Size[T]] =
-    ev(tuple)
+  inline def fromTuple2[A](tuple: Tuple)[T >: tuple.type <: Tuple]: TupleOf[A, Tuple.Size[T]] =
+    inline compiletime.erasedValue[Tuple.Map[T, [X] =>> A]] match
+      case _: T => build[A, Tuple.Size[T]](tuple)
 
   inline def apply[A, I <: Int]()[T <: Tuple](tuple: T): TupleOf[A, I] = ${ applyImpl[T, A, I]('tuple) }
 
