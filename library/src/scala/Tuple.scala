@@ -206,8 +206,8 @@ object Tuple {
   }
 
   type Fill[A, I <: Int] <: Tuple = I match {
-    case S[i] => A *: Fill[A, i]
     case 0 => EmptyTuple
+    case S[i] => A *: Fill[A, i]
   }
 
   /** Given two tuples, `A1 *: ... *: An * At` and `B1 *: ... *: Bn *: Bt`
