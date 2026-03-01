@@ -20,12 +20,8 @@ import dotty.tools.dotc.core.Names.{Name, TermName}
 import scala.collection.mutable.ListBuffer
 import dotty.tools.dotc.transform.MegaPhase.MiniPhase
 
-
-// WE don't use th child this type so we should probabyl be able to get away with only one symbol map.
-
-class ReplaceInlinedTraitSymbols extends MiniPhase:  //, SymTransformer:
+class ReplaceInlinedTraitSymbols extends MiniPhase:
   import tpd._
-  import ast.tpd.*
 
   override def phaseName: String = ReplaceInlinedTraitSymbols.name
   override def description: String = ReplaceInlinedTraitSymbols.description
@@ -37,14 +33,14 @@ class ReplaceInlinedTraitSymbols extends MiniPhase:  //, SymTransformer:
     if ctx.inlineTraitState.inlinedSymbolIsRegistered(tree.symbol, qualType) then
       val newSym = ctx.inlineTraitState.lookupInlinedSymbol(tree.symbol, qualType)
       assert(tree.symbol.isTerm)
-      tree.withType(newSym.termRef) // This path seems good
+      tree.withType(newSym.termRef)
     else
       tree
       
   override def runsAfterGroupsOf: Set[String] = Set("specializeInlineTraits")
       
-      
-      // if (tree.symbol.isTerm)
+
+  // if (tree.symbol.isTerm)
       
 
   // private def symbolReplacer(using Context) =

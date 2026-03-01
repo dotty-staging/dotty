@@ -910,36 +910,18 @@ object Inlines:
     end ParamAccessorsMapper
   end InlineParentTrait
 
-// Block inline traits from having inner classes for now - gets annoying in terms of which symbols you should replace:
-  // consider class InnerB extends InnerA inside the same inline trait as class InnerA inside class A. 
   class InlineTraitState:
     // Map representing all symbols we have inlined from inline traits,
     // from the symbol in the parent trait, and the type of that child trait
     // to the inlined symbol in the child trait. 
     private val inlinedTraitSymbols = mutable.HashMap[(Symbol, Type), Symbol]()
-    private val symbolsResultingFromInline = mutable.HashSet[Symbol]() 
-
-    // Map representing only inner class symbols that we have inlined from inline traits,
-    // from the symbol in the parent trait to the inlined symbol in the child trait,
-    // and the *ThisType* of the child trait.
-    // private val innerClassNewSyms = mutable.HashMap[Symbol, List[Symbol, Type]]()
 
     def registerInlinedSymbol(oldSym: Symbol, newSym: Symbol, childTrait: Type) =
       inlinedTraitSymbols((oldSym, childTrait)) = newSym
-      symbolsResultingFromInline.add(newSym)
     def lookupInlinedSymbol(oldSym: Symbol, childTrait: Type) =
       inlinedTraitSymbols((oldSym, childTrait))
     def inlinedSymbolIsRegistered(oldSym: Symbol, childTrait: Type) =
       inlinedTraitSymbols.contains((oldSym, childTrait))
-    // def symbolResultsFromInlining(sym: Symbol) =
-    //   symbolsResultingFromInline.contains(sym)
-
-    // def registerInlinedInnerClassSymbol(oldSym: Symbol, newSym: Symbol, childThisType: Type) =
-    //   innerClassNewSyms(oldSym) = (newSym, childThisType)
-    // def lookupInlinedInnerClassSymbol(oldSym: Symbol) = 
-    //   innerClassNewSyms(oldSym)
-    // def inlinedInnerClassSymbolIsRegistered(oldSym: Symbol) = 
-    //   innerClassNewSyms.contains(oldSym)
 
   end InlineTraitState
 
