@@ -18,11 +18,12 @@ import dotty.tools.dotc.core.Types.*
 import dotty.tools.dotc.core.Names.{Name, TermName}
 
 import scala.collection.mutable.ListBuffer
+import dotty.tools.dotc.transform.MegaPhase.MiniPhase
 
 
 // WE don't use th child this type so we should probabyl be able to get away with only one symbol map.
 
-class ReplaceInlinedTraitSymbols extends MacroTransform:  //, SymTransformer:
+class ReplaceInlinedTraitSymbols extends MiniPhase:  //, SymTransformer:
   import tpd._
   import ast.tpd.*
 
@@ -31,70 +32,86 @@ class ReplaceInlinedTraitSymbols extends MacroTransform:  //, SymTransformer:
   override def changesMembers: Boolean = true
   override def changesParents: Boolean = true
 
-  private def symbolReplacer(using Context) =
-    
-    val typeMap = new DeepTypeMap {
-      override def apply(tp: Type): Type = tp match { // Deals exclusively with inner clases  
-        case TypeRef(prefix: Type, sym: Symbol) =>
-          val prefixType = prefix.widenDealias
-          if ctx.inlineTraitState.inlinedSymbolIsRegistered(sym, prefixType) then
-            val newSym = ctx.inlineTraitState.lookupInlinedSymbol(sym, prefixType)
-            TypeRef(prefixType, newSym)
-          else
-            mapOver(tp)
-        case _ =>
-          mapOver(tp)
-      }
-    }
-
-    def treeMap(tree: Tree) = tree match {
-      case sel: Select =>
-        val qualType = sel.qualifier.tpe.widenDealias
-        if ctx.inlineTraitState.inlinedSymbolIsRegistered(sel.symbol, qualType) then
-          val newSym = ctx.inlineTraitState.lookupInlinedSymbol(sel.symbol, qualType)
-          if (sel.symbol.isTerm)
-              tree.withType(newSym.termRef) // This path seems good
-          else
-              tree.withType(newSym.typeRef) // Also deals with inner classes only
-        else
-          tree
-      case tdef: TypeDef if tdef.symbol.isClass => // maybe this belongs in the original inliner? Not clear exaclty what it does; does fire but only delegates to typemap
-        tdef.symbol.info = typeMap(tdef.symbol.info)
-        tdef
-      case tree =>
-        tree
-    }
-    
-    new TreeTypeMap(
-      typeMap = typeMap,
-      treeMap = treeMap)
+  override def transformSelect(tree: Select)(using Context): Tree =
+    val qualType = tree.qualifier.tpe.widenDealias
+    if ctx.inlineTraitState.inlinedSymbolIsRegistered(tree.symbol, qualType) then
+      val newSym = ctx.inlineTraitState.lookupInlinedSymbol(tree.symbol, qualType)
+      assert(tree.symbol.isTerm)
+      tree.withType(newSym.termRef) // This path seems good
+    else
+      tree
       
-      //  {
-      //   override def transform(tree: Tree)(using Context): Tree = tree match {
-      //     case cls @ tpd.TypeDef(_, impl: Template) =>
-      //       if (ctx.inlineTraitState.inlinedSymbolIsRegistered(cls.denot.symbol, ctx.ownd)) then
-      //         // go recursively over the body only
-      //         val impl1 = cpy.Template(impl)(body = super.transform(impl.body))
-      //         cpy.TypeDef(cls)(rhs = impl1)
-      //       else
-      //         // we can map over the whole thing
-      //         super.transform(tree)
-      //     case _ => super.transform(tree)
-      //   } 
-      // }
-  end symbolReplacer
+  override def runsAfterGroupsOf: Set[String] = Set("specializeInlineTraits")
+      
+      
+      // if (tree.symbol.isTerm)
+      
+
+  // private def symbolReplacer(using Context) =
+    
+
+    
+  //   val typeMap = new DeepTypeMap {
+  //     override def apply(tp: Type): Type = tp match { // Deals exclusively with inner clases  
+  //       // case TypeRef(prefix: Type, sym: Symbol) =>
+  //       //   val prefixType = prefix.widenDealias
+  //       //   if ctx.inlineTraitState.inlinedSymbolIsRegistered(sym, prefixType) then
+  //       //     val newSym = ctx.inlineTraitState.lookupInlinedSymbol(sym, prefixType)
+  //       //     TypeRef(prefixType, newSym)
+  //       //   else
+  //       //     mapOver(tp)
+  //       case _ =>
+  //         mapOver(tp)
+  //     }
+  //   }
+
+  //   def treeMap(tree: Tree) = tree match {
+  //     // case sel: Select =>
+  //     //   val qualType = sel.qualifier.tpe.widenDealias
+  //     //   if ctx.inlineTraitState.inlinedSymbolIsRegistered(sel.symbol, qualType) then
+  //     //     val newSym = ctx.inlineTraitState.lookupInlinedSymbol(sel.symbol, qualType)
+  //     //     if (sel.symbol.isTerm)
+  //     //         tree.withType(newSym.termRef) // This path seems good
+  //     //     else
+  //     //         tree.withType(newSym.typeRef) // Also deals with inner classes only
+  //     //   else
+  //     //     tree
+  //     // case tdef: TypeDef if tdef.symbol.isClass => // maybe this belongs in the original inliner? Not clear exaclty what it does; does fire but only delegates to typemap
+  //     //   tdef.symbol.info = typeMap(tdef.symbol.info)
+  //     //   tdef
+  //     case tree =>
+  //       tree
+  //   }
+    
+  //   new TreeTypeMap(
+  //     typeMap = typeMap,
+  //     treeMap = treeMap)
+      
+  //     //  {
+  //     //   override def transform(tree: Tree)(using Context): Tree = tree match {
+  //     //     case cls @ tpd.TypeDef(_, impl: Template) =>
+  //     //       if (ctx.inlineTraitState.inlinedSymbolIsRegistered(cls.denot.symbol, ctx.ownd)) then
+  //     //         // go recursively over the body only
+  //     //         val impl1 = cpy.Template(impl)(body = super.transform(impl.body))
+  //     //         cpy.TypeDef(cls)(rhs = impl1)
+  //     //       else
+  //     //         // we can map over the whole thing
+  //     //         super.transform(tree)
+  //     //     case _ => super.transform(tree)
+  //     //   } 
+  //     // }
+  // end symbolReplacer
 
 // Need to look at the receiver type when doing the replacement - only replace with members that match the receiver type.   
 // I think same for both Types and Terms - if you refer to it via the child you can specialise it otherwise no.
-  override def newTransformer(using Context): Transformer = new Transformer {
-    override def transform(tree: Tree)(using Context): Tree = 
-      val state = ctx.inlineTraitState
-      symbolReplacer(tree)
-  }
+  // override def newTransformer(using Context): Transformer = new Transformer {
+  //   override def transform(tree: Tree)(using Context): Tree = tree
+  //     // symbolReplacer(tree)
+  // }
 
-  override def run(using Context): Unit =
-    try super.run
-    catch case _: CompilationUnit.SuspendException => ()
+  // override def run(using Context): Unit =
+  //   try super.run
+  //   catch case _: CompilationUnit.SuspendException => ()
 
 
 object ReplaceInlinedTraitSymbols:
