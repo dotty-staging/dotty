@@ -256,8 +256,6 @@ object Inlines:
     if (!parent.is(PureInterface))
       updatedFlags &~= PureInterface
     updatedFlags
-      
-    
 
   def inlineParentInlineTraits(cls: Tree)(using Context): Tree =
     cls match {
@@ -753,9 +751,13 @@ object Inlines:
               tree
           }
         case Select(qual, name) =>
-          paramAccessorsMapper.getParamAccessorName(qual.symbol, name) match {
-            case Some(newName) => Select(this(qual), newName).withSpan(parent.span)
-            case None => Select(this(qual), name)
+          inContext(ctx.withSource(tree.source)) { // Need to ensure we preserve the fact that this Select was inlined
+                                                   // potentially from a different file. Recreating it discards that info.
+                                                   // See: inline-trait-multiple-stages-generic-defs.
+            paramAccessorsMapper.getParamAccessorName(qual.symbol, name) match {
+                case Some(newName) => Select(this(qual), newName).withSpan(parent.span)
+                case None => Select(this(qual), name)
+            }
           }
         case tree =>
           tree
