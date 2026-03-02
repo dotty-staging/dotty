@@ -246,6 +246,19 @@ object Inlines:
     tree2
   end inlineCall
 
+  def updateFlagsFromInlinedParent(child: FlagSet, parent: FlagSet): FlagSet = 
+    var updatedFlags = child
+    // Parent needs to be initialised so child must also as initialisers have been inlined
+    if (!parent.is(NoInits))
+      updatedFlags &~= NoInits
+
+    // Parent is impure; contaminates child as non-abstract methods have been inlined
+    if (!parent.is(PureInterface))
+      updatedFlags &~= PureInterface
+    updatedFlags
+      
+    
+
   def inlineParentInlineTraits(cls: Tree)(using Context): Tree =
     cls match {
       case cls @ tpd.TypeDef(_, impl: Template) =>
@@ -256,6 +269,8 @@ object Inlines:
               val parentTraitInliner = InlineParentTrait(parent)
               val overriddenSymbols = clsOverriddenSyms ++ inlineDefs.flatMap(_.symbol.allOverriddenSymbols)
               val inlinedDefs1 = inlineDefs ::: parentTraitInliner.expandDefs(overriddenSymbols)
+              cls.symbol.flags = updateFlagsFromInlinedParent(cls.symbol.flags, parent.symbol.flags)
+
               (inlinedDefs1, childDefs)
           }
         }

@@ -20,6 +20,7 @@ class PruneInlineTraits extends MiniPhase with SymTransformer { thisTransform =>
 
   override def transformSym(sym: SymDenotation)(using Context): SymDenotation =
     if isEraseable(sym) then sym.copySymDenotation(initFlags = sym.flags | Deferred)
+    else if sym.isInlineTrait then sym.copySymDenotation(initFlags = sym.flags | PureInterface | NoInits)
     else sym
 
   override def transformValDef(tree: ValDef)(using Context): ValDef =
@@ -40,7 +41,7 @@ class PruneInlineTraits extends MiniPhase with SymTransformer { thisTransform =>
     && sym.owner.isInlineTrait
 }
 
-object PruneInlineTraits {
+object PruneInlineTraits {  
   import tpd._
 
   val name: String = "pruneInlineTraits"
