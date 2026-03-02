@@ -35,7 +35,7 @@ class MyClassB extends MyClassA, ArrayIterator$sp$Int
     val xs: Array[Int] = Array(1, 2, 3)
 
     // They do this:
-    // new ArrayIterator(xs) {}
+    // new ArrayIterator[Int](xs) {}
 
     // We convert this to:
     val ai = new ArrayIterator$impl$Int(xs) {}
