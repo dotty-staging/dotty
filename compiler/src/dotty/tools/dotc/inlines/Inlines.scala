@@ -927,16 +927,24 @@ object Inlines:
 
   class InlineTraitState:
     // Map representing all symbols we have inlined from inline traits,
-    // from the symbol in the parent trait, and the type of that child trait
-    // to the inlined symbol in the child trait. 
+    // from the symbol in the parent trait, and the type of the child class-like
+    // to the inlined symbol in that child class-like.
+    // E.g. inline trait A {def foo#1000}; trait B extends A {def foo#2000 // created by inlining}
+    // The map has (foo#1000, trait B) => foo#2000
     private val inlinedTraitSymbols = mutable.HashMap[(Symbol, Type), Symbol]()
 
-    def registerInlinedSymbol(oldSym: Symbol, newSym: Symbol, childTrait: Type) =
-      inlinedTraitSymbols((oldSym, childTrait)) = newSym
-    def lookupInlinedSymbol(oldSym: Symbol, childTrait: Type) =
-      inlinedTraitSymbols((oldSym, childTrait))
-    def inlinedSymbolIsRegistered(oldSym: Symbol, childTrait: Type) =
-      inlinedTraitSymbols.contains((oldSym, childTrait))
+    // Record that we just inlined oldSym into childClasslike which created
+    // childClassLike.newSym
+    def registerInlinedSymbol(oldSym: Symbol, newSym: Symbol, childClasslike: Type) =
+      inlinedTraitSymbols((oldSym, childClasslike)) = newSym
+    
+    // Map (e.g.) B.foo#1000 into foo#2000 
+    def lookupInlinedSymbol(oldSym: Symbol, childClasslike: Type) =
+      inlinedTraitSymbols((oldSym, childClasslike))
+    
+    // Check if oldSym has been inlined into childClasslike
+    def inlinedSymbolIsRegistered(oldSym: Symbol, childClasslike: Type) =
+      inlinedTraitSymbols.contains((oldSym, childClasslike))
 
   end InlineTraitState
 
