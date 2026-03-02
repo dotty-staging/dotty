@@ -37,6 +37,16 @@ object TupleOf {
   inline def constValueOfTupleAny[T <: Tuple, A]: AnyTupleOf[A] =
     ${ constValueOfTupleAnyImpl[T, A] }
 
+  inline def constValueOfTupleAnyInline[T <: Tuple, A]: AnyTupleOf[A] =
+    // TODO: compare performance with constValueOfTupleAny
+    inline compiletime.erasedValue[Tuple.Union[T]] match
+      case _: A => buildAny[A](compiletime.constValueTuple[T])
+
+  inline def constValueOfTupleInline[T <: Tuple, A]: TupleOf[A, Tuple.Size[T]] =
+    // TODO: compare performance with constValueOfTuple
+    inline compiletime.erasedValue[T] match
+      case _: Tuple.Fill[A, Tuple.Size[T]] => build[A, Tuple.Size[T]](compiletime.constValueTuple[T])
+
   inline def fromTuple(tuple: Tuple)[T >: tuple.type <: Tuple]: TupleOf[Tuple.Union[T], Tuple.Size[T]] =
     build[Tuple.Union[T], Tuple.Size[T]](tuple)
 
