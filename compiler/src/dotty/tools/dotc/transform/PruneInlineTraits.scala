@@ -41,7 +41,7 @@ class PruneInlineTraits extends MiniPhase with SymTransformer { thisTransform =>
     && sym.owner.isInlineTrait
 }
 
-object PruneInlineTraits {  
+object PruneInlineTraits {
   import tpd._
 
   val name: String = "pruneInlineTraits"

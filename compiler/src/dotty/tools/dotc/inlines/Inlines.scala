@@ -837,7 +837,7 @@ object Inlines:
         owner = ctx.owner,
         name = name,
         flags = flags &~ withoutFlags,
-        info = inlinerTypeMap(sym.info), // .substSym(substFrom, substTo),
+        info = inlinerTypeMap(sym.info),
         coord = spanCoord(parent.span)).entered
 
     private def inlinedValDef(vdef: ValDef, inlinedSym: Symbol)(using Context): ValDef =
