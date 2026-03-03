@@ -3,4 +3,4 @@ package dotty.tools
 /** Stub MainGenericCompiler for Scala.js - scripting not supported */
 object MainGenericCompiler:
   def main(args: Array[String]): Unit =
-    dotc.Main.main(args)
+    dotc.Main.process(args)

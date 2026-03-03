@@ -1759,6 +1759,7 @@ object Build {
         baseDirectory.value / "src",                                // overrides first
         (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src",               // shared compiler sources
         (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src-bootstrapped",  // bootstrapped-only sources
+        (LocalProject("tasty-core-bootstrapped") / baseDirectory).value / "src",                    // tasty-core sources (need sjsir)
       ),
       // Exclude JVM-only packages and Java files, and apply override mechanism
       Compile / sources := {
@@ -1841,7 +1842,9 @@ object Build {
       target := target.value / "scala3-compiler-sjs",
       publish / skip := true,
       bspEnabled := false,
-      Compile / mainClass := None,
+      scalaJSUseMainModuleInitializer := true,
+      Compile / mainClass := Some("dotty.tools.dotc.Main"),
+      scalaJSLinkerConfig ~= { _.withESFeatures(_.withESVersion(ESVersion.ES2018)) },
     )
 
   // ==============================================================================================

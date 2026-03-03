@@ -8,6 +8,12 @@ object Paths {
     StringPath(combined)
   }
 
+  // Array-based overload for JVM-compiled callers
+  def get(first: String, more: Array[String]): Path = {
+    val combined = if (more.isEmpty) first else (first +: more.toSeq).mkString("/")
+    StringPath(combined)
+  }
+
   def get(uri: URI): Path =
     throw new UnsupportedOperationException("Paths.get(URI) is not supported on Scala.js")
 
@@ -59,8 +65,8 @@ object Paths {
     }
     def toAbsolutePath: Path =
       if (isAbsolute) this else new StringPath("/" + normalizedPath)
-    def toFile: java.io.File = new java.io.File(pathString)
-    def iterator: java.util.Iterator[Path] = {
+    override def toFile: java.io.File = new java.io.File(pathString)
+    override def iterator: java.util.Iterator[Path] = {
       val segs = segments
       new java.util.Iterator[Path] {
         var idx = 0
@@ -68,6 +74,9 @@ object Paths {
         def next(): Path = { val p = new StringPath(segs(idx)); idx += 1; p }
       }
     }
+    def register(watcher: WatchService | Null, events: Array[WatchEvent.Kind[?] | Null] | Null, modifiers: Array[? <: (WatchEvent.Modifier | Null)]): WatchKey | Null =
+      throw new UnsupportedOperationException("register not supported on Scala.js")
+    override def toRealPath(options: LinkOption*): Path = toAbsolutePath
     def compareTo(other: Path): Int = normalizedPath.compareTo(other.toString)
     override def toString: String = pathString
     override def hashCode(): Int = normalizedPath.hashCode

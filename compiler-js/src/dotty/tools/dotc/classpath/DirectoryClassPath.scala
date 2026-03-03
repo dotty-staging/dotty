@@ -97,7 +97,7 @@ trait JFileDirectoryLookup[FileEntryType <: ClassRepresentation] extends Directo
 
   assert(dir.asInstanceOf[JFile | Null] != null, "Directory file in DirectoryFileLookup cannot be null")
 
-  def asURLs: Seq[URL] = Seq(dir.toURI.toURL)
+  def asURLs: Seq[URL] = Seq(new URL(dir.toURI.toString))
   def asClassPathStrings: Seq[String] = Seq(dir.getPath)
 }
 

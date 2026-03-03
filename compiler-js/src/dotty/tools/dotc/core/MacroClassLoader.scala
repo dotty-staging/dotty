@@ -7,9 +7,13 @@ import dotty.tools.dotc.util.Property
 object MacroClassLoader {
   private val MacroClassLoaderKey = new Property.Key[ClassLoader]
 
+  import scala.language.unsafeNulls
+  /** On Scala.js there's no classloader; return a dummy null */
+  private val dummyClassLoader: ClassLoader = null
+
   def fromContext(using Context): ClassLoader =
-    ctx.property(MacroClassLoaderKey).getOrElse(getClass.getClassLoader)
+    ctx.property(MacroClassLoaderKey).getOrElse(dummyClassLoader)
 
   def init(ctx: FreshContext): ctx.type =
-    ctx.setProperty(MacroClassLoaderKey, getClass.getClassLoader)
+    ctx.setProperty(MacroClassLoaderKey, dummyClassLoader)
 }

@@ -12,7 +12,7 @@ trait ZipArchiveFileLookup[FileEntryType <: ClassRepresentation] extends Efficie
   val zipFile: File
   def release: Option[String]
 
-  override def asURLs: Seq[URL] = Seq(zipFile.toURI.toURL)
+  override def asURLs: Seq[URL] = Seq(new URL(zipFile.toURI.toString))
   override def asClassPathStrings: Seq[String] = Seq(zipFile.getPath)
 
   override private[dotty] def packages(inPackage: PackageName): Seq[PackageEntry] = Nil
