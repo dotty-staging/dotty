@@ -8,6 +8,8 @@ val `scala3-interfaces` = Build.`scala3-interfaces`
 val `scala3-compiler-nonbootstrapped` = Build.`scala3-compiler-nonbootstrapped`
 val `scala3-compiler-bootstrapped` = Build.`scala3-compiler-bootstrapped`
 
+val `scala3-compiler-sjs` = Build.`scala3-compiler-sjs`
+
 val `scala3-repl` = Build.`scala3-repl`
 
 // The Standard Library

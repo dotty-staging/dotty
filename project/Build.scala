@@ -1736,6 +1736,114 @@ object Build {
       bspEnabled := enableBspAllProjects,
     )
 
+  /** Scala.js build of the Scala 3 compiler.
+   *
+   *  Uses compiler-js/src as an override directory: any file present in
+   *  compiler-js/src that mirrors a path under compiler/src will replace the
+   *  original. JVM-only packages (backend/jvm, scripting, debug) are excluded
+   *  entirely.
+   */
+  lazy val `scala3-compiler-sjs` = project.in(file("compiler-js"))
+    .dependsOn(`scala3-interfaces`, `tasty-core-bootstrapped`, `scala3-library-sjs`)
+    .enablePlugins(DottyJSPlugin)
+    .settings(
+      name          := "scala3-compiler-sjs",
+      moduleName    := "scala3-compiler",
+      version       := dottyVersion,
+      scalaVersion  := dottyNonBootstrappedVersion,
+      crossPaths    := true,
+      autoScalaLibrary := false,
+      bootstrappedScalaInstanceSettings,
+      // Source directories: override + shared compiler sources
+      Compile / unmanagedSourceDirectories := Seq(
+        baseDirectory.value / "src",                                // overrides first
+        (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src",               // shared compiler sources
+        (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src-bootstrapped",  // bootstrapped-only sources
+      ),
+      // Exclude JVM-only packages and Java files, and apply override mechanism
+      Compile / sources := {
+        val allSources = (Compile / sources).value
+        val overrideBase = baseDirectory.value / "src"
+        val compilerBase = (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src"
+        val compilerBootBase = (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src-bootstrapped"
+
+        // Collect relative paths of override files
+        val overridePaths = allSources
+          .flatMap(_.relativeTo(overrideBase))
+          .toSet
+
+        allSources
+          // Exclude Java source files (they can't be compiled by Scala.js)
+          .filterNot(_.getName.endsWith(".java"))
+          // Exclude JVM-only packages (only from compiler sources, not from override dir)
+          .filterNot { f =>
+            val path = f.getAbsolutePath
+            val isOverride = path.startsWith(overrideBase.getAbsolutePath)
+            !isOverride && (
+              path.contains("/backend/jvm/") ||
+              path.contains("/backend\\jvm\\") ||
+              path.contains("/scripting/") ||
+              path.contains("/debug/")
+            )
+          }
+          // Apply override: if a file exists in compiler-js/src, exclude the original from compiler/src
+          .filterNot { f =>
+            val relFromCompiler = f.relativeTo(compilerBase).orElse(f.relativeTo(compilerBootBase))
+            relFromCompiler.exists(overridePaths.contains)
+          }
+      },
+      // No JVM-only dependencies
+      libraryDependencies ++= Seq(
+        ("org.scala-js" %% "scalajs-library" % scalaJSVersion % Provided).cross(CrossVersion.for3Use2_13),
+        ("org.scala-js" % "scalajs-javalib" % scalaJSVersion),
+      ),
+      // Include scalajs-ir sources (same as bootstrapped compiler)
+      ivyConfigurations += SourceDeps.hide,
+      transitiveClassifiers := Seq("sources"),
+      libraryDependencies +=
+        ("org.scala-js" %% "scalajs-ir" % scalaJSVersion % "sourcedeps").cross(CrossVersion.for3Use2_13),
+      Compile / sourceGenerators += Def.task {
+        val s = streams.value
+        val cacheDir = s.cacheDirectory
+        val trgDir = (Compile / sourceManaged).value / "scalajs-ir-src"
+
+        val report = updateClassifiers.value
+        val scalaJSIRSourcesJar = report.select(
+            configuration = configurationFilter("sourcedeps"),
+            module = (_: ModuleID).name.startsWith("scalajs-ir_"),
+            artifact = artifactFilter(`type` = "src")).headOption.getOrElse {
+          sys.error(s"Could not fetch scalajs-ir sources")
+        }
+
+        FileFunction.cached(cacheDir / s"fetchScalaJSIRSource",
+            FilesInfo.lastModified, FilesInfo.exists) { dependencies =>
+          s.log.info(s"Unpacking scalajs-ir sources to $trgDir...")
+          if (trgDir.exists)
+            IO.delete(trgDir)
+          IO.createDirectory(trgDir)
+          IO.unzip(scalaJSIRSourcesJar, trgDir)
+
+          val sjsSources = (trgDir ** "*.scala").get.toSet
+          sjsSources.foreach(f => {
+            val lines = IO.readLines(f)
+            val linesWithPackage = replacePackage(lines) {
+              case "org.scalajs.ir" => "dotty.tools.sjs.ir"
+            }
+            IO.writeLines(f, insertUnsafeNullsImport(linesWithPackage))
+          })
+          sjsSources
+        } (Set(scalaJSIRSourcesJar)).toSeq
+      }.taskValue,
+      // Generate compiler.properties
+      Compile / resourceGenerators += generateCompilerProperties.taskValue,
+      Compile / resourceDirectories += (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "resources",
+      // Project specific target folder
+      target := target.value / "scala3-compiler-sjs",
+      publish / skip := true,
+      bspEnabled := false,
+      Compile / mainClass := None,
+    )
+
   // ==============================================================================================
   // ========================================== SCALADOC ==========================================
   // ==============================================================================================
