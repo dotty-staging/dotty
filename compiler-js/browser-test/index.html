@@ -8,15 +8,36 @@
     textarea { width: 100%; height: 200px; font-family: monospace; font-size: 14px; }
     button { padding: 8px 16px; font-size: 14px; margin: 8px 0; }
     #output { background: #f4f4f4; padding: 1em; white-space: pre-wrap; min-height: 100px; }
-    #status { color: #666; }
+    #status { color: #666; margin-bottom: 4px; }
     .error { color: red; }
     .warning { color: orange; }
     .info { color: blue; }
+
+    .progress-container { display: none; width: 100%; margin-bottom: 12px; }
+    .progress-container.active { display: block; }
+    .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .progress-label { width: 120px; text-align: right; font-size: 13px; }
+    .progress-bar { flex: 1; height: 18px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #4a9; border-radius: 4px; transition: width 0.15s; width: 0%; }
+    .progress-text { width: 70px; font-size: 13px; }
   </style>
 </head>
 <body>
   <h1>Scala 3 Compiler in the Browser</h1>
   <p id="status">Loading...</p>
+
+  <div id="progress" class="progress-container">
+    <div class="progress-row">
+      <span class="progress-label">main.js</span>
+      <div class="progress-bar"><div id="bar-js" class="progress-fill"></div></div>
+      <span id="pct-js" class="progress-text">0%</span>
+    </div>
+    <div class="progress-row">
+      <span class="progress-label">classpath.bin</span>
+      <div class="progress-bar"><div id="bar-cp" class="progress-fill"></div></div>
+      <span id="pct-cp" class="progress-text">0%</span>
+    </div>
+  </div>
 
   <textarea id="source">object Hello {
   val x: Int = "not an int"
@@ -27,32 +48,87 @@
   <h2>Output</h2>
   <div id="output"></div>
 
-  <!-- Load compiler as a plain script (NoModule mode) so DottyCompiler lands on globalThis -->
-  <script src="main.js"></script>
   <script>
     (async function() {
       const statusEl = document.getElementById('status');
       const outputEl = document.getElementById('output');
       const compileBtn = document.getElementById('compile');
       const sourceEl = document.getElementById('source');
+      const progressEl = document.getElementById('progress');
 
-      statusEl.textContent = 'Fetching classpath.bin...';
-      const resp = await fetch('classpath.bin');
-      if (!resp.ok) {
-        statusEl.textContent = 'Failed to fetch classpath.bin — make sure it is in this directory.';
-        throw new Error('Failed to fetch classpath.bin');
+      // Fetch with progress tracking, returns {blob, arrayBuffer} depending on type
+      function fetchWithProgress(url, barEl, pctEl) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.responseType = 'arraybuffer';
+          xhr.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              barEl.style.width = pct + '%';
+              pctEl.textContent = pct + '%';
+            } else {
+              // Unknown total — show downloaded amount
+              const mb = (e.loaded / 1048576).toFixed(1);
+              pctEl.textContent = mb + ' MB';
+              barEl.style.width = '50%';
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              barEl.style.width = '100%';
+              pctEl.textContent = '100%';
+              resolve(xhr.response);
+            } else {
+              reject(new Error(`HTTP ${xhr.status} for ${url}`));
+            }
+          };
+          xhr.onerror = () => reject(new Error(`Network error fetching ${url}`));
+          xhr.send();
+        });
       }
-      const buf = await resp.arrayBuffer();
 
-      statusEl.textContent = 'Loading classpath into compiler...';
-      DottyCompiler.loadClasspath(buf);
+      // Show progress bars and start both downloads in parallel
+      statusEl.textContent = 'Downloading compiler and classpath...';
+      progressEl.classList.add('active');
 
+      const barJs = document.getElementById('bar-js');
+      const pctJs = document.getElementById('pct-js');
+      const barCp = document.getElementById('bar-cp');
+      const pctCp = document.getElementById('pct-cp');
+
+      let jsBuf, cpBuf;
+      try {
+        [jsBuf, cpBuf] = await Promise.all([
+          fetchWithProgress('main.js', barJs, pctJs),
+          fetchWithProgress('classpath.bin', barCp, pctCp),
+        ]);
+      } catch (e) {
+        statusEl.textContent = 'Download failed: ' + e.message;
+        return;
+      }
+
+      // Load main.js via a Blob <script> tag (let declarations need script scope, not eval)
+      statusEl.textContent = 'Initializing compiler...';
+      await new Promise((resolve, reject) => {
+        const blob = new Blob([jsBuf], { type: 'application/javascript' });
+        const script = document.createElement('script');
+        script.src = URL.createObjectURL(blob);
+        script.onload = () => { URL.revokeObjectURL(script.src); resolve(); };
+        script.onerror = () => reject(new Error('Failed to execute main.js'));
+        document.head.appendChild(script);
+      });
+
+      // Load classpath blob
+      statusEl.textContent = 'Loading classpath...';
+      DottyCompiler.loadClasspath(cpBuf);
+
+      progressEl.classList.remove('active');
       statusEl.textContent = 'Ready!';
       compileBtn.disabled = false;
 
       compileBtn.addEventListener('click', () => {
         outputEl.textContent = 'Compiling...';
-        // Use setTimeout to allow the UI to update
         setTimeout(() => {
           try {
             const source = sourceEl.value;
