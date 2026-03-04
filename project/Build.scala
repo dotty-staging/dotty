@@ -170,6 +170,7 @@ object Build {
   val ideTestsDependencyClasspath = taskKey[Seq[File]]("Dependency classpath to use in IDE tests")
 
   val fetchScalaJSSource = taskKey[File]("Fetch the sources of Scala.js")
+  val bundleLibs = taskKey[File]("Bundle JDK, scala-library, and scala3-library class files next to main.js")
 
   lazy val SourceDeps = config("sourcedeps")
 
@@ -1845,6 +1846,45 @@ object Build {
       scalaJSUseMainModuleInitializer := true,
       Compile / mainClass := Some("dotty.tools.dotc.Main"),
       scalaJSLinkerConfig ~= { _.withESFeatures(_.withESVersion(ESVersion.ES2018)) },
+      // Task to bundle JDK + scala library class files next to main.js
+      bundleLibs := {
+        val s = streams.value
+        val outputDir = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
+        val libDir = outputDir.getParentFile / "lib"
+
+        val javaHome = System.getProperty("java.home")
+        val jmodFile = new File(javaHome) / "jmods" / "java.base.jmod"
+        // scala-library-bootstrapped contains both scala2 stdlib and scala3 library classes+tasty
+        val scalaLibClasses = (`scala-library-bootstrapped` / Compile / classDirectory).value
+        val _ = (`scala-library-bootstrapped` / Compile / compile).value
+
+        val jdkDir = libDir / "jdk"
+        val scalaLibDir = libDir / "scala-lib"
+
+        // Extract jmod using `jmod extract` (jmod files have extra header bytes that break IO.unzip)
+        if (!jdkDir.exists()) {
+          s.log.info(s"Extracting JDK classes from $jmodFile to $jdkDir...")
+          val tmpDir = libDir / "jmod-tmp"
+          IO.createDirectory(tmpDir)
+          val jmodTool = new File(javaHome) / "bin" / "jmod"
+          val exitCode = scala.sys.process.Process(
+            Seq(jmodTool.getAbsolutePath, "extract", "--dir", tmpDir.getAbsolutePath, jmodFile.getAbsolutePath)
+          ).!
+          if (exitCode != 0) sys.error(s"jmod extract failed with exit code $exitCode")
+          // jmod extract puts classes under tmpDir/classes/
+          IO.move(tmpDir / "classes", jdkDir)
+          IO.delete(tmpDir)
+        }
+
+        // Copy scala library classes + tasty files
+        if (!scalaLibDir.exists()) {
+          s.log.info(s"Copying scala library from $scalaLibClasses to $scalaLibDir...")
+          IO.copyDirectory(scalaLibClasses, scalaLibDir)
+        }
+
+        s.log.info(s"Bundled libraries at $libDir")
+        libDir
+      },
     )
 
   // ==============================================================================================
