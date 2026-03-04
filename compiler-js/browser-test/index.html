@@ -7,11 +7,24 @@
     body { font-family: monospace; max-width: 900px; margin: 2em auto; }
     textarea { width: 100%; height: 200px; font-family: monospace; font-size: 14px; }
     button { padding: 8px 16px; font-size: 14px; margin: 8px 0; }
-    #output { background: #f4f4f4; padding: 1em; white-space: pre-wrap; min-height: 100px; }
+    #output { background: #1e1e1e; color: #d4d4d4; padding: 1em; white-space: pre-wrap; min-height: 100px;
+             border-radius: 6px; font-size: 13px; line-height: 1.5; }
     #status { color: #666; margin-bottom: 4px; }
-    .error { color: red; }
-    .warning { color: orange; }
-    .info { color: blue; }
+    .ansi-bold { font-weight: bold; }
+    .ansi-red { color: #f44747; }
+    .ansi-green { color: #6a9955; }
+    .ansi-yellow { color: #dcdcaa; }
+    .ansi-blue { color: #569cd6; }
+    .ansi-magenta { color: #c586c0; }
+    .ansi-cyan { color: #4ec9b0; }
+    .ansi-white { color: #d4d4d4; }
+    .ansi-bright-red { color: #f14c4c; }
+    .ansi-bright-green { color: #73c991; }
+    .ansi-bright-yellow { color: #e5e510; }
+    .ansi-bright-blue { color: #3b8eea; }
+    .ansi-bright-magenta { color: #d670d6; }
+    .ansi-bright-cyan { color: #29b8db; }
+    .ansi-bright-white { color: #e5e5e5; }
 
     .progress-container { display: none; width: 100%; margin-bottom: 12px; }
     .progress-container.active { display: block; }
@@ -127,23 +140,56 @@
       statusEl.textContent = 'Ready!';
       compileBtn.disabled = false;
 
+      // Convert ANSI escape sequences to HTML spans
+      function ansiToHtml(text) {
+        const colorMap = {
+          '30': 'ansi-black', '31': 'ansi-red', '32': 'ansi-green', '33': 'ansi-yellow',
+          '34': 'ansi-blue', '35': 'ansi-magenta', '36': 'ansi-cyan', '37': 'ansi-white',
+          '90': 'ansi-bright-red', '91': 'ansi-bright-red', '92': 'ansi-bright-green',
+          '93': 'ansi-bright-yellow', '94': 'ansi-bright-blue', '95': 'ansi-bright-magenta',
+          '96': 'ansi-bright-cyan', '97': 'ansi-bright-white',
+        };
+        let result = '';
+        let open = false;
+        const parts = text.split(/\x1b\[([0-9;]*)m/);
+        // parts: [text, codes, text, codes, text, ...]
+        for (let i = 0; i < parts.length; i++) {
+          if (i % 2 === 0) {
+            // Text segment — escape HTML
+            result += parts[i].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          } else {
+            // ANSI code segment
+            const codes = parts[i].split(';');
+            if (open) { result += '</span>'; open = false; }
+            if (parts[i] === '0' || parts[i] === '') continue; // reset
+            const classes = [];
+            for (const c of codes) {
+              if (c === '1') classes.push('ansi-bold');
+              else if (colorMap[c]) classes.push(colorMap[c]);
+            }
+            if (classes.length > 0) {
+              result += `<span class="${classes.join(' ')}">`;
+              open = true;
+            }
+          }
+        }
+        if (open) result += '</span>';
+        return result;
+      }
+
       compileBtn.addEventListener('click', () => {
-        outputEl.textContent = 'Compiling...';
+        outputEl.innerHTML = '<span style="color:#888">Compiling...</span>';
         setTimeout(() => {
           try {
             const source = sourceEl.value;
             const result = DottyCompiler.compile(source, []);
             if (result.length === 0) {
-              outputEl.innerHTML = '<span class="info">Compilation successful — no errors or warnings.</span>';
+              outputEl.innerHTML = '<span style="color:#6a9955">Compilation successful — no errors or warnings.</span>';
             } else {
-              outputEl.innerHTML = result.map(d => {
-                const cls = d.severity;
-                const loc = d.line >= 0 ? `L${d.line + 1}:${d.column + 1}` : '';
-                return `<span class="${cls}">[${d.severity}] ${loc} ${d.message}</span>`;
-              }).join('\n');
+              outputEl.innerHTML = result.map(d => ansiToHtml(d.message)).join('\n');
             }
           } catch (e) {
-            outputEl.innerHTML = `<span class="error">Exception: ${e.message}\n${e.stack}</span>`;
+            outputEl.innerHTML = `<span class="ansi-red">Exception: ${e.message}\n${e.stack}</span>`;
           }
         }, 10);
       });
