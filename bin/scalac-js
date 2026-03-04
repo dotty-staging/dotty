@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# Launch the Scala 3 compiler compiled to JavaScript via Scala.js.
+# Rebuilds (fastLinkJS + bundleLibs) if main.js is missing.
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" >& /dev/null && pwd)/.."
+
+FASTOPT_DIR="$ROOT/compiler-js/target/scala3-compiler-sjs"
+
+# Find main.js under the fastopt output (version-dependent path)
+MAIN_JS="$(find "$FASTOPT_DIR" -name "main.js" -path "*/scala3-compiler-fastopt/*" 2>/dev/null | head -1)"
+
+if [ -z "$MAIN_JS" ]; then
+  echo "Building compiler-js (fastLinkJS + bundleLibs)..."
+  (cd "$ROOT" && sbt 'project scala3-compiler-sjs' fastLinkJS bundleLibs)
+  MAIN_JS="$(find "$FASTOPT_DIR" -name "main.js" -path "*/scala3-compiler-fastopt/*" 2>/dev/null | head -1)"
+  if [ -z "$MAIN_JS" ]; then
+    echo "Error: failed to build compiler-js" >&2
+    exit 1
+  fi
+fi
+
+exec node "$MAIN_JS" "$@"
