@@ -3,9 +3,14 @@ package dotty.tools.dotc.interfaces
 import java.util.Optional
 
 /** Scala stubs for Java interfaces from the interfaces/ module.
- *  Methods are parameterless (no `()`) so that Scala callers can use them
- *  without parens — matching how most shared compiler code calls them.
- *  Java interfaces allow both conventions, but Scala traits require consistency.
+ *
+ *  Java interfaces allow callers to use either `x.foo()` or `x.foo` syntax.
+ *  Scala traits enforce one convention. Since the majority of call sites in
+ *  compiler/src/ omit parens, these stubs declare methods parameterless to
+ *  avoid needing overrides at every call site.
+ *
+ *  The trade-off: a few implementation files (e.g. SourceFile.scala) that
+ *  originally used `def content(): ...` must be overridden to drop the parens.
  */
 
 trait AbstractFile {
@@ -46,8 +51,8 @@ object Diagnostic {
 }
 
 trait DiagnosticRelatedInformation {
-  def message: String
   def position: Optional[SourcePosition]
+  def message: String
 }
 
 trait ReporterResult {
