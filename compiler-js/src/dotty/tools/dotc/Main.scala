@@ -6,6 +6,13 @@ import scala.scalajs.js
 /** JS-friendly entry point that reads args from process.argv on Node.js. */
 object Main extends Driver {
   override def main(args: Array[String]): Unit = {
+    // In browser, process may not exist — skip CLI initialization
+    try {
+      val _ = js.Dynamic.global.process.argv
+    } catch {
+      case _: Throwable => return // Browser environment, do nothing
+    }
+
     // When called from scalaJSUseMainModuleInitializer, args is empty.
     // Read actual CLI args from Node.js process.argv (dropping node + script path).
     val actualArgs =

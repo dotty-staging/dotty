@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Scala 3 Compiler - Browser Test</title>
+  <style>
+    body { font-family: monospace; max-width: 900px; margin: 2em auto; }
+    textarea { width: 100%; height: 200px; font-family: monospace; font-size: 14px; }
+    button { padding: 8px 16px; font-size: 14px; margin: 8px 0; }
+    #output { background: #f4f4f4; padding: 1em; white-space: pre-wrap; min-height: 100px; }
+    #status { color: #666; }
+    .error { color: red; }
+    .warning { color: orange; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>Scala 3 Compiler in the Browser</h1>
+  <p id="status">Loading...</p>
+
+  <textarea id="source">object Hello {
+  val x: Int = "not an int"
+  val y: Int = 42
+}</textarea>
+  <br>
+  <button id="compile" disabled>Compile</button>
+  <h2>Output</h2>
+  <div id="output"></div>
+
+  <!-- Load compiler as a plain script (NoModule mode) so DottyCompiler lands on globalThis -->
+  <script src="main.js"></script>
+  <script>
+    (async function() {
+      const statusEl = document.getElementById('status');
+      const outputEl = document.getElementById('output');
+      const compileBtn = document.getElementById('compile');
+      const sourceEl = document.getElementById('source');
+
+      statusEl.textContent = 'Fetching classpath.bin...';
+      const resp = await fetch('classpath.bin');
+      if (!resp.ok) {
+        statusEl.textContent = 'Failed to fetch classpath.bin — make sure it is in this directory.';
+        throw new Error('Failed to fetch classpath.bin');
+      }
+      const buf = await resp.arrayBuffer();
+
+      statusEl.textContent = 'Loading classpath into compiler...';
+      DottyCompiler.loadClasspath(buf);
+
+      statusEl.textContent = 'Ready!';
+      compileBtn.disabled = false;
+
+      compileBtn.addEventListener('click', () => {
+        outputEl.textContent = 'Compiling...';
+        // Use setTimeout to allow the UI to update
+        setTimeout(() => {
+          try {
+            const source = sourceEl.value;
+            const result = DottyCompiler.compile(source, []);
+            if (result.length === 0) {
+              outputEl.innerHTML = '<span class="info">Compilation successful — no errors or warnings.</span>';
+            } else {
+              outputEl.innerHTML = result.map(d => {
+                const cls = d.severity;
+                const loc = d.line >= 0 ? `L${d.line + 1}:${d.column + 1}` : '';
+                return `<span class="${cls}">[${d.severity}] ${loc} ${d.message}</span>`;
+              }).join('\n');
+            }
+          } catch (e) {
+            outputEl.innerHTML = `<span class="error">Exception: ${e.message}\n${e.stack}</span>`;
+          }
+        }, 10);
+      });
+    })();
+  </script>
+</body>
+</html>

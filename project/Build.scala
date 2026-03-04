@@ -171,6 +171,7 @@ object Build {
 
   val fetchScalaJSSource = taskKey[File]("Fetch the sources of Scala.js")
   val bundleLibs = taskKey[File]("Bundle JDK, scala-library, and scala3-library class files next to main.js")
+  val packClasspath = taskKey[File]("Pack all classpath files into a single classpath.bin archive")
 
   lazy val SourceDeps = config("sourcedeps")
 
@@ -1897,6 +1898,65 @@ object Build {
 
         s.log.info(s"Bundled libraries at $libDir")
         libDir
+      },
+      // Task to pack all classpath files into a single binary archive
+      packClasspath := {
+        val s = streams.value
+        val libDir = bundleLibs.value
+        val outputFile = libDir.getParentFile / "classpath.bin"
+
+        val dirs = Seq(
+          libDir / "jdk",
+          libDir / "scala-lib",
+          libDir / "scalajs-lib"
+        ).filter(_.exists())
+
+        // Collect all .class and .tasty files with relative paths
+        val entries = dirs.flatMap { dir =>
+          val base = dir.toPath
+          val files = (dir ** "*.class").get ++ (dir ** "*.tasty").get
+          files.map { f =>
+            val rel = base.relativize(f.toPath).toString.replace('\\', '/')
+            (rel, f)
+          }
+        }
+
+        s.log.info(s"Packing ${entries.size} classpath files into ${outputFile.getName}...")
+
+        // Build data buffer and index
+        val dataStream = new java.io.ByteArrayOutputStream()
+        val index = new scala.collection.mutable.LinkedHashMap[String, (Int, Int)]()
+        var offset = 0
+
+        for ((rel, file) <- entries) {
+          val bytes = IO.readBytes(file)
+          index(rel) = (offset, bytes.length)
+          dataStream.write(bytes)
+          offset += bytes.length
+        }
+
+        // Build JSON index
+        val jsonEntries = index.map { case (path, (off, size)) =>
+          s""""$path":[$off,$size]"""
+        }.mkString("{", ",", "}")
+        val indexBytes = jsonEntries.getBytes("UTF-8")
+
+        // Write archive: [4 bytes: index length] [index JSON] [data]
+        val out = new java.io.BufferedOutputStream(new java.io.FileOutputStream(outputFile))
+        try {
+          // Big-endian uint32 for index length
+          out.write((indexBytes.length >> 24) & 0xff)
+          out.write((indexBytes.length >> 16) & 0xff)
+          out.write((indexBytes.length >> 8) & 0xff)
+          out.write(indexBytes.length & 0xff)
+          out.write(indexBytes)
+          dataStream.writeTo(out)
+        } finally {
+          out.close()
+        }
+
+        s.log.info(s"Wrote ${outputFile.length()} bytes to ${outputFile.getAbsolutePath}")
+        outputFile
       },
     )
 

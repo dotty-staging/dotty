@@ -53,7 +53,12 @@ class VirtualFile(val name: String, override val path: String) extends AbstractF
     }
   }
 
-  def container: AbstractFile = NoAbstractFile
+  private var _container: AbstractFile = NoAbstractFile
+
+  def container: AbstractFile = _container
+
+  /** Set the container directory for this file (enables hasSiblingTasty). */
+  def setContainer(dir: AbstractFile): Unit = _container = dir
 
   /** Is this abstract file a directory? */
   def isDirectory: Boolean = false
