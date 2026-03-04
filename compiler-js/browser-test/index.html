@@ -52,10 +52,15 @@
     </div>
   </div>
 
-  <textarea id="source">object Hello {
-  val x: Int = "not an int"
-  val y: Int = 42
-}</textarea>
+  <textarea id="source">import language.experimental.captureChecking
+trait Logger:
+  def log(msg: String): Unit
+def usingLogger[R](block: Logger^ => R): R = ???
+
+def main(): Unit =
+  val escaped = usingLogger: l =>
+    () => l.log("Hello, world")
+  escaped()</textarea>
   <br>
   <button id="compile" disabled>Compile</button>
   <h2>Output</h2>
