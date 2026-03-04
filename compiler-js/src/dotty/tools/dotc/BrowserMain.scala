@@ -8,7 +8,7 @@ import dotty.tools.io.{VirtualDirectory, VirtualFile, AbstractFile}
 import dotty.tools.dotc.classpath.{VirtualDirectoryClassPath, AggregateClassPath}
 import dotty.tools.dotc.config.JavaPlatform
 import dotty.tools.dotc.core.Contexts._
-import dotty.tools.dotc.reporting.{StoreReporter, Diagnostic}
+import dotty.tools.dotc.reporting.{MessageRendering, StoreReporter, Diagnostic}
 
 /** Browser-facing API for the Scala 3 compiler.
  *
@@ -59,11 +59,13 @@ object BrowserMain:
     val compilerArgs = args.toArray
     driver.process(compilerArgs, reporter)
 
-    // Collect diagnostics
+    // Collect diagnostics with full rendered messages (including source context)
     val results = js.Array[js.Dynamic]()
     val ctx = driver.lastContext
     if ctx != null then
-      val diags = reporter.removeBufferedMessages(using ctx)
+      given Context = ctx
+      val rendering = new MessageRendering {}
+      val diags = reporter.removeBufferedMessages
       for diag <- diags do
         val severity = diag.level match
           case 0 => "info"
@@ -73,11 +75,12 @@ object BrowserMain:
         val pos = diag.pos
         val line = if pos.exists then pos.line else -1
         val col = if pos.exists then pos.column else -1
+        val rendered = rendering.messageAndPos(diag)
         results.push(js.Dynamic.literal(
           severity = severity,
           line = line,
           column = col,
-          message = diag.message
+          message = rendered
         ))
 
     results
