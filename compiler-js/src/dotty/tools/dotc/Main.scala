@@ -33,15 +33,18 @@ object Main extends Driver {
 
       val jdkDir = path.join(libDir, "jdk").asInstanceOf[String]
       val scalaLibDir = path.join(libDir, "scala-lib").asInstanceOf[String]
+      val sjsLibDir = path.join(libDir, "scalajs-lib").asInstanceOf[String]
 
-      // Check bundled directories exist
+      // Check bundled directories exist (jdk + scala-lib are required; scalajs-lib is optional)
       val allExist =
         fs.existsSync(jdkDir).asInstanceOf[Boolean] &&
         fs.existsSync(scalaLibDir).asInstanceOf[Boolean]
 
       if !allExist then return args
 
-      val bundledCp = s"$jdkDir:$scalaLibDir"
+      val dirs = Seq(jdkDir, scalaLibDir) ++
+        (if fs.existsSync(sjsLibDir).asInstanceOf[Boolean] then Seq(sjsLibDir) else Seq.empty)
+      val bundledCp = dirs.mkString(":")
 
       // Check if user already provided -classpath/-cp
       val cpIdx = args.indexWhere(a => a == "-classpath" || a == "-cp")

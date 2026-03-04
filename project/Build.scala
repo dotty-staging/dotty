@@ -1846,7 +1846,7 @@ object Build {
       scalaJSUseMainModuleInitializer := true,
       Compile / mainClass := Some("dotty.tools.dotc.Main"),
       scalaJSLinkerConfig ~= { _.withESFeatures(_.withESVersion(ESVersion.ES2018)) },
-      // Task to bundle JDK + scala library class files next to main.js
+      // Task to bundle JDK + scala library + scalajs-library class files next to main.js
       bundleLibs := {
         val s = streams.value
         val outputDir = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
@@ -1857,9 +1857,15 @@ object Build {
         // scala-library-bootstrapped contains both scala2 stdlib and scala3 library classes+tasty
         val scalaLibClasses = (`scala-library-bootstrapped` / Compile / classDirectory).value
         val _ = (`scala-library-bootstrapped` / Compile / compile).value
+        // Resolve scalajs-library JAR from update report (it's a Provided dependency)
+        val report = (Compile / update).value
+        val sjsLibJar = report.select(
+          module = (_: ModuleID).name.startsWith("scalajs-library_")
+        ).headOption.getOrElse(sys.error("Could not find scalajs-library JAR"))
 
         val jdkDir = libDir / "jdk"
         val scalaLibDir = libDir / "scala-lib"
+        val sjsLibDir = libDir / "scalajs-lib"
 
         // Extract jmod using `jmod extract` (jmod files have extra header bytes that break IO.unzip)
         if (!jdkDir.exists()) {
@@ -1880,6 +1886,13 @@ object Build {
         if (!scalaLibDir.exists()) {
           s.log.info(s"Copying scala library from $scalaLibClasses to $scalaLibDir...")
           IO.copyDirectory(scalaLibClasses, scalaLibDir)
+        }
+
+        // Extract scalajs-library JAR
+        if (!sjsLibDir.exists()) {
+          s.log.info(s"Extracting scalajs-library from $sjsLibJar to $sjsLibDir...")
+          IO.createDirectory(sjsLibDir)
+          IO.unzip(sjsLibJar, sjsLibDir, "*.class")
         }
 
         s.log.info(s"Bundled libraries at $libDir")
