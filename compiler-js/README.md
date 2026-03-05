@@ -128,6 +128,61 @@ When adding new overrides:
   actually breaks. The MegaPhase incident (rewriting logic instead of fixing the
   one incompatible method) is the cautionary tale.
 
+## JavaScript API
+
+The generated `main.js` exposes two usage modes: a Node.js CLI entry point and a
+browser-facing API.
+
+### Node.js (CLI)
+
+When loaded in Node.js, `main.js` runs immediately as a CLI tool. It reads
+arguments from `process.argv`, auto-detects bundled libraries, and invokes the
+compiler. There is no API to call — it behaves like a standard command-line
+compiler.
+
+### Browser (`DottyCompiler`)
+
+When loaded in a browser (via a `<script>` tag), `main.js` exports a global
+`DottyCompiler` object with two methods:
+
+#### `DottyCompiler.loadClasspath(buffer: ArrayBuffer): void`
+
+Loads the classpath archive into memory. Must be called once before `compile()`.
+The `buffer` should contain the contents of `classpath.bin` (produced by the
+`packClasspath` SBT task).
+
+#### `DottyCompiler.compile(source: string, args: string[]): Diagnostic[]`
+
+Compiles a Scala source string and returns an array of diagnostic objects.
+
+**Parameters:**
+- `source` — Scala source code as a string
+- `args` — additional compiler flags (e.g., `["-Xprint:typer", "-Ycc"]`)
+
+**Returns** an array of objects, each with:
+
+| Field      | Type     | Description                                      |
+|------------|----------|--------------------------------------------------|
+| `severity` | `string` | `"info"`, `"warning"`, or `"error"`              |
+| `line`     | `number` | 0-based line number (`-1` if no position)        |
+| `column`   | `number` | 0-based column number (`-1` if no position)      |
+| `message`  | `string` | Rendered message with source context (ANSI-colored) |
+
+#### Example
+
+```javascript
+const resp = await fetch("classpath.bin");
+DottyCompiler.loadClasspath(await resp.arrayBuffer());
+
+const diagnostics = DottyCompiler.compile(
+  "object Hello { val x: Int = true }",
+  []
+);
+for (const d of diagnostics) {
+  console.log(`[${d.severity}] line ${d.line}: ${d.message}`);
+}
+```
+
 ## Limitations
 
 - **No `.class` output**: The JVM backend is stubbed.
