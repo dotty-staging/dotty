@@ -172,6 +172,7 @@ object Build {
   val fetchScalaJSSource = taskKey[File]("Fetch the sources of Scala.js")
   val bundleLibs = taskKey[File]("Bundle JDK, scala-library, and scala3-library class files next to main.js")
   val packClasspath = taskKey[File]("Pack all classpath files into a single classpath.bin archive")
+  val packLinkerLibs = taskKey[File]("Pack .sjsir library files into linker-libs.bin")
 
   lazy val SourceDeps = config("sourcedeps")
 
@@ -1769,11 +1770,19 @@ object Build {
         val overrideBase = baseDirectory.value / "src"
         val compilerBase = (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src"
         val compilerBootBase = (LocalProject("scala3-compiler-bootstrapped") / baseDirectory).value / "src-bootstrapped"
+        val sjsIrSrcBase = (Compile / sourceManaged).value / "scalajs-ir-src"
 
         // Collect relative paths of override files
         val overridePaths = allSources
           .flatMap(_.relativeTo(overrideBase))
           .toSet
+
+        // Map generated scalajs-ir paths (org/scalajs/ir/X.scala) to override paths (dotty/tools/sjs/ir/X.scala)
+        def sjsIrToOverridePath(f: File): Option[File] =
+          f.relativeTo(sjsIrSrcBase).map { rel =>
+            val path = rel.toString.replace("org/scalajs/ir/", "dotty/tools/sjs/ir/")
+            new File(path)
+          }
 
         allSources
           // Exclude Java source files (they can't be compiled by Scala.js)
@@ -1794,11 +1803,16 @@ object Build {
             val relFromCompiler = f.relativeTo(compilerBase).orElse(f.relativeTo(compilerBootBase))
             relFromCompiler.exists(overridePaths.contains)
           }
+          // Apply override for generated scalajs-ir sources
+          .filterNot { f =>
+            sjsIrToOverridePath(f).exists(overridePaths.contains)
+          }
       },
       // No JVM-only dependencies
       libraryDependencies ++= Seq(
         ("org.scala-js" %% "scalajs-library" % scalaJSVersion % Provided).cross(CrossVersion.for3Use2_13),
         ("org.scala-js" % "scalajs-javalib" % scalaJSVersion),
+        ("org.scala-js" % "scalajs-linker_sjs1_2.13" % scalaJSVersion),
       ),
       // Include scalajs-ir sources (same as bootstrapped compiler)
       ivyConfigurations += SourceDeps.hide,
@@ -1896,6 +1910,32 @@ object Build {
           IO.unzip(sjsLibJar, sjsLibDir, "*.class")
         }
 
+        // Extract .sjsir files for linker
+        val javalibJar = report.select(
+          module = (_: ModuleID).name == "scalajs-javalib"
+        ).headOption.getOrElse(sys.error("Could not find scalajs-javalib JAR"))
+
+        // scala-library-sjs class dir contains .sjsir for Scala stdlib + Scala 3 library
+        val scalaLibSjsClasses = (`scala-library-sjs` / Compile / classDirectory).value
+        val _2 = (`scala-library-sjs` / Compile / compile).value
+
+        val sjsirDir = libDir / "sjsir"
+        if (!sjsirDir.exists()) {
+          s.log.info(s"Extracting .sjsir files for linker to $sjsirDir...")
+          IO.createDirectory(sjsirDir)
+          IO.unzip(sjsLibJar, sjsirDir, "*.sjsir")
+          IO.unzip(javalibJar, sjsirDir, "*.sjsir")
+          // Copy .sjsir from Scala stdlib (scala-library-sjs)
+          val sjsirFiles = (scalaLibSjsClasses ** "*.sjsir").get
+          for (f <- sjsirFiles) {
+            val rel = scalaLibSjsClasses.toPath.relativize(f.toPath)
+            val target = sjsirDir.toPath.resolve(rel)
+            IO.createDirectory(target.getParent.toFile)
+            if (!target.toFile.exists()) // don't overwrite scalajs-library/javalib entries
+              IO.copyFile(f, target.toFile)
+          }
+        }
+
         s.log.info(s"Bundled libraries at $libDir")
         libDir
       },
@@ -1912,8 +1952,10 @@ object Build {
         ).filter(_.exists())
 
         // JDK internal packages not needed for compilation — drop to reduce classpath.bin size
+        // Keep jdk/internal/reflect/ and sun/reflect/ (needed by -scalajs compilation)
         val jdkInternalPrefixes = Seq("sun/", "jdk/", "com/", "apple/",
           "javax/crypto/", "javax/security/", "javax/net/")
+        val jdkKeepPrefixes = Seq("jdk/internal/reflect/", "sun/reflect/")
 
         // Collect .tasty and .class files, skipping .class where .tasty exists
         val jdkDir = libDir / "jdk"
@@ -1921,7 +1963,7 @@ object Build {
           val base = dir.toPath
           val isJdk = dir == jdkDir
           def isInternalJdk(rel: String): Boolean =
-            isJdk && jdkInternalPrefixes.exists(rel.startsWith)
+            isJdk && jdkInternalPrefixes.exists(rel.startsWith) && !jdkKeepPrefixes.exists(rel.startsWith)
           val tastyFiles = (dir ** "*.tasty").get
           val tastyPaths = tastyFiles.map { f =>
             base.relativize(f.toPath).toString.replace('\\', '/').stripSuffix(".tasty")
@@ -1960,6 +2002,51 @@ object Build {
         val out = new java.io.BufferedOutputStream(new java.io.FileOutputStream(outputFile))
         try {
           // Big-endian uint32 for index length
+          out.write((indexBytes.length >> 24) & 0xff)
+          out.write((indexBytes.length >> 16) & 0xff)
+          out.write((indexBytes.length >> 8) & 0xff)
+          out.write(indexBytes.length & 0xff)
+          out.write(indexBytes)
+          dataStream.writeTo(out)
+        } finally {
+          out.close()
+        }
+
+        s.log.info(s"Wrote ${outputFile.length()} bytes to ${outputFile.getAbsolutePath}")
+        outputFile
+      },
+      // Task to pack .sjsir library files into linker-libs.bin
+      packLinkerLibs := {
+        val s = streams.value
+        val libDir = bundleLibs.value
+        val sjsirDir = libDir / "sjsir"
+        val outputFile = libDir.getParentFile / "linker-libs.bin"
+
+        val entries = (sjsirDir ** "*.sjsir").get.map { f =>
+          val rel = sjsirDir.toPath.relativize(f.toPath).toString.replace('\\', '/')
+          (rel, f)
+        }
+
+        s.log.info(s"Packing ${entries.size} .sjsir files into ${outputFile.getName}...")
+
+        val dataStream = new java.io.ByteArrayOutputStream()
+        val index = new scala.collection.mutable.LinkedHashMap[String, (Int, Int)]()
+        var offset = 0
+
+        for ((rel, file) <- entries) {
+          val bytes = IO.readBytes(file)
+          index(rel) = (offset, bytes.length)
+          dataStream.write(bytes)
+          offset += bytes.length
+        }
+
+        val jsonEntries = index.map { case (path, (off, size)) =>
+          s""""$path":[$off,$size]"""
+        }.mkString("{", ",", "}")
+        val indexBytes = jsonEntries.getBytes("UTF-8")
+
+        val out = new java.io.BufferedOutputStream(new java.io.FileOutputStream(outputFile))
+        try {
           out.write((indexBytes.length >> 24) & 0xff)
           out.write((indexBytes.length >> 16) & 0xff)
           out.write((indexBytes.length >> 8) & 0xff)

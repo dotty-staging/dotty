@@ -6,7 +6,8 @@
   <style>
     body { font-family: monospace; max-width: 900px; margin: 2em auto; }
     textarea { width: 100%; height: 200px; font-family: monospace; font-size: 14px; }
-    button { padding: 8px 16px; font-size: 14px; margin: 8px 0; }
+    button { padding: 8px 16px; font-size: 14px; margin: 8px 4px 8px 0; }
+    button:disabled { opacity: 0.5; }
     #output { background: #1e1e1e; color: #d4d4d4; padding: 1em; white-space: pre-wrap; min-height: 100px;
              border-radius: 6px; font-size: 13px; line-height: 1.5; }
     #status { color: #666; margin-bottom: 4px; }
@@ -29,7 +30,7 @@
     .progress-container { display: none; width: 100%; margin-bottom: 12px; }
     .progress-container.active { display: block; }
     .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-    .progress-label { width: 120px; text-align: right; font-size: 13px; }
+    .progress-label { width: 140px; text-align: right; font-size: 13px; }
     .progress-bar { flex: 1; height: 18px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
     .progress-fill { height: 100%; background: #4a9; border-radius: 4px; transition: width 0.15s; width: 0%; }
     .progress-text { width: 70px; font-size: 13px; }
@@ -50,19 +51,17 @@
       <div class="progress-bar"><div id="bar-cp" class="progress-fill"></div></div>
       <span id="pct-cp" class="progress-text">0%</span>
     </div>
+    <div class="progress-row">
+      <span class="progress-label">linker-libs.bin</span>
+      <div class="progress-bar"><div id="bar-ll" class="progress-fill"></div></div>
+      <span id="pct-ll" class="progress-text">0%</span>
+    </div>
   </div>
 
-  <textarea id="source">import language.experimental.captureChecking
-trait Logger:
-  def log(msg: String): Unit
-def usingLogger[R](block: Logger^ => R): R = ???
-
-def main(): Unit =
-  val escaped = usingLogger: l =>
-    () => l.log("Hello, world")
-  escaped()</textarea>
+  <textarea id="source">@main def main() = println("Hello from Scala.js in the browser!")</textarea>
   <br>
   <button id="compile" disabled>Compile</button>
+  <button id="compileAndRun" disabled>Compile &amp; Run</button>
   <h2>Output</h2>
   <div id="output"></div>
 
@@ -71,10 +70,11 @@ def main(): Unit =
       const statusEl = document.getElementById('status');
       const outputEl = document.getElementById('output');
       const compileBtn = document.getElementById('compile');
+      const compileAndRunBtn = document.getElementById('compileAndRun');
       const sourceEl = document.getElementById('source');
       const progressEl = document.getElementById('progress');
 
-      // Fetch with progress tracking, returns {blob, arrayBuffer} depending on type
+      // Fetch with progress tracking
       function fetchWithProgress(url, barEl, pctEl) {
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -86,7 +86,6 @@ def main(): Unit =
               barEl.style.width = pct + '%';
               pctEl.textContent = pct + '%';
             } else {
-              // Unknown total — show downloaded amount
               const mb = (e.loaded / 1048576).toFixed(1);
               pctEl.textContent = mb + ' MB';
               barEl.style.width = '50%';
@@ -106,20 +105,23 @@ def main(): Unit =
         });
       }
 
-      // Show progress bars and start both downloads in parallel
-      statusEl.textContent = 'Downloading compiler and classpath...';
+      // Show progress bars and start all downloads in parallel
+      statusEl.textContent = 'Downloading compiler, classpath, and linker libs...';
       progressEl.classList.add('active');
 
       const barJs = document.getElementById('bar-js');
       const pctJs = document.getElementById('pct-js');
       const barCp = document.getElementById('bar-cp');
       const pctCp = document.getElementById('pct-cp');
+      const barLl = document.getElementById('bar-ll');
+      const pctLl = document.getElementById('pct-ll');
 
-      let jsBuf, cpBuf;
+      let jsBuf, cpBuf, llBuf;
       try {
-        [jsBuf, cpBuf] = await Promise.all([
+        [jsBuf, cpBuf, llBuf] = await Promise.all([
           fetchWithProgress('main.js', barJs, pctJs),
           fetchWithProgress('classpath.bin', barCp, pctCp),
+          fetchWithProgress('linker-libs.bin', barLl, pctLl),
         ]);
       } catch (e) {
         statusEl.textContent = 'Download failed: ' + e.message;
@@ -141,9 +143,14 @@ def main(): Unit =
       statusEl.textContent = 'Loading classpath...';
       DottyCompiler.loadClasspath(cpBuf);
 
+      // Load linker libraries
+      statusEl.textContent = 'Loading linker libraries...';
+      DottyCompiler.loadLinkerLibs(llBuf);
+
       progressEl.classList.remove('active');
       statusEl.textContent = 'Ready!';
       compileBtn.disabled = false;
+      compileAndRunBtn.disabled = false;
 
       // Convert ANSI escape sequences to HTML spans
       function ansiToHtml(text) {
@@ -157,16 +164,13 @@ def main(): Unit =
         let result = '';
         let open = false;
         const parts = text.split(/\x1b\[([0-9;]*)m/);
-        // parts: [text, codes, text, codes, text, ...]
         for (let i = 0; i < parts.length; i++) {
           if (i % 2 === 0) {
-            // Text segment — escape HTML
             result += parts[i].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
           } else {
-            // ANSI code segment
             const codes = parts[i].split(';');
             if (open) { result += '</span>'; open = false; }
-            if (parts[i] === '0' || parts[i] === '') continue; // reset
+            if (parts[i] === '0' || parts[i] === '') continue;
             const classes = [];
             for (const c of codes) {
               if (c === '1') classes.push('ansi-bold');
@@ -182,6 +186,11 @@ def main(): Unit =
         return result;
       }
 
+      function escapeHtml(text) {
+        return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      // Compile only (type-check)
       compileBtn.addEventListener('click', () => {
         outputEl.innerHTML = '<span style="color:#888">Compiling...</span>';
         setTimeout(() => {
@@ -194,9 +203,82 @@ def main(): Unit =
               outputEl.innerHTML = result.map(d => ansiToHtml(d.message)).join('\n');
             }
           } catch (e) {
-            outputEl.innerHTML = `<span class="ansi-red">Exception: ${e.message}\n${e.stack}</span>`;
+            outputEl.innerHTML = `<span class="ansi-red">Exception: ${escapeHtml(e.message)}\n${escapeHtml(e.stack)}</span>`;
           }
         }, 10);
+      });
+
+      // Compile & Run (compile with -scalajs, link, execute)
+      compileAndRunBtn.addEventListener('click', async () => {
+        outputEl.innerHTML = '<span style="color:#888">Compiling &amp; linking...</span>';
+        compileBtn.disabled = true;
+        compileAndRunBtn.disabled = true;
+
+        // Allow UI to update
+        await new Promise(r => setTimeout(r, 10));
+
+        try {
+          const source = sourceEl.value;
+
+          // Detect main class name from source
+          // Look for @main def <name> or object <Name> extends App or def main in object <Name>
+          let mainClass = 'main'; // default
+          const mainAnnotMatch = source.match(/@main\s+def\s+(\w+)/);
+          if (mainAnnotMatch) {
+            mainClass = mainAnnotMatch[1];
+          }
+
+          const result = await DottyCompiler.compileAndLink(source, [], mainClass);
+
+          if (!result.success) {
+            outputEl.innerHTML = result.diagnostics.map(d => ansiToHtml(d.message)).join('\n');
+          } else {
+            // Show any warnings
+            let html = '';
+            if (result.diagnostics.length > 0) {
+              html += result.diagnostics.map(d => ansiToHtml(d.message)).join('\n') + '\n';
+            }
+
+            // Execute the linked JavaScript, capturing console.log output
+            const logs = [];
+            const origLog = console.log;
+            const origWarn = console.warn;
+            const origError = console.error;
+            console.log = (...args) => { logs.push(args.join(' ')); origLog(...args); };
+            console.warn = (...args) => { logs.push('[warn] ' + args.join(' ')); origWarn(...args); };
+            console.error = (...args) => { logs.push('[error] ' + args.join(' ')); origError(...args); };
+
+            try {
+              new Function(result.js)();
+              console.log = origLog;
+              console.warn = origWarn;
+              console.error = origError;
+
+              if (logs.length > 0) {
+                html += '<span style="color:#6a9955">--- Program output ---</span>\n';
+                html += logs.map(escapeHtml).join('\n');
+              } else {
+                html += '<span style="color:#6a9955">Program executed successfully (no output).</span>';
+              }
+            } catch (runErr) {
+              console.log = origLog;
+              console.warn = origWarn;
+              console.error = origError;
+              html += `<span class="ansi-red">Runtime error: ${escapeHtml(runErr.message)}\n${escapeHtml(runErr.stack || '')}</span>`;
+              if (logs.length > 0) {
+                html += '\n<span style="color:#6a9955">--- Output before error ---</span>\n';
+                html += logs.map(escapeHtml).join('\n');
+              }
+            }
+
+            outputEl.innerHTML = html;
+          }
+        } catch (e) {
+          outputEl.innerHTML = `<span class="ansi-red">Exception: ${escapeHtml(e.message)}\n${escapeHtml(e.stack || '')}</span>`;
+        } finally {
+          compileBtn.disabled = false;
+          compileAndRunBtn.disabled = false;
+        }
       });
     })();
   </script>
