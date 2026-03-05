@@ -4,12 +4,15 @@
   <meta charset="utf-8">
   <title>Scala 3 Compiler - Browser Test</title>
   <style>
-    body { font-family: monospace; max-width: 900px; margin: 2em auto; }
-    textarea { width: 100%; height: 200px; font-family: monospace; font-size: 14px; }
+    body { font-family: monospace; max-width: 1000px; margin: 2em auto; }
+    textarea { width: 100%; height: 350px; font-family: monospace; font-size: 14px; tab-size: 2; }
     button { padding: 8px 16px; font-size: 14px; margin: 8px 4px 8px 0; }
     button:disabled { opacity: 0.5; }
-    #output { background: #1e1e1e; color: #d4d4d4; padding: 1em; white-space: pre-wrap; min-height: 100px;
+    select { padding: 6px 10px; font-size: 14px; margin: 8px 4px 8px 0; font-family: monospace; }
+    #output { background: #1e1e1e; color: #d4d4d4; padding: 1em; white-space: pre-wrap; min-height: 60px;
              border-radius: 6px; font-size: 13px; line-height: 1.5; }
+    #canvas-container { margin: 12px 0; }
+    #canvas-container canvas { border: 1px solid #ccc; border-radius: 4px; display: none; }
     #status { color: #666; margin-bottom: 4px; }
     .ansi-bold { font-weight: bold; }
     .ansi-red { color: #f44747; }
@@ -58,12 +61,259 @@
     </div>
   </div>
 
-  <textarea id="source">@main def main() = println("Hello from Scala.js in the browser!")</textarea>
+  <div>
+    <label for="examples">Example: </label>
+    <select id="examples" disabled>
+      <option value="hello">Hello World</option>
+      <option value="canvas" selected>Canvas Drawing</option>
+      <option value="spirograph">Spirograph</option>
+      <option value="gameoflife">Game of Life</option>
+      <option value="custom">Custom</option>
+    </select>
+  </div>
+  <textarea id="source"></textarea>
   <br>
   <button id="compile" disabled>Compile</button>
   <button id="compileAndRun" disabled>Compile &amp; Run</button>
+
+  <div id="canvas-container"><canvas id="appCanvas" width="600" height="400"></canvas></div>
+
   <h2>Output</h2>
   <div id="output"></div>
+
+  <!-- Examples stored as plain text to avoid JS template literal interpolation of Scala's ${} -->
+  <script type="text/x-scala" id="ex-hello">
+@main def main() =
+  println("Hello from Scala.js in the browser!")
+  println(s"2 + 2 = ${2 + 2}")
+
+  val fruits = List("apple", "banana", "cherry")
+  val upper = fruits.map(_.toUpperCase)
+  println(s"Fruits: $upper")
+
+  val fib = LazyList.iterate((0, 1)) { (a, b) => (b, a + b) }.map(_(0))
+  println(s"Fibonacci: ${fib.take(12).toList}")
+</script>
+
+  <script type="text/x-scala" id="ex-canvas">
+import scala.scalajs.js
+import scala.util.Random
+
+case class Circle(x: Int, y: Int, radius: Int, hue: Int)
+
+object CircleField:
+  def generate(width: Int, height: Int, count: Int, seed: Int): Vector[Circle] =
+    val rng = Random(seed)
+    Vector.tabulate(count) { i =>
+      Circle(
+        x = rng.nextInt(width),
+        y = rng.nextInt(height),
+        radius = 10 + rng.nextInt(40),
+        hue = (i * 137) % 360
+      )
+    }
+
+  def nearbyPairs(circles: Vector[Circle], maxDist: Double): Seq[(Circle, Circle)] =
+    for
+      i <- circles.indices
+      j <- (i + 1) until circles.length
+      a = circles(i)
+      b = circles(j)
+      if Math.hypot(b.x - a.x, b.y - a.y) < maxDist
+    yield (a, b)
+
+object Renderer:
+  def drawBackground(ctx: js.Dynamic, w: Int, h: Int): Unit =
+    ctx.fillStyle = "#1a1a2e"
+    ctx.fillRect(0, 0, w, h)
+
+  def drawCircle(ctx: js.Dynamic, c: Circle): Unit =
+    ctx.beginPath()
+    ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2)
+    ctx.fillStyle = s"hsla(${c.hue}, 70%, 60%, 0.6)"
+    ctx.fill()
+
+  def drawConnection(ctx: js.Dynamic, a: Circle, b: Circle): Unit =
+    ctx.beginPath()
+    ctx.moveTo(a.x, a.y)
+    ctx.lineTo(b.x, b.y)
+    ctx.stroke()
+
+  def drawTitle(ctx: js.Dynamic, w: Int, title: String, subtitle: String): Unit =
+    ctx.fillStyle = "#e0e0e0"
+    ctx.font = "bold 22px monospace"
+    ctx.textAlign = "center"
+    ctx.fillText(title, w / 2, 30)
+    ctx.font = "14px monospace"
+    ctx.fillStyle = "#888"
+    ctx.fillText(subtitle, w / 2, 52)
+
+@main def main() =
+  val canvas = js.Dynamic.global.document.getElementById("appCanvas")
+  canvas.style.display = "block"
+  val ctx = canvas.getContext("2d")
+  val w = canvas.width.asInstanceOf[Int]
+  val h = canvas.height.asInstanceOf[Int]
+
+  val circles = CircleField.generate(w, h, count = 60, seed = 42)
+  val connections = CircleField.nearbyPairs(circles, maxDist = 120)
+
+  Renderer.drawBackground(ctx, w, h)
+  circles.foreach(Renderer.drawCircle(ctx, _))
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"
+  ctx.lineWidth = 1
+  connections.foreach((a, b) => Renderer.drawConnection(ctx, a, b))
+
+  Renderer.drawTitle(ctx, w, "Scala 3 + Scala.js", "Compiled and linked in the browser")
+  println(s"Drew ${circles.length} circles with ${connections.length} connections")
+</script>
+
+  <script type="text/x-scala" id="ex-spirograph">
+import scala.scalajs.js
+
+case class SpiroCurve(outerR: Double, innerR: Double, pen: Double, hue: Int)
+
+object Spirograph:
+  def gcd(a: Long, b: Long): Long =
+    if b == 0 then a else gcd(b, a % b)
+
+  def trace(curve: SpiroCurve, steps: Int): Seq[(Double, Double)] =
+    val SpiroCurve(bigR, r, d, _) = curve
+    val period = gcd(bigR.toLong, r.toLong)
+    (0 to steps).map { i =>
+      val t = i * Math.PI * 2 * r / period / steps
+      val x = (bigR - r) * Math.cos(t) + d * Math.cos((bigR - r) / r * t)
+      val y = (bigR - r) * Math.sin(t) - d * Math.sin((bigR - r) / r * t)
+      (x, y)
+    }
+
+  def draw(ctx: js.Dynamic, cx: Double, cy: Double, curve: SpiroCurve, steps: Int): Unit =
+    val points = trace(curve, steps)
+    ctx.beginPath()
+    points.zipWithIndex.foreach { (pt, i) =>
+      val (x, y) = pt
+      if i == 0 then ctx.moveTo(cx + x, cy + y)
+      else ctx.lineTo(cx + x, cy + y)
+    }
+    ctx.strokeStyle = s"hsla(${curve.hue}, 80%, 60%, 0.7)"
+    ctx.lineWidth = 1.2
+    ctx.stroke()
+
+val curves = List(
+  SpiroCurve(outerR = 150, innerR = 47, pen = 110, hue = 0),
+  SpiroCurve(outerR = 150, innerR = 83, pen = 130, hue = 120),
+  SpiroCurve(outerR = 150, innerR = 61, pen = 100, hue = 240),
+)
+
+@main def main() =
+  val canvas = js.Dynamic.global.document.getElementById("appCanvas")
+  canvas.style.display = "block"
+  canvas.width = 600
+  canvas.height = 600
+  val ctx = canvas.getContext("2d")
+
+  ctx.fillStyle = "#0d1117"
+  ctx.fillRect(0, 0, 600, 600)
+
+  val cx = 300.0
+  val cy = 300.0
+  curves.foreach(Spirograph.draw(ctx, cx, cy, _, steps = 3000))
+
+  ctx.fillStyle = "#e0e0e0"
+  ctx.font = "bold 18px monospace"
+  ctx.textAlign = "center"
+  ctx.fillText("Spirograph", 300, 28)
+  ctx.font = "12px monospace"
+  ctx.fillStyle = "#666"
+  ctx.fillText(s"${curves.length} parametric curves, 3000 steps each", 300, 46)
+
+  println("Spirograph rendered!")
+</script>
+
+  <script type="text/x-scala" id="ex-gameoflife">
+import scala.scalajs.js
+
+class Grid(val rows: Int, val cols: Int, cells: Array[Array[Boolean]]):
+  def alive(r: Int, c: Int): Boolean = cells(r)(c)
+
+  def countNeighbors(r: Int, c: Int): Int =
+    var count: Int = 0
+    for
+      dr <- -1 to 1
+      dc <- -1 to 1
+      if !(dr == 0 && dc == 0)
+      if cells((r + dr + rows) % rows)((c + dc + cols) % cols)
+    do count += 1
+    count
+
+  def step: Grid =
+    val next = Array.tabulate(rows, cols) { (r, c) =>
+      val n = countNeighbors(r, c)
+      if alive(r, c) then n == 2 || n == 3 else n == 3
+    }
+    Grid(rows, cols, next)
+
+  def population: Int = cells.flatten.count(identity)
+
+object Grid:
+  def random(rows: Int, cols: Int, density: Double, seed: Int): Grid =
+    val rng = scala.util.Random(seed)
+    val cells = Array.tabulate(rows, cols)((_, _) => rng.nextDouble() < density)
+    Grid(rows, cols, cells)
+
+class Simulation(initial: Grid, generations: Int):
+  val (finalGrid, ages) = run()
+
+  private def run(): (Grid, Array[Array[Int]]) =
+    val cellAges = Array.fill(initial.rows, initial.cols)(0: Int)
+    var grid = initial
+    for _ <- 0 until generations do
+      grid = grid.step
+      for r <- 0 until grid.rows; c <- 0 until grid.cols do
+        if grid.alive(r, c) then cellAges(r)(c) += 1
+        else cellAges(r)(c) = 0
+    (grid, cellAges)
+
+object LifeRenderer:
+  def draw(ctx: js.Dynamic, sim: Simulation, cellSize: Int, w: Int, h: Int): Unit =
+    ctx.fillStyle = "#0d1117"
+    ctx.fillRect(0, 0, w, h)
+
+    val grid = sim.finalGrid
+    for r <- 0 until grid.rows; c <- 0 until grid.cols do
+      if grid.alive(r, c) then
+        val age = sim.ages(r)(c).min(50)
+        val hue = 120 + age * 3
+        val light = 40 + (age * 0.6).toInt.min(30)
+        ctx.fillStyle = s"hsl($hue, 70%, $light%)"
+        ctx.fillRect(c * cellSize, r * cellSize, cellSize - 1, cellSize - 1)
+
+    ctx.fillStyle = "#e0e0e0"
+    ctx.font = "bold 16px monospace"
+    ctx.textAlign = "center"
+    ctx.fillText(s"Game of Life — gen ${sim.ages(0)(0)}", w / 2, 20)
+
+@main def main() =
+  val w = 600
+  val h = 400
+  val cellSize = 4
+  val generations = 200
+
+  val canvas = js.Dynamic.global.document.getElementById("appCanvas")
+  canvas.style.display = "block"
+  canvas.width = w
+  canvas.height = h
+  val ctx = canvas.getContext("2d")
+
+  val initial = Grid.random(h / cellSize, w / cellSize, density = 0.35, seed = 12345)
+  val sim = Simulation(initial, generations)
+  LifeRenderer.draw(ctx, sim, cellSize, w, h)
+
+  val grid = sim.finalGrid
+  println(s"Game of Life: ${grid.cols}x${grid.rows} grid, $generations generations")
+  println(s"Live cells: ${grid.population} / ${grid.rows * grid.cols}")
+</script>
 
   <script>
     (async function() {
@@ -73,6 +323,28 @@
       const compileAndRunBtn = document.getElementById('compileAndRun');
       const sourceEl = document.getElementById('source');
       const progressEl = document.getElementById('progress');
+      const examplesEl = document.getElementById('examples');
+      const canvasEl = document.getElementById('appCanvas');
+
+      // Load example from <script type="text/x-scala"> elements
+      function getExample(name) {
+        const el = document.getElementById('ex-' + name);
+        // Trim leading blank line from the text content
+        return el ? el.textContent.replace(/^\n/, '') : '';
+      }
+
+      // Load initial example
+      sourceEl.value = getExample(examplesEl.value);
+
+      examplesEl.addEventListener('change', () => {
+        if (examplesEl.value !== 'custom') {
+          sourceEl.value = getExample(examplesEl.value);
+        }
+      });
+      // If user edits text, switch selector to "Custom"
+      sourceEl.addEventListener('input', () => {
+        examplesEl.value = 'custom';
+      });
 
       // Fetch with progress tracking
       function fetchWithProgress(url, barEl, pctEl) {
@@ -151,6 +423,7 @@
       statusEl.textContent = 'Ready!';
       compileBtn.disabled = false;
       compileAndRunBtn.disabled = false;
+      examplesEl.disabled = false;
 
       // Convert ANSI escape sequences to HTML spans
       function ansiToHtml(text) {
@@ -214,6 +487,12 @@
         compileBtn.disabled = true;
         compileAndRunBtn.disabled = true;
 
+        // Reset canvas
+        canvasEl.style.display = 'none';
+        const cCtx = canvasEl.getContext('2d');
+        canvasEl.width = 600; canvasEl.height = 400;
+        cCtx.clearRect(0, 0, 600, 400);
+
         // Allow UI to update
         await new Promise(r => setTimeout(r, 10));
 
@@ -221,8 +500,7 @@
           const source = sourceEl.value;
 
           // Detect main class name from source
-          // Look for @main def <name> or object <Name> extends App or def main in object <Name>
-          let mainClass = 'main'; // default
+          let mainClass = 'main';
           const mainAnnotMatch = source.match(/@main\s+def\s+(\w+)/);
           if (mainAnnotMatch) {
             mainClass = mainAnnotMatch[1];
@@ -233,7 +511,6 @@
           if (!result.success) {
             outputEl.innerHTML = result.diagnostics.map(d => ansiToHtml(d.message)).join('\n');
           } else {
-            // Show any warnings
             let html = '';
             if (result.diagnostics.length > 0) {
               html += result.diagnostics.map(d => ansiToHtml(d.message)).join('\n') + '\n';
