@@ -63,14 +63,19 @@ object Files {
   def readAllBytes(path: Path): Array[Byte] = {
     import scala.scalajs.js
     import scala.scalajs.js.typedarray.*
-    val buf = java.io.File.nodeFs.readFileSync(path.toString).asInstanceOf[js.typedarray.Uint8Array]
-    val arr = new Array[Byte](buf.length)
-    var i = 0
-    while (i < arr.length) {
-      arr(i) = buf(i).toByte
-      i += 1
+    try {
+      val buf = java.io.File.nodeFs.readFileSync(path.toString).asInstanceOf[js.typedarray.Uint8Array]
+      val arr = new Array[Byte](buf.length)
+      var i = 0
+      while (i < arr.length) {
+        arr(i) = buf(i).toByte
+        i += 1
+      }
+      arr
+    } catch {
+      case ex: NoSuchFileException => throw ex
+      case _: Throwable => throw new NoSuchFileException(path.toString)
     }
-    arr
   }
   def readAllLines(path: Path): java.util.List[String] =
     throw new IOException("Files.readAllLines not supported on Scala.js")
