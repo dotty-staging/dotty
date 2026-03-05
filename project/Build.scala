@@ -1911,18 +1911,26 @@ object Build {
           libDir / "scalajs-lib"
         ).filter(_.exists())
 
+        // JDK internal packages not needed for compilation — drop to reduce classpath.bin size
+        val jdkInternalPrefixes = Seq("sun/", "jdk/", "com/", "apple/",
+          "javax/crypto/", "javax/security/", "javax/net/")
+
         // Collect .tasty and .class files, skipping .class where .tasty exists
+        val jdkDir = libDir / "jdk"
         val entries = dirs.flatMap { dir =>
           val base = dir.toPath
+          val isJdk = dir == jdkDir
+          def isInternalJdk(rel: String): Boolean =
+            isJdk && jdkInternalPrefixes.exists(rel.startsWith)
           val tastyFiles = (dir ** "*.tasty").get
           val tastyPaths = tastyFiles.map { f =>
             base.relativize(f.toPath).toString.replace('\\', '/').stripSuffix(".tasty")
           }.toSet
           val classFiles = (dir ** "*.class").get.filterNot { f =>
             val rel = base.relativize(f.toPath).toString.replace('\\', '/').stripSuffix(".class")
-            tastyPaths.contains(rel)
+            tastyPaths.contains(rel) || isInternalJdk(rel)
           }
-          (tastyFiles ++ classFiles).map { f =>
+          (tastyFiles ++ classFiles).filterNot(f => isInternalJdk(base.relativize(f.toPath).toString.replace('\\', '/'))).map { f =>
             val rel = base.relativize(f.toPath).toString.replace('\\', '/')
             (rel, f)
           }
