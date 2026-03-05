@@ -4,16 +4,26 @@
   <meta charset="utf-8">
   <title>Scala 3 Compiler - Browser Test</title>
   <style>
-    body { font-family: monospace; max-width: 1000px; margin: 2em auto; }
-    textarea { width: 100%; height: 350px; font-family: monospace; font-size: 14px; tab-size: 2; }
-    button { padding: 8px 16px; font-size: 14px; margin: 8px 4px 8px 0; }
-    button:disabled { opacity: 0.5; }
-    select { padding: 6px 10px; font-size: 14px; margin: 8px 4px 8px 0; font-family: monospace; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           max-width: 1000px; margin: 2em auto; padding: 0 1em; }
+    h1 { font-family: monospace; }
+    h2 { font-family: monospace; font-size: 1.1em; margin-top: 1.5em; }
+    button { padding: 8px 16px; font-size: 14px; margin: 0 4px 0 0; cursor: pointer;
+             border: 1px solid #555; border-radius: 4px; background: #2d2d2d; color: #d4d4d4;
+             font-family: monospace; }
+    button:hover:not(:disabled) { background: #3d3d3d; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    select { padding: 6px 10px; font-size: 14px; font-family: monospace;
+             border: 1px solid #555; border-radius: 4px; background: #2d2d2d; color: #d4d4d4; }
+    #editor-container { width: 100%; height: 400px; border: 1px solid #333; border-radius: 6px;
+                        overflow: hidden; }
+    #toolbar { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
     #output { background: #1e1e1e; color: #d4d4d4; padding: 1em; white-space: pre-wrap; min-height: 60px;
-             border-radius: 6px; font-size: 13px; line-height: 1.5; }
+             border-radius: 6px; font-size: 13px; line-height: 1.5; font-family: monospace; }
     #canvas-container { margin: 12px 0; }
-    #canvas-container canvas { border: 1px solid #ccc; border-radius: 4px; display: none; }
-    #status { color: #666; margin-bottom: 4px; }
+    #canvas-container canvas { border: 1px solid #333; border-radius: 4px; display: none; }
+    #status { color: #888; margin-bottom: 4px; font-family: monospace; font-size: 13px; }
     .ansi-bold { font-weight: bold; }
     .ansi-red { color: #f44747; }
     .ansi-green { color: #6a9955; }
@@ -33,10 +43,10 @@
     .progress-container { display: none; width: 100%; margin-bottom: 12px; }
     .progress-container.active { display: block; }
     .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-    .progress-label { width: 140px; text-align: right; font-size: 13px; }
-    .progress-bar { flex: 1; height: 18px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+    .progress-label { width: 140px; text-align: right; font-size: 13px; font-family: monospace; }
+    .progress-bar { flex: 1; height: 18px; background: #333; border-radius: 4px; overflow: hidden; }
     .progress-fill { height: 100%; background: #4a9; border-radius: 4px; transition: width 0.15s; width: 0%; }
-    .progress-text { width: 70px; font-size: 13px; }
+    .progress-text { width: 70px; font-size: 13px; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -61,8 +71,8 @@
     </div>
   </div>
 
-  <div>
-    <label for="examples">Example: </label>
+  <div id="toolbar">
+    <label for="examples" style="font-family:monospace; font-size:13px;">Example:</label>
     <select id="examples" disabled>
       <option value="hello">Hello World</option>
       <option value="canvas" selected>Canvas Drawing</option>
@@ -70,11 +80,12 @@
       <option value="gameoflife">Game of Life</option>
       <option value="custom">Custom</option>
     </select>
+    <span style="flex:1"></span>
+    <button id="compile" disabled>Compile</button>
+    <button id="compileAndRun" disabled>Compile &amp; Run</button>
   </div>
-  <textarea id="source"></textarea>
-  <br>
-  <button id="compile" disabled>Compile</button>
-  <button id="compileAndRun" disabled>Compile &amp; Run</button>
+
+  <div id="editor-container"></div>
 
   <div id="canvas-container"><canvas id="appCanvas" width="600" height="400"></canvas></div>
 
@@ -315,69 +326,143 @@ object LifeRenderer:
   println(s"Live cells: ${grid.population} / ${grid.rows * grid.cols}")
 </script>
 
-  <script>
-    (async function() {
-      const statusEl = document.getElementById('status');
-      const outputEl = document.getElementById('output');
-      const compileBtn = document.getElementById('compile');
-      const compileAndRunBtn = document.getElementById('compileAndRun');
-      const sourceEl = document.getElementById('source');
-      const progressEl = document.getElementById('progress');
-      const examplesEl = document.getElementById('examples');
-      const canvasEl = document.getElementById('appCanvas');
+  <!-- CodeMirror 6 via ESM CDN -->
+  <script type="module">
+    import { EditorView, basicSetup } from 'https://esm.sh/codemirror@6.0.2?target=es2022';
+    import { keymap } from 'https://esm.sh/@codemirror/view@6?target=es2022';
+    import { lintGutter, setDiagnostics } from 'https://esm.sh/@codemirror/lint@6?target=es2022';
+    import { StreamLanguage } from 'https://esm.sh/@codemirror/language@6?target=es2022';
+    import { scala } from 'https://esm.sh/@codemirror/legacy-modes@6/mode/clike?target=es2022';
+    import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark@6?target=es2022';
 
-      // Load example from <script type="text/x-scala"> elements
-      function getExample(name) {
-        const el = document.getElementById('ex-' + name);
-        // Trim leading blank line from the text content
-        return el ? el.textContent.replace(/^\n/, '') : '';
+    function getExample(name) {
+      const el = document.getElementById('ex-' + name);
+      return el ? el.textContent.replace(/^\n/, '') : '';
+    }
+
+    const examplesEl = document.getElementById('examples');
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+    const compileBtn = document.getElementById('compile');
+    const compileAndRunBtn = document.getElementById('compileAndRun');
+    const progressEl = document.getElementById('progress');
+    const canvasEl = document.getElementById('appCanvas');
+
+    // --- Editor setup ---
+    let isUserEdit = false;
+
+    const view = new EditorView({
+      parent: document.getElementById('editor-container'),
+      extensions: [
+        keymap.of([
+          { key: 'Ctrl-Enter',       mac: 'Cmd-Enter',       run: () => { compileAndRunBtn.click(); return true; } },
+          { key: 'Ctrl-Shift-Enter', mac: 'Cmd-Shift-Enter', run: () => { compileBtn.click();       return true; } },
+        ]),
+        basicSetup,
+        oneDark,
+        StreamLanguage.define(scala),
+        EditorView.theme({ '&': { height: '400px' }, '.cm-scroller': { overflow: 'auto' } }),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged && isUserEdit) examplesEl.value = 'custom';
+        }),
+        lintGutter(),
+      ],
+      doc: getExample(examplesEl.value),
+    });
+    isUserEdit = true;
+
+    examplesEl.addEventListener('change', () => {
+      if (examplesEl.value !== 'custom') {
+        isUserEdit = false;
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: getExample(examplesEl.value) } });
+        isUserEdit = true;
       }
+    });
 
-      // Load initial example
-      sourceEl.value = getExample(examplesEl.value);
-
-      examplesEl.addEventListener('change', () => {
-        if (examplesEl.value !== 'custom') {
-          sourceEl.value = getExample(examplesEl.value);
+    // --- Utility ---
+    function ansiToHtml(text) {
+      const colorMap = {
+        '30': 'ansi-black', '31': 'ansi-red', '32': 'ansi-green', '33': 'ansi-yellow',
+        '34': 'ansi-blue', '35': 'ansi-magenta', '36': 'ansi-cyan', '37': 'ansi-white',
+        '90': 'ansi-bright-red', '91': 'ansi-bright-red', '92': 'ansi-bright-green',
+        '93': 'ansi-bright-yellow', '94': 'ansi-bright-blue', '95': 'ansi-bright-magenta',
+        '96': 'ansi-bright-cyan', '97': 'ansi-bright-white',
+      };
+      let result = '';
+      let open = false;
+      const parts = text.split(/\x1b\[([0-9;]*)m/);
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          result += parts[i].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        } else {
+          const codes = parts[i].split(';');
+          if (open) { result += '</span>'; open = false; }
+          if (parts[i] === '0' || parts[i] === '') continue;
+          const classes = [];
+          for (const c of codes) {
+            if (c === '1') classes.push('ansi-bold');
+            else if (colorMap[c]) classes.push(colorMap[c]);
+          }
+          if (classes.length > 0) { result += '<span class="' + classes.join(' ') + '">'; open = true; }
         }
-      });
-      // If user edits text, switch selector to "Custom"
-      sourceEl.addEventListener('input', () => {
-        examplesEl.value = 'custom';
-      });
-
-      // Fetch with progress tracking
-      function fetchWithProgress(url, barEl, pctEl) {
-        return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', url, true);
-          xhr.responseType = 'arraybuffer';
-          xhr.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              barEl.style.width = pct + '%';
-              pctEl.textContent = pct + '%';
-            } else {
-              const mb = (e.loaded / 1048576).toFixed(1);
-              pctEl.textContent = mb + ' MB';
-              barEl.style.width = '50%';
-            }
-          };
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              barEl.style.width = '100%';
-              pctEl.textContent = '100%';
-              resolve(xhr.response);
-            } else {
-              reject(new Error(`HTTP ${xhr.status} for ${url}`));
-            }
-          };
-          xhr.onerror = () => reject(new Error(`Network error fetching ${url}`));
-          xhr.send();
-        });
       }
+      if (open) result += '</span>';
+      return result;
+    }
 
-      // Show progress bars and start all downloads in parallel
+    function escapeHtml(text) {
+      return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function setEditorMarkers(diagnostics) {
+      const cmDiags = diagnostics
+        .filter(d => d.line >= 0)
+        .map(d => {
+          const lineNum = Math.min(d.line + 1, view.state.doc.lines);
+          const line = view.state.doc.line(lineNum);
+          const from = line.from + Math.min(d.column, line.length);
+          return {
+            from,
+            to: Math.min(from + 1, line.to),
+            severity: d.severity === 'error' ? 'error' : d.severity === 'warning' ? 'warning' : 'info',
+            message: d.message.replace(/\x1b\[[0-9;]*m/g, ''),
+          };
+        });
+      view.dispatch(setDiagnostics(view.state, cmDiags));
+    }
+
+    // --- Compiler loading ---
+    function fetchWithProgress(url, barEl, pctEl) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            barEl.style.width = pct + '%';
+            pctEl.textContent = pct + '%';
+          } else {
+            const mb = (e.loaded / 1048576).toFixed(1);
+            pctEl.textContent = mb + ' MB';
+            barEl.style.width = '50%';
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            barEl.style.width = '100%';
+            pctEl.textContent = '100%';
+            resolve(xhr.response);
+          } else {
+            reject(new Error('HTTP ' + xhr.status + ' for ' + url));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error fetching ' + url));
+        xhr.send();
+      });
+    }
+
+    (async function() {
       statusEl.textContent = 'Downloading compiler, classpath, and linker libs...';
       progressEl.classList.add('active');
 
@@ -400,7 +485,6 @@ object LifeRenderer:
         return;
       }
 
-      // Load main.js via a Blob <script> tag (let declarations need script scope, not eval)
       statusEl.textContent = 'Initializing compiler...';
       await new Promise((resolve, reject) => {
         const blob = new Blob([jsBuf], { type: 'application/javascript' });
@@ -411,11 +495,9 @@ object LifeRenderer:
         document.head.appendChild(script);
       });
 
-      // Load classpath blob
       statusEl.textContent = 'Loading classpath...';
       DottyCompiler.loadClasspath(cpBuf);
 
-      // Load linker libraries
       statusEl.textContent = 'Loading linker libraries...';
       DottyCompiler.loadLinkerLibs(llBuf);
 
@@ -425,88 +507,47 @@ object LifeRenderer:
       compileAndRunBtn.disabled = false;
       examplesEl.disabled = false;
 
-      // Convert ANSI escape sequences to HTML spans
-      function ansiToHtml(text) {
-        const colorMap = {
-          '30': 'ansi-black', '31': 'ansi-red', '32': 'ansi-green', '33': 'ansi-yellow',
-          '34': 'ansi-blue', '35': 'ansi-magenta', '36': 'ansi-cyan', '37': 'ansi-white',
-          '90': 'ansi-bright-red', '91': 'ansi-bright-red', '92': 'ansi-bright-green',
-          '93': 'ansi-bright-yellow', '94': 'ansi-bright-blue', '95': 'ansi-bright-magenta',
-          '96': 'ansi-bright-cyan', '97': 'ansi-bright-white',
-        };
-        let result = '';
-        let open = false;
-        const parts = text.split(/\x1b\[([0-9;]*)m/);
-        for (let i = 0; i < parts.length; i++) {
-          if (i % 2 === 0) {
-            result += parts[i].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          } else {
-            const codes = parts[i].split(';');
-            if (open) { result += '</span>'; open = false; }
-            if (parts[i] === '0' || parts[i] === '') continue;
-            const classes = [];
-            for (const c of codes) {
-              if (c === '1') classes.push('ansi-bold');
-              else if (colorMap[c]) classes.push(colorMap[c]);
-            }
-            if (classes.length > 0) {
-              result += `<span class="${classes.join(' ')}">`;
-              open = true;
-            }
-          }
-        }
-        if (open) result += '</span>';
-        return result;
-      }
-
-      function escapeHtml(text) {
-        return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      }
-
-      // Compile only (type-check)
+      // --- Compile ---
       compileBtn.addEventListener('click', () => {
         outputEl.innerHTML = '<span style="color:#888">Compiling...</span>';
         setTimeout(() => {
           try {
-            const source = sourceEl.value;
+            const source = view.state.doc.toString();
             const result = DottyCompiler.compile(source, []);
+            setEditorMarkers(result);
             if (result.length === 0) {
               outputEl.innerHTML = '<span style="color:#6a9955">Compilation successful — no errors or warnings.</span>';
             } else {
               outputEl.innerHTML = result.map(d => ansiToHtml(d.message)).join('\n');
             }
           } catch (e) {
-            outputEl.innerHTML = `<span class="ansi-red">Exception: ${escapeHtml(e.message)}\n${escapeHtml(e.stack)}</span>`;
+            outputEl.innerHTML = '<span class="ansi-red">Exception: ' + escapeHtml(e.message) + '\n' + escapeHtml(e.stack) + '</span>';
           }
         }, 10);
       });
 
-      // Compile & Run (compile with -scalajs, link, execute)
+      // --- Compile & Run ---
       compileAndRunBtn.addEventListener('click', async () => {
         outputEl.innerHTML = '<span style="color:#888">Compiling &amp; linking...</span>';
         compileBtn.disabled = true;
         compileAndRunBtn.disabled = true;
 
-        // Reset canvas
         canvasEl.style.display = 'none';
         const cCtx = canvasEl.getContext('2d');
         canvasEl.width = 600; canvasEl.height = 400;
         cCtx.clearRect(0, 0, 600, 400);
 
-        // Allow UI to update
         await new Promise(r => setTimeout(r, 10));
 
         try {
-          const source = sourceEl.value;
+          const source = view.state.doc.toString();
 
-          // Detect main class name from source
           let mainClass = 'main';
           const mainAnnotMatch = source.match(/@main\s+def\s+(\w+)/);
-          if (mainAnnotMatch) {
-            mainClass = mainAnnotMatch[1];
-          }
+          if (mainAnnotMatch) mainClass = mainAnnotMatch[1];
 
           const result = await DottyCompiler.compileAndLink(source, [], mainClass);
+          setEditorMarkers(result.diagnostics || []);
 
           if (!result.success) {
             outputEl.innerHTML = result.diagnostics.map(d => ansiToHtml(d.message)).join('\n');
@@ -516,21 +557,15 @@ object LifeRenderer:
               html += result.diagnostics.map(d => ansiToHtml(d.message)).join('\n') + '\n';
             }
 
-            // Execute the linked JavaScript, capturing console.log output
             const logs = [];
-            const origLog = console.log;
-            const origWarn = console.warn;
-            const origError = console.error;
-            console.log = (...args) => { logs.push(args.join(' ')); origLog(...args); };
-            console.warn = (...args) => { logs.push('[warn] ' + args.join(' ')); origWarn(...args); };
+            const origLog = console.log, origWarn = console.warn, origError = console.error;
+            console.log   = (...args) => { logs.push(args.join(' '));           origLog(...args); };
+            console.warn  = (...args) => { logs.push('[warn] ' + args.join(' ')); origWarn(...args); };
             console.error = (...args) => { logs.push('[error] ' + args.join(' ')); origError(...args); };
 
             try {
               new Function(result.js)();
-              console.log = origLog;
-              console.warn = origWarn;
-              console.error = origError;
-
+              console.log = origLog; console.warn = origWarn; console.error = origError;
               if (logs.length > 0) {
                 html += '<span style="color:#6a9955">--- Program output ---</span>\n';
                 html += logs.map(escapeHtml).join('\n');
@@ -538,10 +573,8 @@ object LifeRenderer:
                 html += '<span style="color:#6a9955">Program executed successfully (no output).</span>';
               }
             } catch (runErr) {
-              console.log = origLog;
-              console.warn = origWarn;
-              console.error = origError;
-              html += `<span class="ansi-red">Runtime error: ${escapeHtml(runErr.message)}\n${escapeHtml(runErr.stack || '')}</span>`;
+              console.log = origLog; console.warn = origWarn; console.error = origError;
+              html += '<span class="ansi-red">Runtime error: ' + escapeHtml(runErr.message) + '\n' + escapeHtml(runErr.stack || '') + '</span>';
               if (logs.length > 0) {
                 html += '\n<span style="color:#6a9955">--- Output before error ---</span>\n';
                 html += logs.map(escapeHtml).join('\n');
@@ -551,7 +584,7 @@ object LifeRenderer:
             outputEl.innerHTML = html;
           }
         } catch (e) {
-          outputEl.innerHTML = `<span class="ansi-red">Exception: ${escapeHtml(e.message)}\n${escapeHtml(e.stack || '')}</span>`;
+          outputEl.innerHTML = '<span class="ansi-red">Exception: ' + escapeHtml(e.message) + '\n' + escapeHtml(e.stack || '') + '</span>';
         } finally {
           compileBtn.disabled = false;
           compileAndRunBtn.disabled = false;
