@@ -1911,11 +1911,18 @@ object Build {
           libDir / "scalajs-lib"
         ).filter(_.exists())
 
-        // Collect all .class and .tasty files with relative paths
+        // Collect .tasty and .class files, skipping .class where .tasty exists
         val entries = dirs.flatMap { dir =>
           val base = dir.toPath
-          val files = (dir ** "*.class").get ++ (dir ** "*.tasty").get
-          files.map { f =>
+          val tastyFiles = (dir ** "*.tasty").get
+          val tastyPaths = tastyFiles.map { f =>
+            base.relativize(f.toPath).toString.replace('\\', '/').stripSuffix(".tasty")
+          }.toSet
+          val classFiles = (dir ** "*.class").get.filterNot { f =>
+            val rel = base.relativize(f.toPath).toString.replace('\\', '/').stripSuffix(".class")
+            tastyPaths.contains(rel)
+          }
+          (tastyFiles ++ classFiles).map { f =>
             val rel = base.relativize(f.toPath).toString.replace('\\', '/')
             (rel, f)
           }
