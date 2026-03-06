@@ -70,7 +70,7 @@ object report:
   def error(msg: Message, pos: SrcPos = NoSourcePosition)(using Context): Unit =
     val fullPos = addInlineds(pos)
     ctx.reporter.report(Error(msg, fullPos))
-    if ctx.settings.YdebugError.value then () /* Thread.dumpStack() not available on Scala.js */
+    if ctx.settings.YdebugError.value then Thread.dumpStack()
 
   def error(msg: => String, pos: SrcPos)(using Context): Unit =
     error(msg.toMessage, pos)
@@ -81,7 +81,7 @@ object report:
   def error(ex: TypeError, pos: SrcPos)(using Context): Unit =
     val fullPos = addInlineds(pos)
     ctx.reporter.report(new StickyError(ex.toMessage, fullPos))
-    if ctx.settings.YdebugError.value then () /* Thread.dumpStack() not available on Scala.js */
+    if ctx.settings.YdebugError.value then Thread.dumpStack()
     if ctx.settings.YdebugTypeError.value then ex.printStackTrace()
 
   def bestEffortError(ex: Throwable, msg: String)(using Context): Unit =
