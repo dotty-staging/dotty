@@ -1792,7 +1792,8 @@ object Build {
             def isJVMOnly(f: File): Boolean = {
               val path = f.getAbsolutePath
               ((path.contains("/backend/jvm/") || path.contains("/backend\\jvm\\")) &&
-                f.getName != "DottyPrimitives.scala") || // DottyPrimitives needed by JSPrimitives
+                f.getName != "DottyPrimitives.scala" && // DottyPrimitives needed by JSPrimitives
+                f.getName != "DottyBackendInterface.scala") || // DottyBackendInterface needed for symExtensions
               path.contains("/scripting/") ||
               path.contains("/debug/")
             }
