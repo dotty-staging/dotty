@@ -1788,15 +1788,15 @@ object Build {
           // Exclude Java source files (they can't be compiled by Scala.js)
           .filterNot(_.getName.endsWith(".java"))
           // Exclude JVM-only packages (only from compiler sources, not from override dir)
-          .filterNot { f =>
-            val path = f.getAbsolutePath
-            val isOverride = path.startsWith(overrideBase.getAbsolutePath)
-            !isOverride && (
-              ((path.contains("/backend/jvm/") || path.contains("/backend\\jvm\\"))
-                && f.getName != "DottyPrimitives.scala") || // DottyPrimitives needed by JSPrimitives
+          .filter { f =>
+            def isJVMOnly(f: File): Boolean = {
+              val path = f.getAbsolutePath
+              ((path.contains("/backend/jvm/") || path.contains("/backend\\jvm\\")) &&
+                f.getName != "DottyPrimitives.scala") || // DottyPrimitives needed by JSPrimitives
               path.contains("/scripting/") ||
               path.contains("/debug/")
-            )
+            }
+            f.getAbsolutePath.startsWith(overrideBase.getAbsolutePath) || !isJVMOnly(f)
           }
           // Apply override: if a file exists in compiler-js/src, exclude the original from compiler/src
           .filterNot { f =>
