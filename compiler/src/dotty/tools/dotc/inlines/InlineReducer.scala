@@ -95,7 +95,7 @@ class InlineReducer(inliner: Inliner)(using Context):
                 false
             }
           }
-        val idx = cls.asClass.paramAccessors.indexWhere(matches(_, tree.symbol))
+        val idx = cls.asClass.paramAccessors.filter(_.is(Flags.Method)).indexWhere(matches(_, tree.symbol))
         if (idx >= 0 && idx < args.length) {
           def finish(arg: Tree) =
             new TreeTypeMap().transform(arg) // make sure local bindings in argument have fresh symbols
