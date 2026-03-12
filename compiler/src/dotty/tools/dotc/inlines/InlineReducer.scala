@@ -95,7 +95,10 @@ class InlineReducer(inliner: Inliner)(using Context):
                 false
             }
           }
-        val idx = cls.asClass.paramAccessors.filter(_.is(Flags.Method)).indexWhere(matches(_, tree.symbol))
+        val accessors =
+          if (cls.asClass.is(Scala2x)) cls.asClass.paramAccessors.filter(_.is(Method))
+          else cls.asClass.paramAccessors
+        val idx = accessors.indexWhere(matches(_, tree.symbol))
         if (idx >= 0 && idx < args.length) {
           def finish(arg: Tree) =
             new TreeTypeMap().transform(arg) // make sure local bindings in argument have fresh symbols
