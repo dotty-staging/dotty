@@ -406,7 +406,7 @@ object desugar {
     def paramssNoRHS = mapParamss(meth.paramss)(identity) {
       vparam =>
         if vparam.rhs.isEmpty then vparam
-        else cpy.ValDef(vparam)(rhs = EmptyTree).withMods(vparam.mods | HasDefault)
+        else cpy.ValDef(vparam)(/*rhs = EmptyTree*/).withMods(vparam.mods | HasDefault)
     }
 
     def getterParamss(n: Int): List[ParamClause] =

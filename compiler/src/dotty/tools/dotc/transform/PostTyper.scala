@@ -229,7 +229,9 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
       Checking.checkValidOperator(sym)
       sym.transformAnnotations(transformAnnot)
       sym.defTree = tree
-      tree
+      tree match
+        case v: ValDef if v.mods.is(HasDefault) => cpy.ValDef(v)(rhs = EmptyTree).asInstanceOf[tree.type]
+        case _ => tree
     }
 
     private def registerIfUnrolledParam(sym: Symbol)(using Context): Unit =
