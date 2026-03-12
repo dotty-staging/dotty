@@ -31,6 +31,8 @@ class SpecializeInlineTraits extends MacroTransform, SymTransformer {
 
   override def changesParents: Boolean = true
 
+  override def runsAfter: Set[String] =  Set("desugarSpecializedTraits")
+
   override def run(using Context): Unit =
     try super.run
     catch case _: CompilationUnit.SuspendException => ()
