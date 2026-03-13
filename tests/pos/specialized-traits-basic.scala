@@ -5,4 +5,5 @@ inline trait Vec[T: {Specialized, Numeric}, S <: Object, Q: Numeric, R: Speciali
 def foo(v: Vec[Int, String, Int, Int, Int]) = v
 
 def main() = 
+    val a = new Vec[Int, String, Int, Int, Int]() {}
     println("Hello, World!")

@@ -27,6 +27,8 @@ import dotty.tools.dotc.core.StdNames.str.SPECIALIZED_TRAIT_SUFFIX
 import Vec.DesugarSpecializedTraits.newSpecializedTraitName
 import dotty.tools.dotc.core.Names.Name
 import tpd._
+import scala.collection.mutable
+
 
 class DesugarSpecializedTraits extends MacroTransform:
 
@@ -119,38 +121,31 @@ class DesugarSpecializedTraits extends MacroTransform:
     override def transform(tree: Tree)(using Context): Tree = 
       tree match {
         case pkg@PackageDef(pid, stats) => // TODO: If we do everything ourselves and match only on the package then we can get rid of the MacroTransform aspect and just have a Phase with the transformPackageDef method.
-          val stats1 = collectNecessaryGeneratedSymbols(pkg).map(buildClassTree)
+          val stats1 = generateSpecializedTraitSymbols(pkg).map(buildClassTree)
           
           // Use the TreeTypeMap to replace instances (can we do this without accidentally replacing the definitions? I think it should be ok)
-          // val treeTypeMap = new TreeTypeMap()          
+          // val treeTypeMap = new TreeTypeMap()
 
           cpy.PackageDef(pkg)(pid, stats1 ++ stats)
       }
     
-    private def collectNecessaryGeneratedSymbols(tree: Tree)(using Context): List[(Symbol, ClassSymbol)] = 
-      val result: List[(Symbol, ClassSymbol)] = tree.deepFold(List.empty)((found, tree) => tree match
+    private def generateSpecializedTraitSymbols(tree: Tree)(using Context): List[(Symbol, ClassSymbol)] = 
+      tree.deepFold(SpecializedTraitCache())((foundSpecializations, tree) => tree match
         // case New(AppliedTypeTree etc) -> need to output the impl class -> do we wantto generate that when we see Foo[Int] or not?
 
         case AppliedTypeTree(specializedTrait: Ident, concreteTypeTrees: List[Tree]) =>
           val specializedTraitSymbol = specializedTrait.denot.symbol
-
           val specializedTypeVars = specializedTraitSymbol.unforcedDecls.implicitDecls.collect(_.info match { case SpecializedEvidence(typeVar) => typeVar }).toSet
           val specializationMap = specializedTraitSymbol.typeParams.map(_.typeRef.asInstanceOf[Type]).zip(concreteTypeTrees).toMap.filter((k, v) => specializedTypeVars(k))
 
-          if (specializationMap.nonEmpty) {
-            val specializedTraitInterfaceTraitSymbol = newSpecializedTraitInterfaceTrait(specializedTrait, specializationMap)
-
-            (specializedTraitSymbol, specializedTraitInterfaceTraitSymbol) :: found
+          if (specializationMap.nonEmpty && !foundSpecializations.existsSpecialization(specializedTraitSymbol, specializationMap)) {
+            val newSpecializedTraitInterfaceTraitSymbol = newSpecializedTraitInterfaceTrait(specializedTrait, specializationMap)
+            foundSpecializations.addSpecialization(specializedTraitSymbol, specializationMap, newSpecializedTraitInterfaceTraitSymbol)
           }
-          else found
-        case tree: TypeDef =>
-          found
-        case _ => found
-      )
-      result
-      
+          else foundSpecializations
+        case _ => foundSpecializations
+      ).getSpecializations
   }
-
 
 object DesugarSpecializedTraits:
   val name: String = "desugarSpecializedTraits"
@@ -164,8 +159,23 @@ object DesugarSpecializedTraits:
     }).fold(name ++ str.SPECIALIZED_TRAIT_SUFFIX)((n1, n2) => n1 ++ n2)
 
 
+class SpecializedTraitCache:
+  private val specializationMap: mutable.Map[(Symbol, Name), ClassSymbol] = mutable.Map.empty 
 
-// Cleanup
+  def existsSpecialization(traitSymbol: Symbol, specialization: Map[Type, Tree])(using Context) =
+    specializationMap.contains((traitSymbol, newSpecializedTraitName(traitSymbol.name, specialization)))
+
+  def addSpecialization(traitSymbol: Symbol, specialization: Map[Type, Tree], specializedSymbol: ClassSymbol)(using Context): SpecializedTraitCache = {
+    specializationMap((traitSymbol, newSpecializedTraitName(traitSymbol.name, specialization))) = specializedSymbol
+    this
+  }
+
+  def getSpecializations: List[(Symbol, ClassSymbol)] = specializationMap.toList.map((k, v) => (k._1, v))
+
+end SpecializedTraitCache
+
+
+// Need to somehow make my naming a lot more consistent as well.
 // Correctly generate names
 // generate classes as well
 // do we actually want to generate Iteratorsp$Int
@@ -175,6 +185,7 @@ object DesugarSpecializedTraits:
 // Synthesise Specialized instances so that people can't do stupid stuff like Specialized[Array[T]]. type x = Specialized[Array[Array[Int]]]
 // Set the Synthetic flags somewhere
 // Cache / only generate once instead of multiple times.
+// Ideally standardise on either specialization or specializationMap
 
 // Potentially we can just go through and find every place which needs one, do a direct replacement and spit it out directly into some kind of list buffer and then 
 // copy it out later
