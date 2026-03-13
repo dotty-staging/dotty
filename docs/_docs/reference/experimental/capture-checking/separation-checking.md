@@ -11,7 +11,9 @@ Separation checking is an extension of capture checking that enforces unique, un
 import language.experimental.separationChecking
 ```
 (or the corresponding setting `-language:experimental.separationChecking`).
-The import has to be given in addition to the `language.experimental.captureChecking` import that enables capture checking.
+
+Separation checking implies capture checking. So the `language.experimental.captureChecking` import does not have to be given explicitly if separation checking is enabled
+
 The reason for the second language import is that separation checking is less mature than capture checking proper, so we are less sure
 we got the balance of safety and expressivity right for it at the present time.
 
@@ -42,7 +44,7 @@ So, effectively, anything that can be updated must be unaliased.
 
 ## Separation Checking
 
-The idea behind separation checking is simple: We now interpret each occurrence of `any` as a separate top capability. This includes derived syntaxes like `A^` and `B => C`. We further keep track during capture checking which capabilities are subsumed by each `any`. If capture checking widens a capability `x` to a top capability `anyᵢ`, we say `x` is _hidden_ by `anyᵢ`. The rule then is that any capability hidden by a top capability `anyᵢ` cannot be referenced independently or hidden in another `anyⱼ` in code that can see `anyᵢ`.
+The idea behind separation checking is simple: We now interpret each occurrence of `any` as a separate top capability. This includes derived syntaxes like `A^` and `B => C`. We further keep track during capture checking which capabilities are subsumed by each `any`. If capture checking widens a capability `x` to a top capability `anyᵢ`, we say `x` is _hidden_ by `anyᵢ`. The rule then is that a capability hidden by a top capability `anyᵢ` cannot be referenced independently or hidden in another `anyⱼ` in code that can see `anyᵢ`.
 
 Here's an example:
 ```scala sc:nocompile
@@ -80,7 +82,7 @@ We do not report a separation error between two sets if a formal parameter's cap
 def seq(f: () => Unit; g: () ->{any, f} Unit): Unit =
   f(); g()
 ```
-Here, the `g` parameter explicitly mentions `f` in its potential capture set. This means that the `any` in the same capture set would not need to hide the  first argument, since it already appears explicitly in the same set. Consequently, we can pass the same function twice to `compose` without violating the separation criteria:
+Here, the `g` parameter explicitly mentions `f` in its potential capture set. This means that the `any` in the same capture set would not need to hide the  first argument, since it already appears explicitly in the same set. Consequently, we can pass the same function twice to `seq` without violating the separation criteria:
 ```scala sc:nocompile
 val r = Ref(1)
 val plusOne = r.set(r.get + 1)
@@ -148,7 +150,7 @@ def incr(a: Ref^): Ref^ =
   a.set(a.get + 1)
   a
 ```
-These needs to be rejected because otherwise we could have set up the following bad example:
+This needs to be rejected because otherwise we could have set up the following bad example:
 ```scala sc:nocompile
 val a = Ref(1)
 val b: Ref^ = incr(a)
