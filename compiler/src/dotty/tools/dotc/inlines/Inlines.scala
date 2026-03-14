@@ -108,7 +108,7 @@ object Inlines:
         isInlineable(tree.symbol) && !tree.tpe.widenTermRefExpr.isInstanceOf[MethodOrPoly] && isInlineableInCtx && !ctx.mode.is(Mode.NoInline) && !isUnapplyExpressionWithDummy
 
   private[dotc] def symbolFromParent(parent: Tree)(using Context): Symbol =
-    if parent.symbol.isConstructor then parent.symbol.owner else parent.symbol
+    if parent.symbol.isConstructor then parent.symbol.owner else parent.tpe.typeSymbol
 
   private def inlineTraitAncestors(cls: TypeDef)(using Context): List[Tree] = cls match {
     case tpd.TypeDef(_, tmpl: Template) =>
