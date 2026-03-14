@@ -264,9 +264,11 @@ object Specialization:
 //   -> Get the specialized list to apply
 
 
-// Do we really want the method definitions to live in the implementation classes or in the trait?
-// Is proliferation of anonymous classes a problem? i.e. would we rather generate $impl$ classes and share them? We do generate one per time they use the class at the moment which is a lot
 
+
+// Generate impl instead of generating anonymous classes every time to avoid insane code bloat
+  // Do we really want the method definitions to live in the implementation classes or in the trait?|
+  // I think in the trait is fine but note that this only actually saves any space if we don't use anonymous classes (because those copy parent members automatically it seems)
 // Need to make sure all my examples are up to date, consistent with what we do and what we want to do so that they are actually useful for the future.
 // Need to somehow make my naming a lot more consistent as well.
 // Correctly generate names
