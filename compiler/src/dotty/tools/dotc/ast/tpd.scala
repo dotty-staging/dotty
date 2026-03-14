@@ -331,16 +331,7 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
   def ClassDef(cls: ClassSymbol, constr: DefDef, body: List[Tree],
       superArgs: List[Tree] = Nil, adaptVarargs: Boolean = false)(using Context): TypeDef =
     val firstParent :: otherParents = cls.info.parents: @unchecked
-    ClassDefWithParents(cls, constr, generateSuperClassRef(cls, firstParent, superArgs, adaptVarargs) :: otherParents.map(TypeTree(_)), body)
-  end ClassDef
 
-  def ClassDefWithCustomTraitTrees(cls: ClassSymbol, constr: DefDef, body: List[Tree],
-      superArgs: List[Tree] = Nil, otherParents: List[Tree] = Nil, adaptVarargs: Boolean = false)(using Context): TypeDef =
-    val firstParent :: _ = cls.info.parents: @unchecked
-    ClassDefWithParents(cls, constr, generateSuperClassRef(cls, firstParent, superArgs, adaptVarargs) :: otherParents, body)
-  end ClassDefWithCustomTraitTrees
-
-  def generateSuperClassRef(cls: ClassSymbol, firstParent: Type, superArgs: List[Tree], adaptVarargs: Boolean)(using Context) = 
     def adaptedSuperArgs(ctpe: Type): List[Tree] = ctpe match
       case ctpe: PolyType =>
         adaptedSuperArgs(ctpe.instantiate(firstParent.argTypes))
@@ -360,8 +351,9 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
           case constr :: Nil => constr
           case _ => assert(false, i"multiple applicable parent constructors of $firstParent for supercall arguments $superArgs")
         New(firstParent, parentConstr.asTerm, adaptedSuperArgs(parentConstr.info))
-    superRef
 
+    ClassDefWithParents(cls, constr, superRef :: otherParents.map(TypeTree(_)), body)
+  end ClassDef
 
   def ClassDefWithParents(cls: ClassSymbol, constr: DefDef, parents: List[Tree], body: List[Tree])(using Context): TypeDef = {
     val selfType =
