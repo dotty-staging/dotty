@@ -108,12 +108,8 @@ class DesugarSpecializedTraits extends MacroTransform:
       val tm = new TypeMap: // TODO: Can we get this into the specialization ideally.
         def apply(t: Type) = specialization.specializedTypeParamsToTypeArgumentsMap.view.mapValues(_.tpe).applyOrElse(t, mapOver) // TODO: IF we can do just types we can get rid fo this 
 
-
-    // specialization.traitSymbol.info.
       // HACK: This doesn't work for if A is inline for example because in general it misses the type for A
     // specialization.traitSymbol.denot.info.paren
-
-
       // val customParentTrees = 
       //   AppliedTypeTree(Ident(specialization.traitSymbol.typeRef), specialization.specialization) // original trait, specialized
       //   :: specialization.traitSymbol.denot.info.parents.filterNot(_ eq defn.ObjectType).map(a => TypeTree(tm(a)))          // parents of the original trait, specialized
@@ -144,7 +140,7 @@ class DesugarSpecializedTraits extends MacroTransform:
             TypeApply(Select(New(treeMap(tpt)), _init), spec.unspecializedTypeArgs)
           case Specialization(spec) => {
             for (specializedSymbol <- specializedSymbols.get(spec))
-            yield AppliedTypeTree(Ident(specializedSymbol.typeRef), spec.unspecializedTypeArgs) // TODO: Matching on a Specialization and then outputting ATT is weird - maybe have a method on specialization to convert to ATT
+            yield AppliedTypeTree(Ident(specializedSymbol.typeRef), spec.unspecializedTypeArgs) // TODO: Matching on a Specialization and then outputting ATT is weird - maybe have a method on specialization to convert to ATT .toAppliedTypeTree?
           }.getOrElse(tree)
 
           case tree => tree
@@ -162,20 +158,28 @@ class DesugarSpecializedTraits extends MacroTransform:
         cpy.PackageDef(pkg)(pid, generatedTraitStats ++ stats.map(treeTypeMap(_))) // TODO: Do we also want to apply the map over generatedTraitStats?? 
     }
 
+    // TODO: Try with just generating new Foo(100) with no function to pass it to and no other references to Foo. this may not work because we might not
+    // correctly detect it. 
+
     private def generateSpecializedTraitSymbols(tree: Tree)(using Context): SpecializedTraitCache = 
       tree.deepFold(SpecializedTraitCache())((foundSpecs, tree) => tree match
-        // case New(something) => // if tycon.denot.symbol => // Is this fold going to be a problem? Or juist a good thing? Because we hit the child first
-        //   // AppliedTypeTree(tycon: Ident, concreteTypeTrees: List[Tree])
+        case Typed(Apply(Select(New(cl),ctor),List()), t: TypeTree) =>
+          Specialization.unapply(t).foreach( spec =>
+            if (spec.hasSpecializedParams && !foundSpecs.contains(spec)) {
+              foundSpecs.add(spec, newSpecializedTraitInterfaceTrait(spec))
+            }
+            foundSpecs.flagForImplementation(spec) // TODO: Need to think carefully about the behaviour when we are integrating libraries - should the library generate the implementation classes or the user?
+            // In any case we need to read back in either the $sp$ classes or the $impl$ traits to be able to work with them.
+          )
+          foundSpecs
+
+        // Is this fold going to be a problem? Or juist a good thing? Because we hit the child first
         //   // I guess ideally do this after already processing it down to the ArrayIterator$sp$Int then we just replace that with ArraytIterator
-        //   println(s"Found something ${something}")
-        //   foundSpecs
-        // case New(AppliedTypeTree etc) -> need to output the impl class -> do we wantto generate that when we see Foo[Int] or not?
         
         // TODO: In theory since we are going to apply the tree type map anyway we can surely just collect up the specialisations we need and then later generate the new symbols?
         // I think that's slightly cleaner.
         case Specialization(spec) if (spec.hasSpecializedParams && !foundSpecs.contains(spec)) =>
-          val newSpecializedTraitInterfaceTraitSymbol = newSpecializedTraitInterfaceTrait(spec)
-          foundSpecs.add(spec, newSpecializedTraitInterfaceTraitSymbol)
+          foundSpecs.add(spec, newSpecializedTraitInterfaceTrait(spec))
         case _ => foundSpecs
       )
   }
@@ -192,9 +196,9 @@ object DesugarSpecializedTraits:
     }).fold(specialization.traitSymbol.name ++ str.SPECIALIZED_TRAIT_SUFFIX)((n1, n2) => n1 ++ n2)
 
 
-// TODO: Potentially we can just replace this with a map?
 class SpecializedTraitCache:
   private val specializationMap: mutable.Map[Specialization, ClassSymbol] = mutable.Map.empty 
+  private val flaggedForImplementation: mutable.Set[Specialization] = mutable.Set.empty
 
   def contains(specialization: Specialization)(using Context) =
     specializationMap.contains(specialization)
@@ -207,6 +211,10 @@ class SpecializedTraitCache:
   def get(specialization: Specialization)(using Context) = specializationMap.get(specialization)
 
   def getSpecializations: List[(Specialization, ClassSymbol)] = specializationMap.toList
+
+  def flagForImplementation(spec: Specialization) = flaggedForImplementation.add(spec)
+
+  def getSpecializationsForImplementation = flaggedForImplementation
 
 end SpecializedTraitCache
 
@@ -304,4 +312,4 @@ object Specialization:
 
 
 // need to test with explicit evidence / our own custom type classes
- 
+// TODO: Make sure name encoding is fully qualified - e.g. potential for conflicts if we define our own class Int.
