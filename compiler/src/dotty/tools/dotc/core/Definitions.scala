@@ -771,8 +771,9 @@ class Definitions {
   @tu lazy val StringAddClass    : ClassSymbol = requiredClass("scala.runtime.StringAdd")
     @tu lazy val StringAdd_+ : Symbol = StringAddClass.requiredMethod(nme.raw.PLUS)
 
-  @tu lazy val SpecializedBound : ClassSymbol = requiredClass("scala.Specialized")  
-    @tu lazy val SpecializedBoundRef : TypeRef = SpecializedBound.typeRef
+  @tu lazy val SpecializedClass : ClassSymbol = requiredClass("scala.Specialized")
+  @tu lazy val SpecializedModule: Symbol = SpecializedClass.companionModule
+    @tu lazy val SpecializedModule_apply: Symbol = SpecializedModule.requiredMethod(nme.apply)
 
   @tu lazy val StringContextClass: ClassSymbol = requiredClass("scala.StringContext")
     @tu lazy val StringContext_s  : Symbol = StringContextClass.requiredMethod(nme.s)

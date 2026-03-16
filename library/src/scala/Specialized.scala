@@ -1,5 +1,5 @@
 package scala
 
 trait Specialized[T]
-
-given [T]: Specialized[T] with {}
+object Specialized:
+    def apply[T] = new Specialized[T] {}

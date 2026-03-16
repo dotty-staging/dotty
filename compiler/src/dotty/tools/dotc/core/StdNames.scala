@@ -28,6 +28,7 @@ object StdNames {
     inline val ANON_FUN                 = "$anonfun"
     inline val INLINE_TRAIT_INNER_CLASS_SUFFIX = "$trait"
     inline val SPECIALIZED_TRAIT_SUFFIX = "$sp$"
+    inline val SPECIALIZED_TRAIT_IMPL_SUFFIX = "$impl$"
     inline val SPECIALIZED_TRAIT_TYPE_SEP = "$"
 
     inline val REPL_SESSION_LINE  = "rs$line$"
