@@ -417,14 +417,9 @@ trait BCodeSkelBuilder(using ctx: Context) extends BCodeHelpers {
     }
 
     def addClassFields(): Unit = {
-      /*  Non-method term members are fields, except for module members. Module
-       *  members can only happen on .NET (no flatten) for inner traits. There,
-       *  a module symbol is generated (transformInfo in mixin) which is used
-       *  as owner for the members of the implementation class (so that the
-       *  backend emits them as static).
-       *  No code is needed for this module symbol.
-       */
-      for (f <- claszSymbol.info.decls.filter(p => p.isTerm && !p.is(Method))) {
+      // Only emit objects as field if that has been specifically requested via @targetName
+      for (f <- claszSymbol.info.decls.filter(p => p.isTerm && !p.is(Method)
+                                                && (!p.is(Module) || p.hasAnnotation(defn.TargetNameAnnot)))) {
         val javagensig = getGenericSignature(f, claszSymbol)
         val flags = javaFieldFlags(f)
 
