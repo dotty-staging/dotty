@@ -399,7 +399,7 @@ trait BCodeHelpers(val backendUtils: BackendUtils)(using ctx: Context) extends B
         def computeMemberTpe(): Type =
           if (sym.is(Method)) sym.denot.info
           else if sym.denot.validFor.phaseId > erasurePhase.id && sym.isField && sym.getter.exists then
-            // Memoization field of getter entered after erasure, see run/i17069 for an example
+            // Memoization field of getter entered after erasure, see tests/generic-java-signatures/17069.scala for an example
             sym.getter.denot.info.resultType
           else owner.denot.thisType.memberInfo(sym)
 
@@ -407,6 +407,14 @@ trait BCodeHelpers(val backendUtils: BackendUtils)(using ctx: Context) extends B
           mixinPhase.asInstanceOf[Mixin].mixinForwarderGenericInfos.get(sym) match
             case Some(genericInfo) => genericInfo
             case none              => computeMemberTpe()
+        else if sym.isField then
+          val mixinGetter = atPhase(mixinPhase.next){sym.getter}
+          if mixinGetter.exists then
+            mixinPhase.asInstanceOf[Mixin].mixinForwarderGenericInfos.get(mixinGetter) match
+              case Some(ExprType(genericInfo)) => genericInfo // since we're looking for the getter, we get an ExprType
+              case _ => computeMemberTpe()
+          else
+            computeMemberTpe()
         else
           computeMemberTpe()
 
@@ -807,7 +815,7 @@ trait BCodeHelpers(val backendUtils: BackendUtils)(using ctx: Context) extends B
                  |signature: $sig
                  |if this is reproducible, please report bug at https://github.com/scala/scala3/issues
                """, sym.sourcePos)
-          throw  ex
+          throw ex
       }
     }
 

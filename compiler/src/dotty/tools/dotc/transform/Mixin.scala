@@ -296,7 +296,10 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
             else
               Underscore(getter.info.resultType)
           // transformFollowing call is needed to make memoize & lazy vals run
-          transformFollowing(DefDef(mkForwarderSym(getter.asTerm), rhs))
+          val forwarder = mkForwarderSym(getter.asTerm)
+          val erased = atPhase(erasurePhase) { cls.thisType.memberInfo(getter) }
+          mixinForwarderGenericInfos(forwarder) = erased
+          transformFollowing(DefDef(forwarder, rhs))
         }
         else if wasOneOf(getter, ParamAccessor) then
           // mixin parameter field is defined by an override; evaluate the argument and throw it away
