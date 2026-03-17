@@ -6,7 +6,6 @@ import core.*
 import MegaPhase.*
 import Contexts.*
 import Flags.*
-
 import Symbols.*
 import SymDenotations.*
 import Types.*
@@ -17,6 +16,7 @@ import Names.*
 import NameKinds.*
 import NameOps.*
 import ast.Trees.*
+import dotty.tools.dotc.core.Phases.erasurePhase
 
 object Mixin {
   val name: String = "mixin"
@@ -112,6 +112,15 @@ object Mixin {
  */
 class Mixin extends MiniPhase with SymTransformer { thisPhase =>
   import ast.tpd.*
+
+  /** Infos before erasure of generated mixin trees.
+   *
+   * These will be used to generate Java generic signatures.
+   * Normally we use the types before erasure; we cannot do that
+   * for mixin trees since they are created after erasure, and therefore
+   * their type history does not have anything recorded for before erasure.
+   */
+  val mixinGenericInfos = MutableSymbolMap[Type]()
 
   override def phaseName: String = Mixin.name
 
@@ -277,7 +286,12 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
             else
               Underscore(getter.info.resultType)
           // transformFollowing call is needed to make memoize & lazy vals run
-          transformFollowing(DefDef(mkForwarderSym(getter.asTerm), rhs))
+          val forwarder = mkForwarderSym(getter.asTerm)
+          val erased = atPhase(erasurePhase) {
+            cls.thisType.memberInfo(getter)
+          }
+          mixinGenericInfos(forwarder) = erased
+          transformFollowing(DefDef(forwarder, rhs))
         }
         else if wasOneOf(getter, ParamAccessor) then
           // mixin parameter field is defined by an override; evaluate the argument and throw it away
@@ -296,8 +310,25 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
       for (meth <- mixin.info.decls.toList if needsMixinForwarder(meth))
       yield {
         util.Stats.record("mixin forwarders")
-        transformFollowing(DefDef(mkForwarderSym(meth.asTerm, Bridge), forwarderRhsFn(meth)))
+        transformFollowing(DefDef(mkMixinForwarderSym(meth.asTerm), forwarderRhsFn(meth)))
       }
+
+    def mkMixinForwarderSym(target: TermSymbol): TermSymbol =
+      val sym = mkForwarderSym(target, extraFlags = Bridge | MixedIn)
+      val (infoBeforeErasure, isDifferentThanInfoNow) = atPhase(erasurePhase) {
+        val beforeErasure = cls.thisType.memberInfo(target)
+        (beforeErasure, !(beforeErasure =:= sym.info))
+      }
+      if isDifferentThanInfoNow then
+        // The info before erasure would not have been the same as the info now.
+        // We want to store it for the backend to compute the generic Java signature.
+        // However, we must still avoid doing that if erasing that signature would
+        // not give the same erased type. If it doesn't, we'll just give a completely
+        // incorrect Java signature. (This could be improved by generating dedicated
+        // bridges, but we don't go that far; scalac doesn't either.)
+        if TypeErasure.transformInfo(target, infoBeforeErasure) =:= sym.info then
+          mixinGenericInfos(sym) = infoBeforeErasure
+      sym
 
     cpy.Template(impl)(
       constr =
