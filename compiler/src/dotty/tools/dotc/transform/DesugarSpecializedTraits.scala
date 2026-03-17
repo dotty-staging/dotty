@@ -173,15 +173,12 @@ class DesugarSpecializedTraits extends MacroTransform:
             )),
           paramAccessors.map(sym => tpd.ValDef(sym.asTerm)) // .withFlags(Flags.LocalParamAccessor).withType(sym.info)
         )
-        // println("HALLO MATE")
-        // println(classDef)
       (classDef, classSymbol)
     }
 
     override def transform(tree: Tree)(using Context): Tree = tree 
      match {
       case pkg@PackageDef(pid, stats) => // TODO: If we do everything ourselves and match only on the package then we can get rid of the MacroTransform aspect and just have a Phase with the transformPackageDef method.
-        println(pkg)
         val specializedSymbols = generateSpecializedTraitSymbols(pkg)
         val generatedTraitStats = specializedSymbols.getSpecializations.map(buildSpTraitTree)
         
@@ -192,9 +189,7 @@ class DesugarSpecializedTraits extends MacroTransform:
 
         // Use the TreeTypeMap to replace instances (can we do this without accidentally replacing the definitions? I think it should be ok)
         val typeMap = new TypeMap:
-          def apply(t: Type) = {
-            // println(t)
-            t match {
+          def apply(t: Type) = t match {
             case Specialization(spec) => 
               {
                 for (specializedSymbol <- specializedSymbols.get(spec))
@@ -203,11 +198,9 @@ class DesugarSpecializedTraits extends MacroTransform:
               }.getOrElse(mapOver(t))
             case _ => mapOver(t)
           }
-          }
       
         def treeMap(tree: Tree): Tree = tree match {
-          // To some extent would need to match this anyway - could we do something to the parent?
-          // Say this is fine for now/
+          // Replace (anonymous class version of) new Foo[Int] {} with new Foo$impl$Int.asInstanceOf[Foo$sp$Int] 
           case Block(List(TypeDef(anon, Template(_, parentCalls: List[Tree], _, _))),  
                      Typed(Apply(Select(New(anon1),ctor), _), t: TypeTree)) if anon1.symbol.isAnonymousClass =>
             parentCalls(1) match { // only allowed to extend Object and our specialized trait
@@ -219,10 +212,17 @@ class DesugarSpecializedTraits extends MacroTransform:
               case _ => tree
             }
 
+          // Replace class Bar extends Foo[Int](params) with class Bar extends Foo$sp$Int(params)
+          // Note: We always drop the evidence params when creating these new specialized traits so we know that there are none, but we may need to revisit this if we decide we do want to copy the evidence parameters over
           case Apply(TypeApply(fun@Select(New(tpt), _init), args), ev) if fun.symbol.isConstructor => 
             val spec = Specialization(fun.symbol.owner, args)
-              // Note: We always drop the evidence params when creating these new specialized traits so we know that there are none, but we may need to revisit this if we decide we do want to copy the evidence parameters over
-            TypeApply(Select(New(treeMap(tpt)), _init), spec.unspecializedTypeArgs)
+            val tt = specializedSymbols
+            {
+              for (specializedSymbol <- specializedSymbols.get(spec))
+              yield TypeApply(Select(New(ref(specializedSymbol)), _init), spec.unspecializedTypeArgs)
+            }.getOrElse(tree)
+          
+          // Replace AppliedTypeTree instances in code
           case Specialization(spec) => {
             for (specializedSymbol <- specializedSymbols.get(spec))
             yield AppliedTypeTree(Ident(specializedSymbol.typeRef), spec.unspecializedTypeArgs) // TODO: Matching on a Specialization and then outputting ATT is weird - maybe have a method on specialization to convert to ATT .toAppliedTypeTree?
@@ -234,7 +234,6 @@ class DesugarSpecializedTraits extends MacroTransform:
         val treeTypeMap = new TreeTypeMap(typeMap, treeMap) {
           override def transform(tree: Tree)(using Context): Tree = tree match { // HACK: This seems to do what we want but I don't understand why we don't do this by default? Surely we should apply transformDefs over template body?
             case dd@DefDef(name, paramss, tpt, preRhs) => 
-              // println(dd)
               val transformedDef = super.transform(dd)
               transformedDef.symbol.info = mapType(transformedDef.symbol.info)
               transformedDef
