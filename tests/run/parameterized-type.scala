@@ -1,3 +1,5 @@
+// scalajs: --skip
+
 class ClassWithOption extends WithMap {
   val optionInClass: Option[String] = None
 }
