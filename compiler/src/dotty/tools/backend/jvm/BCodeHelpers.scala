@@ -396,29 +396,37 @@ trait BCodeHelpers(val backendUtils: BackendUtils)(using ctx: Context) extends B
      */
     def getGenericSignature(sym: Symbol, owner: Symbol): String | Null = {
       atPhase(erasurePhase) {
-        def computeMemberTpe(): Type =
-          if (sym.is(Method)) sym.denot.info
-          else if sym.denot.validFor.phaseId > erasurePhase.id && sym.isField && sym.getter.exists then
-            // Memoization field of getter entered after erasure, see tests/generic-java-signatures/17069.scala for an example
-            sym.getter.denot.info.resultType
-          else owner.denot.thisType.memberInfo(sym)
+        // Finding the member's type is nontrivial because of erasure and how it interacts with other phases.
+        def computeMemberType(): Type = {
+          // Mixins are resolved _after_ erasure, so we cannot simply ask for "the information before erasure" for these,
+          // since that information never existed.
+          // Thus, we first check if the symbol was specifically marked as having generic information,
+          if sym.is(MixedIn) then mixinPhase.asInstanceOf[Mixin].mixinGenericInfos.get(sym) match
+            // and if so, we use it.
+            case Some(genericInfo) => return genericInfo
+            case _ => ()
 
-        val memberTpe = if sym.is(MixedIn) then
-          mixinPhase.asInstanceOf[Mixin].mixinForwarderGenericInfos.get(sym) match
-            case Some(genericInfo) => genericInfo
-            case none              => computeMemberTpe()
-        else if sym.isField then
-          val mixinGetter = atPhase(mixinPhase.next){sym.getter}
-          if mixinGetter.exists then
-            mixinPhase.asInstanceOf[Mixin].mixinForwarderGenericInfos.get(mixinGetter) match
-              case Some(ExprType(genericInfo)) => genericInfo // since we're looking for the getter, we get an ExprType
-              case _ => computeMemberTpe()
-          else
-            computeMemberTpe()
-        else
-          computeMemberTpe()
+          // Methods are straightforward.
+          if sym.is(Method) then
+            return sym.denot.info
 
-        getGenericSignatureHelper(sym, owner, memberTpe).orNull
+          // Fields have two special cases:
+          if sym.isField then
+            // first, we must use the getter if entered after erasure, see tests/generic-java-signatures/17069.scala for an example
+            if sym.denot.validFor.phaseId > erasurePhase.id && sym.getter.exists then
+              return sym.getter.denot.info.resultType
+
+            // second, mixins part 2: there might be a getter created after erasure by the mixin phase,
+            // and if so we must use the information that the mixin phase stored for it.
+            val mixinGetter = atPhase(mixinPhase.next) { sym.getter }
+            if mixinGetter.exists then mixinPhase.asInstanceOf[Mixin].mixinGenericInfos.get(mixinGetter) match
+              case Some(ExprType(genericInfo)) => return genericInfo // since we're looking for the getter, we get an ExprType
+              case _ => ()
+
+          owner.denot.thisType.memberInfo(sym)
+        }
+
+        getGenericSignatureHelper(sym, owner, computeMemberType()).orNull
       }
     }
 
