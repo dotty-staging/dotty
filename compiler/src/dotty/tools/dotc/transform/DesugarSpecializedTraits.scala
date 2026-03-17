@@ -122,9 +122,13 @@ class DesugarSpecializedTraits extends MacroTransform:
       val t = specialization.traitSymbol.primaryConstructor.localReturnType
 
       val init = newDefaultConstructor(classSymbol)
+      val valueParams = specialization.traitSymbol.primaryConstructor.rawParamss(1).map(param => param.copy(owner = init, info = specialization.constructorParamToArgumentTypeMap(param.info)))
       init.setParamss(
-        List(specialization.traitSymbol.primaryConstructor.rawParamss(1).map(param => param.copy(info = specialization.constructorParamToArgumentTypeMap(param.info)))) // only the value params
+        List(valueParams) // only the value params
       )
+      val paramAccessors = valueParams.map(_.copy(owner = classSymbol, flags= Flags.LocalParamAccessor)) // ,
+      paramAccessors.foreach(classSymbol.enter(_))
+
       init.info = MethodType(specialization.traitSymbol.primaryConstructor.rawParamss(1).map(_.name.asTermName),
                              specialization.specialization.map(_.tpe),
                              classSymbol.typeRef) 
@@ -149,11 +153,6 @@ class DesugarSpecializedTraits extends MacroTransform:
 
 
       // TODO: Clean adn robust
-      
-      val field = specialization.traitSymbol.findMember(init.paramSymss.head.head.name, specialization.traitSymbol.typeRef, Flags.EmptyFlags, Flags.EmptyFlags).symbol.copy(
-        owner = classSymbol,
-        info = init.paramSymss.head.head.info
-      )
 
       // TODO: probably just copy the whole class symbol to get all the params
 
@@ -168,19 +167,19 @@ class DesugarSpecializedTraits extends MacroTransform:
           New(classSymbol.info.parents(1), classSymbol.info.parents(1).classSymbol.primaryConstructor.asTerm, Nil),
           New(parents(2), classSymbol.info.parents(2).classSymbol.primaryConstructor.asTerm, // TODO: Check for other constructors
             
-            List(ref(field))
-            // init.paramSymss.head.map(ref(_))
-            
+            paramAccessors.map(ref(_))
             ).appliedTo(
               TypeApply(ref(defn.SpecializedModule_apply), List(TypeTree(init.paramSymss.head(0).info)))
             )),
-        Nil)
+          paramAccessors.map(sym => tpd.ValDef(sym.asTerm)) // .withFlags(Flags.LocalParamAccessor).withType(sym.info)
+        )
         // println("HALLO MATE")
         // println(classDef)
       (classDef, classSymbol)
     }
 
-    override def transform(tree: Tree)(using Context): Tree = tree match {
+    override def transform(tree: Tree)(using Context): Tree = tree 
+     match {
       case pkg@PackageDef(pid, stats) => // TODO: If we do everything ourselves and match only on the package then we can get rid of the MacroTransform aspect and just have a Phase with the transformPackageDef method.
         println(pkg)
         val specializedSymbols = generateSpecializedTraitSymbols(pkg)
