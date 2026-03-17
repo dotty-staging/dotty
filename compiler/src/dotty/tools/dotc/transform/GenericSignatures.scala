@@ -39,9 +39,8 @@ object GenericSignatures {
     if (sym0.isLocal && !sym0.isClass) None
     else atPhase(erasurePhase)(javaSig0(sym0, info))
 
-  @noinline
   private final def javaSig0(sym0: Symbol, info: Type)(using Context): Option[String] = {
-    // This works as long as mangled names are always valid valid Java identifiers,
+    // This works as long as mangled names are always valid Java identifiers,
     // if we change our name encoding, we'll have to `throw new UnknownSig` here for
     // names which are not valid Java identifiers (see git history of this method).
     def sanitizeName(name: Name): String = name.mangledString
@@ -213,8 +212,6 @@ object GenericSignatures {
               boxedSig(bounds.lo)
             }
             else builder.append('*')
-          case EtaExpansion(tp) =>
-            argSig(tp)
           case _: HKTypeLambda =>
             builder.append('*')
           case _ =>
@@ -258,7 +255,6 @@ object GenericSignatures {
       builder.append(';')
     }
 
-    @noinline
     def jsig(tp0: Type, toplevel: Boolean = false, unboxedVCs: Boolean = true): Unit = {
       inline def jsig1(tp0: Type): Unit = jsig(tp0, toplevel = false, unboxedVCs = true)
 
