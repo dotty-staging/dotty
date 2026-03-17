@@ -273,11 +273,19 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
               cls.srcPos)
           EmptyTree
 
+      // See: tests/run/inline-trait-param-shadows-parent.scala and tests/run/inline-trait-param-shadows-parent-indirect.scala
+      // We need this even though we also have "if mixin.isInlineTrait then return Nil" because getters can come
+      // from traits that inherit inline traits as well as from inline traits themselves.
+      def fromInlineTraitInlining(getter: Symbol): Boolean = mixin.parentSyms.exists(
+          parentSym => parentSym.isInlineTrait && parentSym.info.decls.exists(d => d.name == getter.name) 
+        )
+
       for
         getter <- mixin.info.decls.toList
         if getter.isGetter
            && !wasOneOf(getter, Deferred)
            && !getter.isConstExprFinalVal
+           && !fromInlineTraitInlining(getter)
       yield
         if (isInImplementingClass(getter) || getter.name.is(ExpandedName)) {
           val rhs =
