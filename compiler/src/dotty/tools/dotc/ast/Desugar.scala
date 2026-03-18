@@ -1554,7 +1554,7 @@ object desugar {
           // In this case too, `variables` may contain wildcard names.
           // Exception:
           // This optimization cannot be used in the presence of the `@unchecked` annotation,
-          // since given `a: List[A]` and `B <: A`, `val (x: List[B @unchecked], _) = (a, 1): @unchecked` is OK,
+          // since given `a: List[A]` and `B <: A`, `val (x: List[B @unchecked], _) = (a, 1)` is OK,
           // but `val x: List[B @unchecked] = a: @unchecked` is not.
           // So we cannot desugar the first one into `(a, 1) match { $1 @ (_: List[B @unchecked], _) => $1 }`
           // because that loses track of the unchecked-ness.
@@ -1568,6 +1568,7 @@ object desugar {
             // We want to include wildcards for the optimizations, so we can't use `IdPattern` which excludes them
             val allVariables = pats.map {
               case id: Ident => Some(id, TypeTree())
+              case Typed(id: Ident, Annotated(_, _)) => None
               case Typed(id: Ident, tpt) => Some((id, tpt))
               case _ => None
             }.flatten
