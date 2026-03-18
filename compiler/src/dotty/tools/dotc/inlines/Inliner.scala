@@ -735,11 +735,17 @@ class Inliner(val call: tpd.Tree)(using Context):
     // The translation maps references to `this` and parameters to
     // corresponding arguments or proxies on the type and term level. It also changes
     // the owner from the inlined method to the current owner.
+
+    // TODO: This gets around the fact that inline traits doesn't define inlinedMethod correctly but maybe there is a better
+    // way.
+    val oldOwners = if (inlinedMethod.exists) then inlinedMethod :: Nil else Nil
+    val newOwners = if (inlinedMethod.exists) then ctx.owner :: Nil else Nil
+
     val inliner = new InlinerMap(
       typeMap = inlinerTypeMap,
       treeMap = inlinerTreeMap,
-      oldOwners = inlinedMethod :: Nil,
-      newOwners = ctx.owner :: Nil,
+      oldOwners = oldOwners,
+      newOwners = newOwners,
       substFrom = substFrom,
       substTo = substTo,
       inlineCopier = inlineCopier

@@ -37,7 +37,6 @@ class DesugarSpecializedTraits extends MacroTransform:
   override def description: String = DesugarSpecializedTraits.description
   override def changesMembers: Boolean = false
   override def changesParents: Boolean = true 
-  override def allowsImplicitSearch: Boolean = true
 
   override def run(using Context): Unit =
     try super.run
@@ -57,7 +56,7 @@ class DesugarSpecializedTraits extends MacroTransform:
       
       val traitSymbol = newNormalizedClassSymbol(
         specialization.traitSymbol.owner,
-        (DesugarSpecializedTraits.newSpecializedTraitName(specialization)).asTypeName,
+        DesugarSpecializedTraits.newSpecializedTraitName(specialization),
         Flags.Synthetic | Flags.Trait,
         parents,
         NoType, // TODO: What happens if the creator of the specialized inline trait provides a self type? 
@@ -117,7 +116,7 @@ class DesugarSpecializedTraits extends MacroTransform:
 
       val classSymbol = newNormalizedClassSymbol(
         specialization.traitSymbol.owner,
-        (DesugarSpecializedTraits.newImplementationClassName(specialization)).asTypeName,
+        DesugarSpecializedTraits.newImplementationClassName(specialization),
         Flags.Synthetic,
         parents,
         NoType, // TODO: What happens if the creator of the specialized inline trait provides a self type? 
@@ -156,46 +155,6 @@ class DesugarSpecializedTraits extends MacroTransform:
 
       init.info = tm2(specialization.traitSymbol.primaryConstructor.info.appliedTo(specialization.typeArguments.map(_.tpe)))
 
-        //  MethodType(valueParams.head.map(_.name.asTermName), // specialization.traitSymbol.primaryConstructor.rawParamss(1).map(_.name.asTermName), // TOOD: Multiple param sets?
-        //                      specialization.specialization.map(_.tpe),
-        //                      classSymbol.typeRef)
-        
-
-      val v = specialization.traitSymbol.primaryConstructor.info
-      val w = specialization.traitSymbol.primaryConstructor.info.appliedTo(specialization.typeArguments.map(_.tpe))
-      val z = init.info
-      
-      // Fix constructor so that it:
-      //    1) Has correct generic type parameters
-      //    2) Returns the correct type corresponding to those type parameters applied to this trait
-      // val z = init.info
-      // init.info = resultType(init.info)
-      // init.info = PolyType.fromParams(init.owner.typeParams, init.info)
-
-      // TODO: Confirm that we don't need to worry about copying the evidence parameters over from the old constructor
-      // These should be dealt with when we instantiate the original trait as a parent of this one. Otherwise we should be
-      // able to copy them over, apply the specialization (keeping e.g. Numeric[Int] that arises from this) and 
-      // pruning any that belong to Specialized.
-
-      // val synth = Typer(ctx.nestingLevel + 1)
-
-      // val z = specialization.traitSymbol.primaryConstructor
-      // val y = specialization.traitSymbol.primaryConstructor.paramSymss
-
-
-      // val v = specialization.traitSymbol.primaryConstructor.rawParamss.last.map(ev => (tm(ev.info), ev.span)._1)
-      // val w = specialization.traitSymbol.primaryConstructor.rawParamss.last.map(ev => synth.inferImplicitArg(tm(ev.info), ev.span))
-
-  /** new C(args), calling given constructor `constr` of C */
-  // def New(tp: Type, constr: TermSymbol, args: List[Tree])(using Context): Apply = {
-  //   val targs = tp.argTypes
-  //   val tycon = tp.typeConstructor
-  //   New(tycon)
-  //     .select(TermRef(tycon, constr))
-  //     .appliedToTypes(targs)
-  //     .appliedToTermArgs(args)
-  // }
-
       // TODO: Clean adn robust
       val classDef = ClassDefWithParents(
         classSymbol,
@@ -208,82 +167,81 @@ class DesugarSpecializedTraits extends MacroTransform:
             .appliedToTypes(originalTraitSpecializedParent.argTypes)
             .appliedToArgss(paramAccessors.map(_.map(ref)))
           ),
-          //.appliedTo
-          // .appliedToArgs(
-          //     specialization.traitSymbol.primaryConstructor.rawParamss.last.map(ev => synth.inferImplicitArg(tm(ev.info), ev.span)) // Can potentially move some of this into the Specialization
-          //     // TypeApply(ref(defn.SpecializedModule_apply), List(TypeTree(init.paramSymss.head(0).info)))
-            // )),
           paramAccessors.flatMap(syms => syms.map(sym => tpd.ValDef(sym.asTerm))) // .withFlags(Flags.LocalParamAccessor).withType(sym.info)
         )
       (classDef, classSymbol)
     }
 
-    override def transform(tree: Tree)(using Context): Tree = tree 
-     match {
-      case pkg@PackageDef(pid, stats) => // TODO: If we do everything ourselves and match only on the package then we can get rid of the MacroTransform aspect and just have a Phase with the transformPackageDef method.
-        val specializedSymbols = generateSpecializedTraitSymbols(pkg)
-        val generatedTraitStats = specializedSymbols.getSpecializations.map(buildSpTraitTree)
-        
-        /// TODO : Make this proper
-        val (generatedClassStats, classSymbols) = specializedSymbols.getSpecializationsForImplementation.map(buildImplClassTree).unzip
-        val classSymbolMap = specializedSymbols.getSpecializations.map(_._1).zip(classSymbols).toMap
+    override def transform(tree: Tree)(using Context): Tree = 
+      val r = tree match {
+        case pkg@PackageDef(pid, stats) => // TODO: If we do everything ourselves and match only on the package then we can get rid of the MacroTransform aspect and just have a Phase with the transformPackageDef method.
+          val specializedSymbols = generateSpecializedTraitSymbols(pkg)
+
+          // TODO: Make consistent in terms of when we generate the symbols vs the definitions
+          val generatedTraitStats = specializedSymbols.getSpecializations.map(buildSpTraitTree)
+          
+          val (generatedClassStats, classSymbols) = specializedSymbols.getSpecializationsForImplementation.map(buildImplClassTree).unzip
+          val implMap = specializedSymbols.getSpecializationsForImplementation.map(_._1).zip(classSymbols).toMap
 
 
-        // Use the TreeTypeMap to replace instances (can we do this without accidentally replacing the definitions? I think it should be ok)
-        val typeMap = new TypeMap:
-          def apply(t: Type) = t match {
-            case Specialization(spec) => 
-              {
-                for (specializedSymbol <- specializedSymbols.get(spec))
-                yield specializedSymbol.typeRef.appliedTo(spec.unspecializedTypeArgs.map(_.tpe))
-              }.getOrElse(mapOver(t))
-            case _ => mapOver(t)
-          }
-      
-        def treeMap(tree: Tree): Tree = tree match {
-          // Replace (anonymous class version of) new Foo[Int] {} with new Foo$impl$Int.asInstanceOf[Foo$sp$Int] 
-          case Block(List(TypeDef(anon, Template(_, parentCalls: List[Tree], _, _))),  
-                     Typed(Apply(Select(New(anon1),ctor), _), t: TypeTree)) if anon1.symbol.isAnonymousClass =>
-            parentCalls(1) match { // only allowed to extend Object and our specialized trait
-              case Apply(Apply(tpe, ctorArgs), ev) => 
-                val spec = Specialization.unapply(t.tpe).get
-                val x = classSymbolMap
-                val y = specializedSymbols.getSpecializations
-                Typed(Apply(Apply(Select(New(ref(classSymbolMap(spec))),ctor), ctorArgs), ev), t)
-              case _ => tree
+          // Use the TreeTypeMap to replace instances (can we do this without accidentally replacing the definitions? I think it should be ok)
+          val typeMap = new TypeMap:
+            def apply(t: Type) = t match {
+              case Specialization(spec) => 
+                {
+                  for (specializedSymbol <- specializedSymbols.get(spec))
+                  yield specializedSymbol.typeRef.appliedTo(spec.unspecializedTypeArgs.map(_.tpe))
+                }.getOrElse(mapOver(t))
+              case _ => mapOver(t)
             }
 
-          // Replace class Bar extends Foo[Int](params) with class Bar extends Foo$sp$Int(params)
-          // Note: We always drop the evidence params when creating these new specialized traits so we know that there are none, but we may need to revisit this if we decide we do want to copy the evidence parameters over
-          case Apply(TypeApply(fun@Select(New(tpt), init), args), ev) if fun.symbol.isConstructor => 
-            val spec = Specialization(fun.symbol.owner, args)
-            val r = {
+          def treeMap(tree: Tree): Tree = tree match {
+            // Replace (anonymous class version of) new Foo[Int] {} with new Foo$impl$Int.asInstanceOf[Foo$sp$Int] 
+            case Block(List(TypeDef(anon, Template(_, parentCalls: List[Tree], _, _))),  
+                      Typed(Apply(Select(New(anon1),ctor), _), t: TypeTree)) if anon1.symbol.isAnonymousClass =>
+              parentCalls(1) match { // only allowed to extend Object and our specialized trait
+                case Apply(Apply(tpe, ctorArgs), ev) => 
+                  val spec = Specialization.unapply(t.tpe).get
+                  println(spec.traitSymbol)
+                  println(tree)
+                  println(Thread.currentThread.getStackTrace().toList)
+                  val specializedMap = implMap
+                  Typed(Apply(Apply(Select(New(ref(implMap(spec))),ctor), ctorArgs), ev), t)
+                case _ => tree
+              }
+
+            // Replace class Bar extends Foo[Int](params) with class Bar extends Foo$sp$Int(params)
+            // Note: We always drop the evidence params when creating these new specialized traits so we know that there are none, but we may need to revisit this if we decide we do want to copy the evidence parameters over
+            case Apply(TypeApply(fun@Select(New(tpt), init), args), ev) if fun.symbol.isConstructor => 
+              val spec = Specialization(fun.symbol.owner, args)
+              val r = {
+                for (specializedSymbol <- specializedSymbols.get(spec))
+                yield New(ref(specializedSymbol)).select(init).appliedToTypeTrees(spec.unspecializedTypeArgs)
+              }.getOrElse(tree)
+              r
+
+            // Replace AppliedTypeTree instances in code
+            case Specialization(spec) => {
               for (specializedSymbol <- specializedSymbols.get(spec))
-              yield New(ref(specializedSymbol)).select(init).appliedToTypeTrees(spec.unspecializedTypeArgs)
+              yield AppliedTypeTree(Ident(specializedSymbol.typeRef), spec.unspecializedTypeArgs) // TODO: Matching on a Specialization and then outputting ATT is weird - maybe have a method on specialization to convert to ATT .toAppliedTypeTree?
             }.getOrElse(tree)
-            r
 
-          // Replace AppliedTypeTree instances in code
-          case Specialization(spec) => {
-            for (specializedSymbol <- specializedSymbols.get(spec))
-            yield AppliedTypeTree(Ident(specializedSymbol.typeRef), spec.unspecializedTypeArgs) // TODO: Matching on a Specialization and then outputting ATT is weird - maybe have a method on specialization to convert to ATT .toAppliedTypeTree?
-          }.getOrElse(tree)
-
-          case tree => tree
-        }
-        
-        val treeTypeMap = new TreeTypeMap(typeMap, treeMap) {
-          override def transform(tree: Tree)(using Context): Tree = tree match { // HACK: This seems to do what we want but I don't understand why we don't do this by default? Surely we should apply transformDefs over template body?
-            case dd@DefDef(name, paramss, tpt, preRhs) => 
-              val transformedDef = super.transform(dd)
-              transformedDef.symbol.info = mapType(transformedDef.symbol.info)
-              transformedDef
-            case tree => super.transform(tree)
+            case tree => tree
           }
-        }
-        val res = stats.map(treeTypeMap(_))
-        cpy.PackageDef(pkg)(pid, generatedTraitStats ++ generatedClassStats ++ stats.map(treeTypeMap(_))) // TODO: Do we also want to apply the map over generatedTraitStats?? 
-    }
+          
+          val treeTypeMap = new TreeTypeMap(typeMap, treeMap) {
+            override def transform(tree: Tree)(using Context): Tree = tree match { // HACK: This seems to do what we want but I don't understand why we don't do this by default? Surely we should apply transformDefs over template body?
+              case dd@DefDef(name, paramss, tpt, preRhs) => 
+                val transformedDef = super.transform(dd)
+                transformedDef.symbol.info = mapType(transformedDef.symbol.info)
+                transformedDef
+              case tree => super.transform(tree)
+            }
+          }
+          cpy.PackageDef(pkg)(pid, generatedTraitStats ++ generatedClassStats ++ stats.map(treeTypeMap(_))) // TODO: Do we also want to apply the map over generatedTraitStats?? 
+      }
+      println(r)
+      r
 
     // TODO: Try with just generating new Foo(100) with no function to pass it to and no other references to Foo. this may not work because we might not
     // correctly detect it. 
@@ -313,7 +271,7 @@ class DesugarSpecializedTraits extends MacroTransform:
         
         // TODO: In theory since we are going to apply the tree type map anyway we can surely just collect up the specialisations we need and then later generate the new symbols?
         // I think that's slightly cleaner.
-        case Specialization(spec) if (spec.hasSpecializedParams && !foundSpecs.contains(spec)) =>
+        case Specialization(spec) if (spec.isSpecialized && !foundSpecs.contains(spec)) =>
           foundSpecs.add(spec, newSpecializedTraitInterfaceTrait(spec))
         case _ => foundSpecs
       )
@@ -325,15 +283,13 @@ object DesugarSpecializedTraits:
 
   // TODO: What happens with this name generation if we have Vec[Vec[T]] for example? We potentially don't have an Ident
   // TODO: Check what happens here when we have a case where the types being specialized into are user defined instead of primitives or type vars.
-  private def generateName(specialization: Specialization, suffix: String)(using Context) = 
-    specialization.specializedTypeArgs.collect(t => t match {
-      case Ident(tpe) => tpe ++ str.SPECIALIZED_TRAIT_TYPE_SEP
-    }).fold(specialization.traitSymbol.name ++ suffix)((n1, n2) => n1 ++ n2)
+  private def generateName(specialization: Specialization, suffix: String)(using Context) = // TODO: Probably don't use show
+    specialization.specializedTypeArgs.collect(t => t.tpe.show ++ str.SPECIALIZED_TRAIT_TYPE_SEP).foldLeft((specialization.traitSymbol.name ++ suffix).asTypeName)((n1, n2) => n1 ++ n2)
 
-  private[transform] def newSpecializedTraitName(specialization: Specialization)(using Context) = 
+  private[transform] def newSpecializedTraitName(specialization: Specialization)(using Context): TypeName = 
     generateName(specialization, str.SPECIALIZED_TRAIT_SUFFIX)
 
-  private[transform] def newImplementationClassName(specialization: Specialization)(using Context) = 
+  private[transform] def newImplementationClassName(specialization: Specialization)(using Context): TypeName = 
     generateName(specialization, str.SPECIALIZED_TRAIT_IMPL_SUFFIX)
 
 
@@ -387,6 +343,10 @@ class Specialization(val traitSymbol: Symbol, val typeArguments: List[Tree])(usi
     traitSymbol.primaryConstructor.rawParamss.head.map(_.typeRef).zip(typeArguments.map(_.tpe)).toMap
 
   def hasSpecializedParams: Boolean = specializedTypeParams.nonEmpty
+
+  // If inline trait Foo[T] has a method taking another Foo[T] there's no point specializing the reference
+  // since the resulting sp$T$ would be the same as the starting trait.
+  def isSpecialized: Boolean = hasSpecializedParams && !(typeArguments.zip(traitSymbol.typeParams).forall(_ .tpe =:= _.typeRef))
 
   // Note: We only care about the specialized arguments for equality; a specialization of Vec[A: Specialized, B] with B = Int and one
   // with B = String can be considered to be the same as they use the same specialized trait
@@ -483,3 +443,4 @@ object Specialization:
 // inline trait Two[S: Specialized] extends Vec[S, Int, Int, Int, Int]
 // inline trait Two[S] extends Vec[S, Int, Int, Int, Int] // Maybe worth warning? Perhaps behind an extra flag
 // trait Two[S] extends Vec[S, Int, Int, Int, Int]
+// TODO: We want a self reference case where Vec[T] has some method that takes a Vec[Int] for example.
