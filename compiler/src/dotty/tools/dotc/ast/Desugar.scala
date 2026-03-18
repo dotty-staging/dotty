@@ -1638,9 +1638,9 @@ object desugar {
                 // make sure we mark it as "synthetic" so, e.g., the field for `class C { val (a, b) = (1, 2) }`
                 // does not leak into the API,
                 val patMods = (mods & Lazy) | Synthetic | (if (ctx.owner.isClass) PrivateLocal else EmptyFlags)
-                // use the type of the tuple as declared if there is one so we don't lose information,
+                // use the type of the tuple as declared if there is one and we're optimizing so we don't lose information,
                 val tupType = pat match
-                  case TuplePattern(_, t) => t
+                  case TuplePattern(_, t) if opt != Optimization.None => t
                   case _ => TypeTree()
                 // and define the assignment.
                 val firstDef =
