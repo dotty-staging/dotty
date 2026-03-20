@@ -495,9 +495,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             mapConserveSuper(t)
           case t =>
             val t1 = normalizeCaptures(mapAndMaybeDealias(t))
-            if t.derivesFromCapability
-                && t.typeParams.isEmpty
-                && !t.isSingleton
+            if t.hasImpliedCapabilityCapture
                 && (!sym.isConstructor || (t ne tp.finalResultType))
               // Don't add ^ to result types of class constructors deriving from Capability
             then t1 match

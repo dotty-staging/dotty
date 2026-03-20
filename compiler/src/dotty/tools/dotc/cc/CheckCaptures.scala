@@ -1859,6 +1859,16 @@ class CheckCaptures extends Recheck, SymTransformer:
 
       def recur(actual: Type, expected: Type, covariant: Boolean): Type =
 
+        // Before charging a contravariant unbox, expose roots implied by a capability
+        // shape that might still be hidden behind a fresh capture-set variable.
+        def captureSetForUnbox(shape: Type, base: CaptureSet): CaptureSet =
+          if !covariant
+              && base.isInstanceOf[CaptureSet.Var]
+              && shape.hasImpliedCapabilityCapture
+          then
+            base ++ CaptureSet.CSImpliedByCapability(shape, ctx.owner, -1)
+          else base
+
         /** Adapt the inner shape type: get the adapted shape type, and the capture set leaked during adaptation
          *  @param boxed   if true we adapt to a boxed expected type
          */
@@ -1925,13 +1935,12 @@ class CheckCaptures extends Recheck, SymTransformer:
             .forceBoxStatus(resultBoxed)
 
         if needsAdaptation && !insertBox then // we are unboxing
-          val criticalSet =          // the set with which we unbox
+          val criticalSet = captureSetForUnbox(actualShape, // the set with which we unbox
             if covariant then
               if expected.expectsReadOnly && actual.derivesFromStateful
               then captures.readOnly
               else captures
-            else expected.captureSet     // contravarant: we unbox with captures of epected type
-            //debugShowEnvs()
+            else expected.captureSet)     // contravariant: we unbox with captures of expected type
           markFree(criticalSet, tree)
 
         // Compute the adapted type.

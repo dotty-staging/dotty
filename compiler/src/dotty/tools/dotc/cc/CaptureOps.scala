@@ -406,6 +406,11 @@ extension (tp: Type)
 
   def derivesFromCapability(using Context): Boolean =
     derivesFromCapTrait(defn.Caps_Capability) || isArrayUnderStrictMut
+  /** Does this fully-instantiated type get an implicit capability root?
+   *  Applied types such as `Box[U]` count here; only unapplied constructors are excluded.
+   */
+  def hasImpliedCapabilityCapture(using Context): Boolean =
+    derivesFromCapability && tp.typeParams.isEmpty && !tp.isSingleton
   def derivesFromStateful(using Context): Boolean =
     derivesFromCapTrait(defn.Caps_Stateful) || isArrayUnderStrictMut
   def derivesFromShared(using Context): Boolean =
@@ -1004,4 +1009,3 @@ abstract class DeepTypeAccumulator[T](using Context) extends TypeAccumulator[T]:
       case _ =>
         foldOver(acc, t)
 end DeepTypeAccumulator
-
