@@ -1270,7 +1270,7 @@ class ClassfileParser(
             // `surviveMissingInnerClassAnnot` in AnnotationsTests.scala
         case _ =>
           // This code gets called as part of initializing Definitions, when phases haven't been initialized yet
-          if typerPhase.period == Periods.InvalidPeriod then
+          if typerPhase.period == Periods.Nowhere then
             getMember(owner, innerName.toTypeName)
           else
             atPhase(typerPhase)(getMember(owner, innerName.toTypeName))

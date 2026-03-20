@@ -2878,11 +2878,10 @@ object Types extends TypeUtils {
         val lastDenot = adapted.lastDenotation
         denot match
           case denot: SymDenotation
-          if denot.validFor.firstPhaseId < ctx.phaseId
-            && ctx.phaseId <= denot.validFor.lastPhaseId
-            && lastDenot != null
+          if lastDenot != null
+            && !lastDenot.isInstanceOf[SymDenotation]
             && denot.validFor.firstPhaseId < lastDenot.validFor.lastPhaseId
-            && !lastDenot.isInstanceOf[SymDenotation] =>
+            && denot.validFor.containsPhaseIdNotFirst(ctx.phaseId) =>
             // In this case the new SymDenotation might be valid for all phases, which means
             // we would not recompute the denotation when travelling to an earlier phase, maybe
             // in the next run. We fix that problem by creating a UniqueRefDenotation instead.

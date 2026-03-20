@@ -460,7 +460,7 @@ object Phases {
      */
     def printingContext(ctx: Context): Context = ctx
 
-    private var myPeriod: Period = InvalidPeriod
+    private var myPeriod: Period = Nowhere
     private var myBase: ContextBase = uninitialized
     private var myErasedTypes = false
     private var myFlatClasses = false
@@ -497,7 +497,7 @@ object Phases {
 
     protected[Phases] def init(base: ContextBase, start: PhaseId, end: PhaseId): Unit = {
       if (start >= FirstPhaseId)
-        assert(myPeriod == InvalidPeriod, s"phase $this has already been used once; cannot be reused")
+        assert(myPeriod == Nowhere, s"phase $this has already been used once; cannot be reused")
       assert(start <= MaxPossiblePhaseId, s"Too many phases, Period bits overflow")
       myBase = base
       myPeriod = Period(NoRunId, start, end)
