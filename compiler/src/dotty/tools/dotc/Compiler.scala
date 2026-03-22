@@ -51,6 +51,9 @@ class Compiler {
   protected def picklerPhases: List[List[Phase]] =
     List(new Pickler) ::            // Generate TASTY info
     List(new sbt.ExtractAPI) ::     // Sends a representation of the API of classes to sbt via callbacks
+    //TODO: Don't try this at home obviously
+    List(new DesugarSpecializedTraits) :: // Processes the Specialized annotation
+    List(new SpecializeInlineTraits) ::    // Inline the code of inline traits into their children
     List(new DesugarSpecializedTraits) :: // Processes the Specialized annotation
     List(new SpecializeInlineTraits) ::    // Inline the code of inline traits into their children
     List(new ReplaceInlinedTraitSymbols) :: // Replace symbols referring to inline trait members with resulting inlined member symbols

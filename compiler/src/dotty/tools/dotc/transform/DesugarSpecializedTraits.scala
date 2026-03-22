@@ -29,6 +29,7 @@ import dotty.tools.dotc.typer.Synthesizer
 import dotty.tools.dotc.typer.Typer
 import dotty.tools.dotc.core.NameKinds
 import dotty.tools.dotc.core.Flags.GivenOrImplicit
+import dotty.tools.dotc.core.NameKinds.ContextBoundParamName
 
 
 class DesugarSpecializedTraits extends MacroTransform:
@@ -37,6 +38,7 @@ class DesugarSpecializedTraits extends MacroTransform:
   override def description: String = DesugarSpecializedTraits.description
   override def changesMembers: Boolean = false
   override def changesParents: Boolean = true 
+  override def allowsImplicitSearch: Boolean = true
 
   override def run(using Context): Unit =
     try super.run
@@ -126,7 +128,7 @@ class DesugarSpecializedTraits extends MacroTransform:
 
 
       val init = newDefaultConstructor(classSymbol)
-
+      
       val tm = new TypeMap: // TODO: Can we get this into the specialization ideally.
         def apply(t: Type) = specialization.constructorParamToArgumentTypeMap.view.applyOrElse(t, mapOver) // TODO: IF we can do just types we can get rid fo this 
       
@@ -142,10 +144,23 @@ class DesugarSpecializedTraits extends MacroTransform:
      
       init.setParamss(valueParams)
 
-      val paramAccessors = valueParams.map(params => params.map(_.copy(owner = classSymbol, flags= Flags.LocalParamAccessor))) 
-      paramAccessors.foreach(_.foreach(classSymbol.enter(_)))
+      val paramAccessorss = valueParams.map(params => params.map(_.copy(owner = classSymbol, flags= Flags.LocalParamAccessor))) 
+      paramAccessorss.foreach(_.foreach(classSymbol.enter(_)))
 
       init.info = tm2(specialization.traitSymbol.primaryConstructor.info.appliedTo(specialization.typeArguments.map(_.tpe)))
+      
+      val typer = Typer(ctx.nestingLevel + 1) // TODO: actually get these from the user.
+      
+      val newParamss = 
+        specialization.traitSymbol.primaryConstructor.paramSymss.tail.zip(paramAccessorss.map(_.map(ref))) // skip the type params
+        .map((paramSyms, paramAccessors) =>
+          paramSyms.zip(paramAccessors).map(
+            (paramSym, accessor) =>
+               if paramSym.name.asTermName.is(ContextBoundParamName) 
+               then typer.implicitArgTree(tm(paramSym.info), paramSym.span) // TODO: Fix spans throughout
+               else accessor
+          )
+        )
 
       // TODO: Clean adn robust
       val classDef = ClassDefWithParents(
@@ -157,21 +172,38 @@ class DesugarSpecializedTraits extends MacroTransform:
           New(originalTraitSpecializedParent.typeConstructor)
             .select(TermRef(originalTraitSpecializedParent.typeConstructor, specialization.traitSymbol.primaryConstructor.asTerm)) // TODO: Check for other constructors
             .appliedToTypes(originalTraitSpecializedParent.argTypes)
-            .appliedToArgss(paramAccessors.map(_.map(ref)))
+            // .appliedToArgss(paramAccessors.map(_.map(ref)))
+            .appliedToArgss(newParamss)
+            
+            // TODO: What about potential custom typeclass instances? How do we balance that with generating another version of the class every time? Probably just generate the basic version and then let them apply their own version want (based on some kind of hashing). Then we generate a whole new impl class / or anon class which is still specialised to their instances that they provided, at the time that we see it?
+            // To be honest if our assumption is that we aren't very often going to do anything weird we can just always generate the class at the point of use, with the evidences specialized (but only if we don't ahve that one already - i.e. effectively consider the evidences as part of the name) 
           ),
-          paramAccessors.flatMap(syms => syms.map(sym => tpd.ValDef(sym.asTerm))) // .withFlags(Flags.LocalParamAccessor).withType(sym.info)
+          // Put into body of class
+          paramAccessorss.flatMap(syms => syms.map(sym => tpd.ValDef(sym.asTerm))) // .withFlags(Flags.LocalParamAccessor).withType(sym.info)
         )
       (classDef, classSymbol)
     }
 
-    override def transform(tree: Tree)(using Context): Tree = 
-      val r = tree match {
+    override def transform(tree: Tree)(using Context): Tree = tree
+       match {
         case pkg@PackageDef(pid, stats) => // TODO: If we do everything ourselves and match only on the package then we can get rid of the MacroTransform aspect and just have a Phase with the transformPackageDef method.
-          val specializedSymbols = generateSpecializedTraitSymbols(pkg)
+          // HACK/TODO: Remove
+          // In the future we want to cache these on the class path
+          val existing = pkg.stats.flatMap({
+            case t@TypeDef(name, rhs) if name.toString().contains("$sp$") => Some((name.toTypeName.toString, t.symbol.asClass))
+            case _ => None
+          }).toMap
+
+          val specializedSymbols = generateSpecializedTraitSymbols(pkg, existing)
+
 
           // TODO: Make consistent in terms of when we generate the symbols vs the definitions
-          val generatedTraitStats = specializedSymbols.getSpecializations.map(buildSpTraitTree)
-          
+          val generatedTraitStats = 
+            if (specializedSymbols.getSpecializations.size != existing.size) // TODO: bin
+              specializedSymbols.getSpecializations.map(buildSpTraitTree)
+            else
+              List()
+
           val (generatedClassStats, classSymbols) = specializedSymbols.getSpecializationsForImplementation.map(buildImplClassTree).unzip
           val implMap = specializedSymbols.getSpecializationsForImplementation.map(_._1).zip(classSymbols).toMap
 
@@ -194,9 +226,6 @@ class DesugarSpecializedTraits extends MacroTransform:
               parentCalls(1) match { // only allowed to extend Object and our specialized trait
                 case Apply(Apply(tpe, ctorArgs), ev) => 
                   val spec = Specialization.unapply(t.tpe).get
-                  println(spec.traitSymbol)
-                  println(tree)
-                  println(Thread.currentThread.getStackTrace().toList)
                   val specializedMap = implMap
                   Typed(Apply(Apply(Select(New(ref(implMap(spec))),ctor), ctorArgs), ev), t)
                 case _ => tree
@@ -227,20 +256,20 @@ class DesugarSpecializedTraits extends MacroTransform:
                 val transformedDef = super.transform(dd)
                 transformedDef.symbol.info = mapType(transformedDef.symbol.info)
                 transformedDef
+              case impl@Template(constr, preParentsOrDerived, self, _) => // TODO/HACK: Remove with existing
+                cpy.Template(impl)(body = impl.body.map(super.transform(_)))
               case tree => super.transform(tree)
             }
           }
           cpy.PackageDef(pkg)(pid, generatedTraitStats ++ generatedClassStats ++ stats.map(treeTypeMap(_))) // TODO: Do we also want to apply the map over generatedTraitStats?? 
       }
-      println(r)
-      r
 
     // TODO: Try with just generating new Foo(100) with no function to pass it to and no other references to Foo. this may not work because we might not
     // correctly detect it. 
 
     // TODO : Is it not better to just delete the Specialized?
 
-    private def generateSpecializedTraitSymbols(tree: Tree)(using Context): SpecializedTraitCache = 
+    private def generateSpecializedTraitSymbols(tree: Tree, existing: Map[String, ClassSymbol])(using Context): SpecializedTraitCache =  // HACK/TODO: Remove existing
       tree.deepFold(SpecializedTraitCache())((foundSpecs, tree) => tree match
         // case Typed(Apply(Select(New(anon),ctor),List()), t: TypeTree) =>
         //   val z = anon.symbol
@@ -264,7 +293,9 @@ class DesugarSpecializedTraits extends MacroTransform:
         // TODO: In theory since we are going to apply the tree type map anyway we can surely just collect up the specialisations we need and then later generate the new symbols?
         // I think that's slightly cleaner.
         case Specialization(spec) if (spec.isSpecialized && !foundSpecs.contains(spec)) =>
-          foundSpecs.add(spec, newSpecializedTraitInterfaceTrait(spec))
+          if (existing.contains(DesugarSpecializedTraits.newSpecializedTraitName(spec).toString)) 
+          then foundSpecs.add(spec, existing(DesugarSpecializedTraits.newSpecializedTraitName(spec).toString)) // TODO: Bin this obviosuly 
+          else foundSpecs.add(spec, newSpecializedTraitInterfaceTrait(spec))
         case _ => foundSpecs
       )
   }

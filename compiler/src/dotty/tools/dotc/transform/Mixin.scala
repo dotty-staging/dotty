@@ -142,6 +142,24 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
   override def transformSym(sym: SymDenotation)(using Context): SymDenotation =
     def ownerIsTrait: Boolean = was(sym.owner, Trait, butNot = JavaDefined)
 
+      // // See: tests/run/inline-trait-param-shadows-parent.scala and tests/run/inline-trait-param-shadows-parent-indirect.scala
+      // // We need this even though we also have "if mixin.isInlineTrait then return Nil" because getters can come
+      // // from traits that inherit inline traits as well as from inline traits themselves.
+      // // TODO: Do we not only want to do this if we get the symbol from somewhere else in the child trait as well?
+      // // i.e. need to know that the trait is mixed in either directly or indirectly as another parent as well.
+      // // Maybe just say that ordinary traits cannot inherit from inline traits? That would probably fix it.
+      // def isFromInlineTraitInlining(getter: Symbol): Boolean = 
+      //   val y = mixin.parentSyms
+
+      //   val x = mixin.parentSyms.map(
+      //     parentSym => parentSym.info.decls//.exists(d => d.name == getter.name || getter.name == d.name.expandedName(parentSym)) 
+      //   )
+      //   mixin.parentSyms.exists(
+      //     parentSym => parentSym.isInlineTrait && parentSym.info.decls.exists(d => {
+      //       d.name == getter.name || getter.name ++ str.INLINE_TRAIT_ERASED_PRIVATE_SUFFIX == d.name.expandedName(parentSym)}) 
+      //   )
+
+
     if (sym.is(Accessor, butNot = Deferred) && ownerIsTrait) {
       val sym1 =
         if (sym.is(Lazy) || sym.symbol.isConstExprFinalVal) sym
@@ -276,8 +294,18 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
       // See: tests/run/inline-trait-param-shadows-parent.scala and tests/run/inline-trait-param-shadows-parent-indirect.scala
       // We need this even though we also have "if mixin.isInlineTrait then return Nil" because getters can come
       // from traits that inherit inline traits as well as from inline traits themselves.
-      def isFromInlineTraitInlining(getter: Symbol): Boolean = mixin.parentSyms.exists(
-          parentSym => parentSym.isInlineTrait && parentSym.info.decls.exists(d => d.name == getter.name) 
+      // TODO: Do we not only want to do this if we get the symbol from somewhere else in the child trait as well?
+      // i.e. need to know that the trait is mixed in either directly or indirectly as another parent as well.
+      // Maybe just say that ordinary traits cannot inherit from inline traits? That would probably fix it.
+      def isFromInlineTraitInlining(getter: Symbol): Boolean = 
+        val y = mixin.parentSyms
+
+        val x = mixin.parentSyms.map(
+          parentSym => parentSym.info.decls//.exists(d => d.name == getter.name || getter.name == d.name.expandedName(parentSym)) 
+        )
+        mixin.parentSyms.exists(
+          parentSym => parentSym.isInlineTrait && parentSym.info.decls.exists(d => {
+            d.name == getter.name || getter.name ++ str.INLINE_TRAIT_ERASED_PRIVATE_SUFFIX == d.name.expandedName(parentSym)}) 
         )
 
       for
