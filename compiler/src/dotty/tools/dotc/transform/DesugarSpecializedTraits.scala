@@ -479,3 +479,11 @@ object Specialization:
 // we could just try and fix the mixin problem properly.
 
 // TODO: Create a proper benchmark
+// TOOD: probably need to do this from Timothée private members are not renamed, only private parameter accessors are;
+// this needs to be changed so that all overridable private members are renamed
+// Implement postphase checks for inline traits
+// TODO: Don't synthesize specialized instances for random generic types probably - as Hamza said we want to be able to control the specialization
+// TODO: If we are to ban trait extends inline trait then need to fix some tests.
+// TODO: Check that when we extend parents we actually do so in the specialized forms.
+// TODO: Fix specialized-trait-collections-example.scala
+// TODO: Test extensively with inline methods and inline traits.
