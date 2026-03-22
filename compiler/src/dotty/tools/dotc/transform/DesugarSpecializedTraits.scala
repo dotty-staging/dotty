@@ -57,7 +57,7 @@ class DesugarSpecializedTraits extends MacroTransform:
       val traitSymbol = newNormalizedClassSymbol(
         specialization.traitSymbol.owner,
         DesugarSpecializedTraits.newSpecializedTraitName(specialization),
-        Flags.Synthetic | Flags.Trait,
+        Flags.Synthetic | Flags.Trait | Flags.Inline,
         parents,
         NoType, // TODO: What happens if the creator of the specialized inline trait provides a self type? 
         specialization.traitSymbol.privateWithin,
