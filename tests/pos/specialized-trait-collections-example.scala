@@ -8,20 +8,17 @@ inline trait ArrayIterator[T: Specialized](elems: Array[T]) extends Iterator[T]:
   def hasNext: Boolean = current < elems.length
   def next(): T = try elems(current) finally current += 1
 
-
 // We should generate these:
-// inline trait ArrayIterator$sp$Int extends ArrayIterator[Int], Iterator[Int]
+// trait Iteratorsp$Int extends Iterator[Int]
+// trait ArrayIterator$sp$Int extends ArrayIterator[Int], Iterator[Int]
 // class ArrayIterator$impl$Int(elems: Array[Int]) extends ArrayIterator$sp$Int, ArrayIterator[Int](elems)
-
-// Inline traits does the magic of actually inlining the code and specialising from T to Int in that step.
 
 
 // They do this:
 def foo(x: ArrayIterator[Int]): Int = x.next()
-// We convert this to:
+// We should convert this to:
 // def foo(x: ArrayIterator$sp$Int): Int = x.next()
-// As long as we generate this (i.e. "do the special erasure") before we run inline traits we should be fine because then the reference will be replaced.
-
+// Check that the call to next() should be a specialized call and not have boxing - can compare to without specialized to see the impact.
 
 // They do this:
 // class MyClassA
@@ -40,3 +37,4 @@ def foo(x: ArrayIterator[Int]): Int = x.next()
 //     // We convert this to:
 //     val ai = new ArrayIterator$impl$Int(xs) {}
 //     println(ai.next())
+100
