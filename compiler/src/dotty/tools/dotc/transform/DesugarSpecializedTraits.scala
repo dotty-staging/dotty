@@ -126,14 +126,6 @@ class DesugarSpecializedTraits extends MacroTransform:
 
 
       val init = newDefaultConstructor(classSymbol)
-      
-      // TODO: Share this with where we copied it from
-      // def isSyntheticEvidence(sym: Symbol) =
-      //   println(sym.name)
-      //   println(NameKinds.ContextBoundParamName.separator)
-      //   println(sym.name.show.startsWith(NameKinds.ContextBoundParamName.separator))
-      //   println(sym.flags.isOneOf(GivenOrImplicit))
-      //   sym.name.show.startsWith(NameKinds.ContextBoundParamName.separator) && sym.flags.isOneOf(Flags.GivenOrImplicit)
 
       val tm = new TypeMap: // TODO: Can we get this into the specialization ideally.
         def apply(t: Type) = specialization.constructorParamToArgumentTypeMap.view.applyOrElse(t, mapOver) // TODO: IF we can do just types we can get rid fo this 
@@ -360,12 +352,13 @@ class Specialization(val traitSymbol: Symbol, val typeArguments: List[Tree])(usi
     (traitSymbol, specializedTypeArgs.map(_.tpe.widen.dealias.show)).hashCode() // TODO: Consider not using show for this for performance reasons (correctness also?)
 
 object Specialization:
-  def unapply(tpt: Tree)(using Context) = tpt match {
+  def unapply(tpt: Tree)(using Context): Option[Specialization] = tpt match {
     case AppliedTypeTree(specializedTrait: Ident, concreteTypeTrees: List[Tree]) => Some(Specialization(specializedTrait.denot.symbol, concreteTypeTrees))
+    case t: TypeTree => Specialization.unapply(t.tpe)
     case _ => None
   }
   
-  def unapply(tpe: Type)(using Context) = tpe match {
+  def unapply(tpe: Type)(using Context): Option[Specialization] = tpe match {
     case AppliedType(tycon: Type, args: List[Type]) => Some(Specialization(tycon.typeSymbol, args.map(TypeTree(_))))
     case _ => None
   }
