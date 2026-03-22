@@ -437,3 +437,14 @@ object Specialization:
 // inline trait Two[S] extends Vec[S, Int, Int, Int, Int] // Maybe worth warning? Perhaps behind an extra flag
 // trait Two[S] extends Vec[S, Int, Int, Int, Int]
 // TODO: We want a self reference case where Vec[T] has some method that takes a Vec[Int] for example.
+// TODO: Fix broken "inline" tests 
+// TODO: Only specialize if there is some material increase in specialization - I think only if at least one new parameter gets fully specialized
+// Maybe it is better to not allow partial specializations --  we can think about that.
+// TODO: Need to add the rule that we need to directly extend inline traits to pass parameters in the same way as for normal traits
+// See inline-trait-param-no-shadow.scala
+
+// could ban normal traits from mixing in inline traits on the basis that 
+// it's a very unlikely usecase and would fix the mixin problem - although
+// we could just try and fix the mixin problem properly.
+
+// TODO: Create a proper benchmark
