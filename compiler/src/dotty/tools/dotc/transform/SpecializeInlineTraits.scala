@@ -40,7 +40,8 @@ class SpecializeInlineTraits extends MacroTransform, SymTransformer {
   override def newTransformer(using Context): Transformer = new Transformer {
     override def transform(tree: Tree)(using Context): Tree = tree match {
       case tree: TypeDef if tree.symbol.isInlineTrait =>
-        transformInlineTrait(tree)
+        val tree1 = transformInlineTrait(tree)
+        if Inlines.needsInlining(tree1) then Inlines.inlineParentInlineTraits(tree1) else tree1
       case tree: TypeDef if Inlines.needsInlining(tree) =>
         val tree1 = super.transform(tree).asInstanceOf[TypeDef]
         if tree1.tpe.isError then tree1

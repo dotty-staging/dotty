@@ -88,13 +88,14 @@ object Inlines:
       )
       && !ctx.typer.hasInliningErrors
       && !ctx.base.stopInlining
-      && !ctx.owner.ownersIterator.exists(_.isInlineTrait)
+      // && !ctx.owner.ownersIterator.exists(_.isInlineTrait)
 
     tree match
       case Block(_, expr) =>
         needsInlining(expr)
       case tdef @ TypeDef(_, impl: Template) =>
-        !tdef.symbol.isInlineTrait && impl.parents.map(symbolFromParent).exists(_.isInlineTrait) && isInlineableInCtx
+        // !tdef.symbol.isInlineTrait &&
+        impl.parents.map(symbolFromParent).exists(_.isInlineTrait) && isInlineableInCtx
       case _ =>
         def isUnapplyExpressionWithDummy: Boolean =
           // The first step of typing an `unapply` consists in typing the call
