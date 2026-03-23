@@ -1,8 +1,9 @@
 // Run with: scala-cli --power --jmh dotty/tests/run/specialized-traits-benchmark.scala
-// May have to run it again if you get a class not found error from scala-cli first time.
+// May have to run it again / delete .scala-build and rerun if you get a class not found
+// error from scala-cli first time - the --jmh flag is still experimental.
 //> using scala 3.8.3-RC1-bin-SNAPSHOT-nonbootstrapped
 
-package bench
+package dotty.tools.benchmarks
 
 import org.openjdk.jmh.annotations.*
 import java.util.concurrent.TimeUnit
