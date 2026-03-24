@@ -4,8 +4,10 @@ package site
 import com.vladsch.flexmark.html.HtmlRenderer
 import com.vladsch.flexmark.parser.Parser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
+import util.IO
 
 class TemplateFileTests:
   given staticSiteContext: StaticSiteContext = testDocContext().staticSiteContext.get
@@ -258,3 +260,40 @@ class TemplateFileTests:
       html,
       Map(),
       List(base -> "html", content -> "html"))
+
+  @Test
+  def snippetCompileWithErrorPointsToVisibleMarkdownLine(): Unit =
+    val tmpFile = Files.createTempFile("snippet-position", ".md").toFile()
+    try
+      Files.write(
+        tmpFile.toPath,
+        """---
+          |title: "Snippet position"
+          |---
+          |
+          |```scala sc-hidden sc-name:preamble
+          |import language.experimental.captureChecking
+          |class File
+          |```
+          |
+          |```scala sc-compile-with:preamble
+          |object Console:oops
+          |```
+          |""".stripMargin.getBytes
+      )
+
+      val dctx = DocContext(
+        testArgs().copy(snippetCompiler = List(s"${tmpFile.getAbsolutePath}=compile")),
+        testContext
+      )
+      given StaticSiteContext = dctx.staticSiteContext.get
+
+      loadTemplateFile(tmpFile).resolveInner(RenderingContext(Map.empty))
+
+      val diagnostics = dctx.compilerContext.reportedDiagnostics
+      assertEquals(diagnostics.errorMsgs.mkString("\n"), 1, diagnostics.errors.size)
+      val error = diagnostics.errors.head
+      assertTrue(error.message.contains("end of statement expected"))
+      assertEquals(10, error.pos.line)
+      assertEquals(14, error.pos.column)
+    finally IO.delete(tmpFile)
