@@ -1992,7 +1992,6 @@ object Build {
 
         val outputDir = "scaladoc/output/reference"
         val languageReferenceConfig = Def.task {
-          val ccDocs = s"${docs.getAbsolutePath}/_docs/reference/experimental/capture-checking"
           Scala3.value
             .add(OutputDir(outputDir))
             .add(SiteRoot(docs.getAbsolutePath))
@@ -2003,11 +2002,7 @@ object Build {
               s"${docs.getAbsolutePath}=github://scala/scala3/language-reference-stable#docs"
             )))
             .add(GenerateAPI(false))
-            .add(SnippetCompiler(List(
-              s"${docs.getAbsolutePath}/_docs/reference/new-types=compile",
-              s"${docs.getAbsolutePath}/_docs/reference/enums=compile",
-              s"$ccDocs=compile",
-            )))
+            .add(SnippetCompiler(referenceSnippetCompilerTargets(docs.getAbsolutePath)))
         }
 
         val generateDocs = generateDocumentation(languageReferenceConfig)
@@ -2022,6 +2017,79 @@ object Build {
         }
 
         expectedLinksRegeneration.dependsOn(generateDocs)
+      }.evaluated,
+
+      checkReferenceSnippets := Def.inputTaskDyn {
+        val selected = (Space ~> NotSpace).*.parsed
+        val docsRoot = file("docs").getAbsoluteFile
+        val referenceRoot = docsRoot / "_docs" / "reference"
+        val requested =
+          if (selected.nonEmpty) selected
+          else referenceSnippetRelativeRoots
+
+        val tempRoot = IO.createTemporaryDirectory
+        val tempDocsRoot = tempRoot / "_docs" / "reference"
+        val tempLayoutsRoot = tempRoot / "_layouts"
+        val outputDir = IO.createTemporaryDirectory.getAbsolutePath
+
+        // TODO #23743: once Scaladoc supports snippet checking without full page rendering,
+        // replace this lightweight static-site copy workaround with that native path.
+
+        def resolveSelected(pathArg: String): File = {
+          val normalized = pathArg.stripPrefix("/")
+          val candidates = Seq(
+            file(pathArg).getAbsoluteFile,
+            (docsRoot / normalized).getAbsoluteFile,
+            (referenceRoot / normalized).getAbsoluteFile
+          )
+          candidates.find(_.exists).getOrElse {
+            sys.error(
+              s"Unable to find reference docs path '$pathArg'. " +
+              s"Try a path under docs/_docs/reference/, for example experimental/capture-checking/overview.md"
+            )
+          }
+        }
+
+        def copySelected(src: File): Unit =
+          IO.relativize(docsRoot, src).fold {
+            sys.error(s"Selected path $src is not under ${docsRoot.getAbsolutePath}")
+          } { relative =>
+            val dest = tempRoot / relative
+            if (src.isDirectory)
+              IO.copyDirectory(src, dest)
+            else {
+              IO.createDirectory(dest.getParentFile)
+              IO.copyFile(src, dest)
+            }
+          }
+
+        Def.taskDyn {
+          val log = streams.value.log
+          log.info(s"Checking reference snippets for: ${requested.mkString(", ")}")
+
+          IO.copyDirectory(docsRoot / "_layouts", tempLayoutsRoot)
+          requested.map(resolveSelected).foreach(copySelected)
+
+          val config = Def.task {
+            Scala3.value
+              .add(OutputDir(outputDir))
+              .add(SiteRoot(tempRoot.getAbsolutePath))
+              .add(ProjectName("Scala 3 Reference Snippets"))
+              .add(ProjectVersion(baseVersion))
+              .remove[VersionsDictionaryUrl]
+              .add(SourceLinks(List(
+                s"${tempRoot.getAbsolutePath}=github://scala/scala3/main#docs"
+              )))
+              .add(NoLinkWarnings(true))
+              .add(NoLinkAssetWarnings(true))
+              .add(GenerateAPI(false))
+              .add(SnippetCompiler(List(
+                s"${tempDocsRoot.getAbsolutePath}=compile"
+              )))
+          }
+
+          generateDocumentation(config)
+        }
       }.evaluated,
 
     )
@@ -2465,6 +2533,7 @@ object Build {
   // Published on https://docs.scala-lang.org/scala3/reference/
   // Does not produce API docs, contains additional redirects for improved stablity
   val generateReferenceDocumentation = inputKey[Unit]("Generate language reference documentation for Scala 3")
+  val checkReferenceSnippets = inputKey[Unit]("Snippet-check selected reference pages without generating the full reference site")
 
   lazy val `scaladoc-testcases` = project.in(file("scaladoc-testcases")).
     dependsOn(`scala3-compiler-bootstrapped`).
@@ -2941,6 +3010,16 @@ object ScaladocConfigs {
     s"$dottyLibSrc/scala/util=compile",
     s"$dottyLibSrc/scala/util/control=compile",
   )
+  // Relative subtrees in `_docs/reference` where snippet compilation is explicitly enabled.
+  // Keep this shared with the full docs tasks and the lightweight snippet-check task.
+  def referenceSnippetRelativeRoots = List(
+    "new-types",
+    "enums",
+    "experimental/capture-checking",
+  )
+  def referenceSnippetCompilerTargets(docsRoot: String) =
+    referenceSnippetRelativeRoots.map(path => s"$docsRoot/_docs/reference/$path=compile")
+
   lazy val Scala3 = Def.task {
     val stdlib = { // relative path to the stdlib directory ('library/')
       val projectRoot = (ThisBuild/baseDirectory).value.toPath
@@ -2961,11 +3040,8 @@ object ScaladocConfigs {
       .add(VersionsDictionaryUrl("https://scala-lang.org/api/versions.json"))
       .add(DocumentSyntheticTypes(true))
       .add(SnippetCompiler(
-        snippetCompilerTargets(s"$stdlib/src") ++ List(
-        "docs/_docs/reference/new-types=compile",
-        "docs/_docs/reference/enums=compile",
-        "docs/_docs/reference/experimental/capture-checking=compile",
-      )))
+        snippetCompilerTargets(s"$stdlib/src") ++ referenceSnippetCompilerTargets("docs")
+      ))
       .add(SiteRoot("docs"))
       .add(ApiSubdirectory(true))
       .withTargets((`scala-library-bootstrapped` / Compile / products).value.map(_.getAbsolutePath))
