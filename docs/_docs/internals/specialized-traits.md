@@ -37,10 +37,11 @@ Specialized traits seek to resolve this problem. We also want to avoid pro-activ
 Specialized traits are an approach sitting between these two options. As in Scala 2, specialized type parameters are tagged explicitly (but with a context bound rather than an annotation). 
 However, as for monomorphization, specializations are only generated if a specialized type is referenced in the program. 
 
-To make this work efficiently, we introduce a type class `Specialized` that is used as a context bound on a type parameter of some class.
-It indicates that we want to create specialized versions of that class where the type parameter is instantiated to the type argument.
-The specialized versions offer optimization opportunities compared to the generic class. This allow us to transport information about 
+To make this work efficiently, we introduce a type class `Specialized` that is used as a context bound on a type parameter of some class. This allows us to transport information about 
 possible specialization types through generic code (full monomorphization does not need that since it eliminates all generic code).
+
+The `Specialized` annotation indicates that we want to create specialized versions of that class where the type parameter is instantiated to the type argument.
+The specialized versions offer optimization opportunities compared to the generic class.
 
 ## Example
 
@@ -49,6 +50,7 @@ As a first example, consider a `Vec` trait for vectors over a numeric type.
 import scala.math.Numeric
 
 inline trait Vec[T: {Specialized, Numeric}](elems: Array[T]):
+  private val num = summon[Numeric[T]]
 
   def length = elems.length
 
@@ -61,7 +63,7 @@ inline trait Vec[T: {Specialized, Numeric}](elems: Array[T]):
       result = num.plus(result, num.times(this(i), other(i)))
     result
 
-object Vec:
+object Vec: <!-- TODO: We don't support the inline def functions yet-->
   inline def apply[T: Specialized](elems: Array[T]) = new Vec[T](elems) {}
 end Vec
 ```
@@ -90,7 +92,7 @@ we require that each such anonymous class instance
 So each such class instance is of the form `new A[Ts](ps1)...(psN) {}` where
 `A` is a specialized trait and the type parameters `Ts` and term parameters `ps1, ,,, psN` can also be absent.
 
-The restrictions ensure that each time we create an instance of a specialized trait we know statically the classes of all `Specialized` type arguments. 
+The restrictions ensure that each time we create an instance of a specialized trait we know statically the classes of all `Specialized` type arguments.  <!-- TODO: Except if T \in Ts is defined in the enclosing scope e.g. as a class type parameter -->
 
 <!-- TODO: Do we also allow extensions? -->
 <!-- TODO: Do we definitely need all of these restrictions? -->
@@ -101,7 +103,8 @@ This enables us to implement the following expansion scheme.
 
 ## Expansion of Specialized Traits
 <!-- TODO: Do we definitely need the notion of specializing supertype? Idea of first constructor? -->
-<!-- TODO: Do we want to express it in terms of erasure? -->
+<!-- TODO: Do we want to express it in terms of erasure? I think probably just explain what
+gets generated and why directly. -->
 
 
 A type instance of a specialized trait such as `Vec[Tp]` has a special erasure, which depends on the specializing supertype of `Tp`.
@@ -158,15 +161,16 @@ class Vec$impl$Int(elems: Array[T]) extends Vec[Int](elems), Vec$sp$Int
 After inlining `Vec[Int]` the expanded class looks like this:
 ```scala
 class Vec$impl$Int(elems: Array[Int])(using Numeric[Int]) extends Vec[Int](elems), Vec$sp$Int:
+  private val Vec$$num: Numeric.IntIsIntegral // Methods converted to primitive operations without boxing
 
   def length: Int = elems.length
   def apply(i: Int): Int = elems(i)
 
   def scalarProduct(other: Vec[Int]): Int =
     require(this.length == other.length)
-    var result = num.fromInt(0)
+    var result = Vec$$num.fromInt(0)
     for i <- 0 until length do
-      result = num.plus(result, num.times(this(i), other(i)))
+      result = Vec$$num.plus(result, Vec$$num.times(this(i), other(i)))
     result
 ```
 
@@ -182,7 +186,7 @@ inline trait Vec$sp$Int extends Vec[Int]:
 We introduce a new phase `desugarSpecializedTraits` responsible for detecting specializations, generating the necessary `$sp$` and `$impl$` 
 classes for these specializations, and replacing references to e.g. `Vec[Int]` with `Vec$sp$Int` and `new Vec[Int] {}` with `new Vec$impl$Int`.
 
-Specialized traits rely on the semantics and implementation of inline traits, so it may seem logical that this phase would merely generate
+Specialized traits rely on the semantics and implementation of inline traits, so it may seem logical that `desugarSpecializedTraits` would merely generate
 the prototypes for the classes, and allow `specializeInlineTraits` to inline the bodies. We *do not* do this. Rather, the phase `desugarSpecializedTraits` directly performs inlining of the parent traits (`Vec[Int]` in the above example) into the
 generated `$sp$` traits and `$impl$` classes, sharing the relevant code with the `specializeInlineTraits` phase through
 the `Inlines.scala` file. 
@@ -223,10 +227,10 @@ Inlining the body of `C` into this trait will create a reference to `D[Char]`, w
 it is possible to create arbitrarily long chains requiring alternating between specialized trait generation and inline trait inlining. We note that 
 this problem arises not only with the `$sp$` traits, but also the `$impl$` classes (see `specialized-trait-inlining-causes-implementation-required.scala`).
 
-To resolve this problem without alternating and looping the `specializeInlineTraits` and `desugarSpecializedTraits` phases in an inconvenient way, we opt to make:
+To resolve this problem without alternating between and looping the `specializeInlineTraits` and `desugarSpecializedTraits` phases in an inconvenient way, we opt to make:
 - `specializeInlineTraits` responsible for inlining inline traits written directly in user code.
 - `desugarSpecializedTraits` responsible for finding specializations and generating the required `$sp$` traits and `$impl$` classes, inlining the parent specialized traits into these classes, and repeating until no more inlining can be performed and no more `$sp$` traits and `$impl$` classes are needed. This phase also performs replacement of e.g. `Vec[Int]` with `Vec$sp$Int` and `new Vec[Int]` with `new Vec$impl$Int`.
-- `pruneInlineTraits` and `replaceInlinedTraitSymbols` responsible for converting inline traits to pure interfaces and for replacing members accessed on inline receivers with the corresponding inlined symbols, *whether the inline traits in question come from inline traits in source code or specialized trait expansion, in both cases.* (see the document on inline traits for a more detailled description of these phases). 
+- `pruneInlineTraits` and `replaceInlinedTraitSymbols` responsible respectively for converting inline traits to pure interfaces, and for replacing members accessed on inline receivers with the corresponding inlined symbols. This is *whether the inline traits in question come from inline traits in source code or specialized trait expansion, in both cases.* (see the document on inline traits for a more detailed description of these phases). 
 
 In particular this decision means that we run `specializeInlineTraits` before `desugarSpecializedTraits`, as otherwise we may duplicate the inlined bodies of the `$sp$` traits and `$impl$` classes, since we have already inlined them in `desugarSpecializedTraits`.
 
@@ -284,7 +288,7 @@ inline trait Seq$sp$Int extends Seq[Int], Iterable$sp$Int:
   def length: Int
   def apply(i: Int): Int
 ```
-Note that these traits repeat the parent types of their corresponding inline traits. For instance, `ArrayIterator$sp$Int` extends `ArrayIterator[Int]` as well as the specialized version of its parent `Iterator$sp$Int`, so the specialized trait may be used in contexts expecting:
+Note that these traits repeat the parent types of their corresponding inline traits (but with specialization added). For instance, `ArrayIterator$sp$Int` extends `ArrayIterator[Int]` (as we would expect) *as well as* the specialized version of its parent `Iterator$sp$Int`, so the specialized trait may be used in contexts expecting:
 
 - The specialized trait `ArrayIterator$sp$Int` itself
 - An unspecialized `ArrayIterator` for example `ArrayIterator[T: Numeric]`, or parents thereof, e.g. `Iterator[T: Numeric]`
@@ -300,7 +304,7 @@ class ArrayIterator$impl$Int(elems: Array[Int]) extends ArrayIterator$sp$Int, Ar
   override def next(): Int =
     try elems(current) finally current += 1
 
-class Seq$impl$Int(elems: Array[Int]) extends Seq$sp$Int, Seq[Int]:
+class Seq$impl$Int(elems: Array[Int]) extends Seq$sp$Int, Seq[Int](elems):
   override def iterator: Iterator$sp$Int = new ArrayIterator$impl$Int(elems)
 
   override def forall(f: Int => Unit): Unit =
@@ -325,9 +329,9 @@ Consider the following:
 inline trait A[T]:
 	def foo = "Hello World"
 inline trait B extends A[Int]
-trait C extends B
-// expands to:
-trait C extends B:
+class C extends B
+// inlines to:
+class C extends B:
 	def foo = "Hello World"
 
 // vs...
@@ -335,16 +339,16 @@ trait C extends B:
 inline trait A[T: Specialized]:
 	def foo = "Hello World"
 inline trait B extends A[Int]
-trait C extends B
-// expands to:
+class C extends B
+// would expand to:
 trait A$sp$Int:
 	def foo = "Hello World"
 inline trait B extends A$sp$Int
-trait C extends B
+class C extends B
 ```
-We consider the fact that simply adding Specialized changes the location of 
-the inlined `foo` method to be inconsistent / confusing. Furthermore it would violate the rule
-that ordinary traits may not extend inline traits, and causes problems with partial specializations:
+We consider the fact that the location of the inlined `foo` method changes with only a simple
+addition of `Specialized` to be inconsistent / confusing. Furthermore it would violate the rule
+that ordinary traits may not extend inline traits, and causes problems with partial specialization:
 ```scala
 // (1)
 inline trait A[T: Specialized, D: Specialized]:
@@ -353,16 +357,16 @@ inline trait A[T: Specialized, D: Specialized]:
 inline trait B[S: Specialized] extends A[S, Int]
 trait C extends B[Char]
 
-// expands to:
+// would expand to:
 trait A$sp$S$Int[S: Specialized] extends A[S, Int]: // (Ignoring the fact that Specialized may not be used on ordinary traits).
   def foo: S
   def bar: Int
 inline trait B[W: Specialized] extends A$sp$S$Int[W]
 trait C extends B[Char]
 ```
-The definitions are stuck in `A$sp$S$Int$` because it is not inline. This means we can never usefullly specialize on `W` even though it is declared `Specialized`. 
+The definitions are stuck in `A$sp$S$Int$` because it is not inline. This means we can never usefully specialize on `W` even though it is declared `Specialized`. 
 
-Side note: Because we make the generated traits inline, we modify the behaviour of inline traits relative to the original semantics from Timothée's thesis, such that inline traits extended by other inline traits are still inlined (instead of inlining only at the first ordinary class extending the family of inline traits). This is necessary so that `A$sp$S$Int` can be made inline and still contain the specialized declarations which we need when we use it as an interface.
+Side note: Because we make the generated traits inline, we modify the behaviour of inline traits relative to the original semantics from Timothée's thesis, such that inline traits extended by other inline traits are still inlined (instead of inlining only at the first ordinary class extending the family of inline traits). This is necessary so that `A$sp$S$Int` can be made inline and still contain the specialized declarations which we need when we use it as an interface. The original argument for only inlining at the bottom of the hierarchy was to reduce code generation, and that this was sufficient when we only have inline traits, however the additional code generation is only linear in the number of traits in the sequence as we do not inline multiple copies, and we consider this acceptable to implement `Specialized`. 
 
 <!-- TODO :The dollar signs at the end should probably be correct -->
 
