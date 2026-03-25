@@ -27,6 +27,7 @@ class ReplaceInlinedTraitSymbols extends MiniPhase:
   override def description: String = ReplaceInlinedTraitSymbols.description
   override def changesMembers: Boolean = true
   override def changesParents: Boolean = true
+  override def runsAfter: Set[String] =  Set("desugarSpecializedTraits", "specializeInlineTraits")
 
   override def transformSelect(tree: Select)(using Context): Tree =
     val qualType = tree.qualifier.tpe.widenDealias

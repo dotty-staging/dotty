@@ -247,7 +247,7 @@ object Inlines:
     tree2
   end inlineCall
 
-  def updateFlagsFromInlinedParent(child: FlagSet, parent: FlagSet): FlagSet = 
+  private def updateFlagsFromInlinedParent(child: FlagSet, parent: FlagSet): FlagSet = 
     var updatedFlags = child
     // Parent needs to be initialised so child must also as initialisers have been inlined
     if (!parent.is(NoInits))
@@ -257,6 +257,24 @@ object Inlines:
     if (!parent.is(PureInterface))
       updatedFlags &~= PureInterface
     updatedFlags
+
+
+  def transformInlineTrait(inlineTrait: TypeDef)(using Context): TypeDef =
+    val tpd.TypeDef(_, tmpl: Template) = inlineTrait: @unchecked
+    val body1 = tmpl.body.flatMap {
+      // case innerClass: TypeDef if innerClass.symbol.isClass =>
+      //   val newTrait = makeTraitFromInnerClass(innerClass)
+      //   val newType = makeTypeFromInnerClass(inlineTrait.symbol, innerClass, newTrait.symbol)
+      //   List(newTrait, newType)
+      case member: MemberDef =>
+        List(member)
+      case _ =>
+        // Remove non-memberdefs, as they are normally placed into $init()
+        Nil
+    }
+    val tmpl1 = cpy.Template(tmpl)(body = body1)
+    cpy.TypeDef(inlineTrait)(rhs = tmpl1)
+  end transformInlineTrait
 
   def inlineParentInlineTraits(cls: Tree)(using Context): Tree =
     cls match {
