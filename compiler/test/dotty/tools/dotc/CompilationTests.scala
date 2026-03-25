@@ -5,27 +5,27 @@ package dotc
 import scala.language.unsafeNulls
 
 import org.junit.{ Test, BeforeClass, AfterClass, Ignore }
-import org.junit.Assert._
-import org.junit.Assume._
+import org.junit.Assert.*
+import org.junit.Assume.*
 import org.junit.experimental.categories.Category
 
 import java.io.File
-import java.nio.file._
+import java.nio.file.*
 import java.util.stream.{ Stream => JStream }
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.matching.Regex
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import TestSources.sources
 import TestSources.scoverageIgnoreExcludelisted
 import reporting.TestReporter
-import vulpix._
+import vulpix.*
 import dotty.tools.dotc.config.ScalaSettings
 import dotty.tools.dotc.coverage.Serializer
 
 class CompilationTests {
-  import ParallelTesting._
-  import TestConfiguration._
-  import CompilationTests._
+  import ParallelTesting.*
+  import TestConfiguration.*
+  import CompilationTests.*
   import CompilationTest.aggregateTests
 
   // Positive tests ------------------------------------------------------------
