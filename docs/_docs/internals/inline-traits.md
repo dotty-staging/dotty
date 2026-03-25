@@ -2,7 +2,8 @@
 
 ## Motivation
 Inline traits is a new attempt to solve the specialization problem for the JVM in a more convenient way than the `@specialized` annotation
-from Scala 2. It works alongside  `Specialized` traits, the latter being detailed in an accompanying document. 
+from Scala 2 (the main problem of this being code bloat as we generated all possible specializations at declaration time of the specialized
+class). Inline traits work alongside  `Specialized` traits, the latter being detailed in an accompanying document. 
 
 The problem is as follows: due to the JVM's (lack of) support for generics, generic type parameters are erased by the compiler:
 ```scala
@@ -24,7 +25,7 @@ class C() extends Object() {
 }
 ```
 Thus type `T` is converted to `Object`, and so every use of `A[Int]()` must first build an `Object` containing the `Int` we want to pass (*boxing*),
-in order to be able to call `A(x: Object)`. There is no `A(x: Int)`. When referencing `x`  on an `A` we get an `Object` back, which we have to *unbox*
+in order to be able to call `A(x: Object)`. There is no `A(x: int)`. When referencing `x`  on an `A` we get an `Object` back, which we have to *unbox*
 (extract from the wrapping `Object`).
 
 This object creation and deletion is very slow. We desire a way to avoid this by generating specialized instances of classes which
@@ -98,7 +99,7 @@ inline everything into the first class/object in the hierarchy, it becomes advan
 
 
 Furthermore:
-- References to members of inline traits accessed on inline receivers point to the inlined version, to ensure we avoid unnecessary boxing:
+- References to members of inline traits accessed on inline receivers point to the inlined version, to ensure we avoid unnecessary boxing: [1]
 ```scala
 inline trait A[T](val x: T):
     def foo#1: T
@@ -109,7 +110,7 @@ class B extends A[Int](1)
 def fun(x: B) = 
     x.foo // points to foo#2 
 ```
-- Inline traits may define private members, and these are handled specially:
+- Inline traits may define private members, and these are handled specially: [2]
     - Private fields in the inline trait are inlined as private fields with a mangled name in the inline receiver. This ensures they do not collide with privates inherited from other inline traits.
     - The private fields are then no longer accessible in the inline trait, as it is transformed into a pure interface. We can't however easily delete them; therefore they are name-mangled and converted to protected to allow them to exist without a definition.   
 
@@ -218,6 +219,18 @@ This problem is addressed via `Specialized` traits; see the accompanying documen
 | Inner classes            | ❌                                           |
 | Opaque types             | ❌                                           |
 | Self types               | ❌                                            
+
+## Processing of inline traits in the compiler
+Inline traits in user code are inlined in the phase `specializeInlineTraits`. The phase `replaceInlinedTraitSymbols`
+is responsible for updating references to members of inline receivers to point to the inlined members, instead of the
+generic members in the parent inline trait (see [1] above). Finally the phase `pruneInlineTraits` is responsible for 
+converting inline traits into pure interfaces by removing their right hand sides. It also handles the mangling in [2]. 
+
+Specialized traits rely on the semantics of inline traits, as they desugar to inline traits. However, the phase
+`desugarSpecializedTraits` inlines these inline traits itself (sharing code with the `specializeInlineTraits` phase).
+This is necessary because otherwise there would be a circular dependency between the two phases (see the Specialized traits
+document for more information). This means that we need to run `specializeInlineTraits` *first* (because we don't want to inline
+twice for inline traits resulting from specialization). 
 
 ## Internal Note regarding versions of inline traits
 This behaviour is the same as that in Timothée's thesis except for the following points:
