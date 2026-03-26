@@ -275,7 +275,6 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
           transformFollowingDeep(superRef(baseCls.primaryConstructor).appliedToNone) :: Nil
 
     def traitInits(mixin: ClassSymbol): List[Tree] = {
-      if mixin.isInlineTrait then return Nil
       val argsIt = superCallsAndArgs.get(mixin) match
         case Some((_, _, args)) => args.iterator
         case _ => Iterator.empty
@@ -319,9 +318,9 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
           val rhs =
             if (wasOneOf(getter, ParamAccessor))
               nextArgument()
-            else if (getter.is(Lazy, butNot = Module))
+            else if (!mixin.isInlineTrait && getter.is(Lazy, butNot = Module))
               transformFollowing(superRef(getter).appliedToNone)
-            else if (getter.is(Module))
+            else if (!mixin.isInlineTrait && getter.is(Module))
               if ctx.settings.scalajs.value && getter.moduleClass.isJSType then
                 if getter.is(Scala2x) then
                   report.error(
@@ -334,7 +333,10 @@ class Mixin extends MiniPhase with SymTransformer { thisPhase =>
             else
               Underscore(getter.info.resultType)
           // transformFollowing call is needed to make memoize & lazy vals run
-          transformFollowing(DefDef(mkForwarderSym(getter.asTerm), rhs))
+          if (!mixin.isInlineTrait) then
+            transformFollowing(DefDef(mkForwarderSym(getter.asTerm), rhs))
+          else
+            EmptyTree
         }
         else if wasOneOf(getter, ParamAccessor) then
           // mixin parameter field is defined by an override; evaluate the argument and throw it away

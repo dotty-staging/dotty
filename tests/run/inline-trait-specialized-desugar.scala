@@ -23,13 +23,13 @@ def foo(x: ArrayIterator$sp$Int): Int = x.next()
 
 // User code does this:
 /* class MyClassA
-   class MyClassB extends MyClassA, ArrayIterator[Int] */
+   class MyClassB extends MyClassA, ArrayIterator[Int](Array.from(Seq(1, 5))) */
 
 // We convert this to:
 class MyClassA
-class MyClassB extends MyClassA, ArrayIterator$sp$Int
+class MyClassB extends MyClassA, ArrayIterator$sp$Int, ArrayIterator[Int](Array.from(Seq(1, 5)))
 
-@main def main = 
+@main def Test = 
     val xs: Array[Int] = Array(1, 2, 3)
 
     // User code does this:
@@ -38,4 +38,6 @@ class MyClassB extends MyClassA, ArrayIterator$sp$Int
     // We convert this to:
     val ai = ArrayIterator$impl$Int(xs)
     
-    println(ai.next())
+    val mcb = MyClassB()
+    assert(mcb.hasNext)
+    assert(ai.next() == 1)
