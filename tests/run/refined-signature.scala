@@ -1,3 +1,6 @@
+// scalajs: --skip
+// (this is a JVM-only test)
+
 trait B
 trait Cov[+T]
 
