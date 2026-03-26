@@ -547,3 +547,5 @@ end Specialization
 // Need to deal with the caching at some point
 // These implementation classes are type correct as long as we inject the knowledge that a specialization trait
 // like `Seq$sp$Int` is equal to its parameterized version `Seq[Int]`
+
+// Warning for dropping Specialized qualifier or it doesn't compile?

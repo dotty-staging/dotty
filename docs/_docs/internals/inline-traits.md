@@ -133,7 +133,7 @@ class B extends A(true):
     private val A$$x: Int = 1
     override def foo(): Int = if this.A$$b then this.A$$x.+(1) else 0
 ```
-- An inline receiver may mix in multiple inline traits with colliding member names. In this case the latest extended trait prevails. In the following example calling `foo` on an instance of `C` will return "Bonjour".  
+- An inline receiver may mix in multiple inline traits with colliding member names. In this case the latest extended trait prevails. In the following example calling `foo` on an instance of `C` will return "Bonjour". This is in contrast to ordinary traits which require the `override` modifier in this case. <!-- TODO: Is this ok? We do it because otherwise they would have to write override on all members in Specialized traits because we mix those in multiple times -->
 ```scala
 inline trait A:
     def foo = "Hello World"
@@ -142,6 +142,17 @@ inline trait B:
     def foo = "Bonjour"
 
 class C extends A, B
+```
+However, an inline receiver may not define a member whose name collides with the name of an inlined public member from a parent inline trait, unless the override modifier is used.
+```scala
+inline trait A:
+    def foo = "Hello World"
+
+inline trait B:
+    def foo = "Bonjour"
+
+class C extends A, B:
+    def foo = "Bonjour2" // Must be override.
 ```
 - Inlined members of inline traits are typed with the type of the right hand side resulting from inlining. This is particularly important for typeclass instances:
 ```scala
@@ -156,10 +167,18 @@ inline trait A[T: Numeric]:
     private val v: Numeric[T] = summon[Numeric[T]]
 
 class B extends A[Int]:
-    private given val A$$evidence$1: scala.math.Numeric.IntIsIntegral.type =  scala.math.Numeric.IntIsIntegral
-    private val A$$v: scala.math.Numeric.IntIsIntegral = this.A$$evidence$1
+    private given val A$$evidence$1: Numeric.IntIsIntegral.type =  Numeric.IntIsIntegral
+    private val A$$v: Numeric.IntIsIntegral = this.A$$evidence$1
 ``` 
-This means that references to `v.fromInt()`, `v.add()` etc are optimised and avoid boxing. 
+This means that references to `v.fromInt()`, `v.add()` etc are optimised and avoid boxing. However, this type acquisition is only applied to non-var members, as it could
+lead to unsoundness if applied to `var`s:
+
+```scala
+inline trait Counter extends Iterator:
+  private var current: Int = 0
+  def next(): Int = current += 1
+```
+Narrowing `current` to the type of the initializer here would give it type `0`. This makes the increment operation in `next()` illegal.
 
 ## Benefits of inline traits
 We can now do the following with no boxing and unboxing:
