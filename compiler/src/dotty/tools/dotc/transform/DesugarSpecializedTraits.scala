@@ -213,8 +213,8 @@ class DesugarSpecializedTraits extends MacroTransform:
         // Replace (anonymous class version of) new Foo[Int] {} with new Foo$impl$Int.asInstanceOf[Foo$sp$Int] 
         case Block(List(TypeDef(anon, Template(_, parentCalls: List[Tree], _, _))),  
                   Typed(Apply(Select(New(anon1),ctor), _), t: TypeTree)) if anon1.symbol.isAnonymousClass =>
-          parentCalls(1) match { // only allowed to extend Object and our specialized trait
-            case Apply(Apply(tpe, ctorArgs), ev) =>
+          parentCalls match {
+            case _ :: Apply(Apply(tpe, ctorArgs), ev) :: Nil => // only allowed to extend Object and our specialized trait
               val spec = Specialization.unapply(t.tpe).get
               { // We don't replace non-specialized anonymous class instantiations e.g. new Foo[T] where T is defined in the enclosing scope.
                 for (specializedSymbol <- specializations2.getImplementationSymbol(spec))
@@ -537,3 +537,13 @@ end Specialization
 // I'm not sure we strictly need them though.
 
 // TODO: Put classes onto the classpath as desired.
+
+// Concerns:
+//  - The superclass of `C` is a top class, or `C` itself is a top class.
+// Drop all specialized trait parameters of A
+
+// If we can manage to get rid of the inheritance there that could be helpful in terms of avoiding multiple values
+// BUT: generate a version which is with just inline traits that has this problem as well.
+// Need to deal with the caching at some point
+// These implementation classes are type correct as long as we inject the knowledge that a specialization trait
+// like `Seq$sp$Int` is equal to its parameterized version `Seq[Int]`
