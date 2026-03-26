@@ -10,6 +10,7 @@ import transform.*
 import backend.jvm.GenBCode
 import localopt.{StringInterpolatorOpt, DropForMap}
 import semanticdb.ExtractSemanticDB.{ExtractSemanticInfo, AppendDiagnostics as AppendSemanticDiagnostics}
+import dotty.tools.dotc.transform.ReplaceInlinedTraitSymbols
 
 /** The central class of the dotc compiler. The job of a compiler is to create
  *  runs, which process given `phases` in a given `rootContext`.
@@ -48,14 +49,16 @@ class Compiler {
 
   /** Phases dealing with TASTY tree pickling and unpickling */
   protected def picklerPhases: List[List[Phase]] =
-    List(new Pickler) ::            // Generate TASTY info
-    List(new sbt.ExtractAPI) ::     // Sends a representation of the API of classes to sbt via callbacks
-    List(new SpecializeInlineTraits) ::    // Inline the code of inline traits into their children
-    List(new Inlining) ::           // Inline and execute macros
-    List(new PostInlining) ::       // Add mirror support for inlined code
-    List(new Staging) ::            // Check staging levels and heal staged types
-    List(new Splicing) ::           // Replace level 1 splices with holes
-    List(new PickleQuotes) ::       // Turn quoted trees into explicit run-time data structures
+    List(new Pickler) ::                    // Generate TASTY info
+    List(new sbt.ExtractAPI) ::             // Sends a representation of the API of classes to sbt via callbacks
+    List(new SpecializeInlineTraits) ::     // Inline the code of inline traits into their children
+    List(new DesugarSpecializedTraits) ::   // Process the Specialized annotation
+    List(new ReplaceInlinedTraitSymbols) :: // Replace symbols referring to inline trait members with resulting inlined member symbols
+    List(new Inlining) ::                   // Inline and execute macros
+    List(new PostInlining) ::               // Add mirror support for inlined code
+    List(new Staging) ::                    // Check staging levels and heal staged types
+    List(new Splicing) ::                   // Replace level 1 splices with holes
+    List(new PickleQuotes) ::               // Turn quoted trees into explicit run-time data structures
     Nil
 
   /** Phases dealing with the transformation from pickled trees to backend trees */

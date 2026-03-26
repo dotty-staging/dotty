@@ -154,7 +154,9 @@ object Inliner:
       if tree.inlinedFromOuterScope then
         tree.expansion match
           case expansion: TypeTree => expansion
-          case _ => tree
+        // TODO: Check if this is a problem; previously tree. We do this because of Inlined(Inlined(EmptyTree, Select)) blocks conversion of the Select
+        // and this causes a problem when we have inline methods inlined into inline traits (e.g. summon in tests/run/specialized-trait-vector-dot-product.scala)
+          case _ => super.transformInlined(tree) 
       else super.transformInlined(tree)
   end InlinerMap
 
@@ -735,11 +737,17 @@ class Inliner(val call: tpd.Tree)(using Context):
     // The translation maps references to `this` and parameters to
     // corresponding arguments or proxies on the type and term level. It also changes
     // the owner from the inlined method to the current owner.
+
+    // TODO: This gets around the fact that inline traits doesn't define inlinedMethod correctly but maybe there is a better
+    // way.
+    val oldOwners = if (inlinedMethod.exists) then inlinedMethod :: Nil else Nil
+    val newOwners = if (inlinedMethod.exists) then ctx.owner :: Nil else Nil
+
     val inliner = new InlinerMap(
       typeMap = inlinerTypeMap,
       treeMap = inlinerTreeMap,
-      oldOwners = inlinedMethod :: Nil,
-      newOwners = ctx.owner :: Nil,
+      oldOwners = oldOwners,
+      newOwners = newOwners,
       substFrom = substFrom,
       substTo = substTo,
       inlineCopier = inlineCopier
@@ -823,7 +831,6 @@ class Inliner(val call: tpd.Tree)(using Context):
       if (inlinedMethod == defn.Compiletime_error) issueError()
 
       addInlinedTrees(treeSize(finalExpansion))
-
       (finalBindings, finalExpansion)
     }
   end inlined

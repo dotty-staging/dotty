@@ -239,6 +239,8 @@ object Phases {
     private var myPicklerPhase: Phase = uninitialized
     private var mySetRootTreePhase: Phase = uninitialized
     private var mySpecializeInlineTraitsPhase: Phase = uninitialized
+    private var myReplaceInlinedTraitSymbolsPhase: Phase = uninitialized
+    private var myDesugarSpecializedTraitsPhase: Phase = uninitialized
     private var myInliningPhase: Phase = uninitialized
     private var myStagingPhase: Phase = uninitialized
     private var mySplicingPhase: Phase = uninitialized
@@ -273,6 +275,8 @@ object Phases {
     final def picklerPhase: Phase = myPicklerPhase
     final def setRootTreePhase: Phase = mySetRootTreePhase
     final def specializeInlineTraitsPhase: Phase = mySpecializeInlineTraitsPhase
+    final def replaceInlinedTraitSymbolsPhase: Phase = myReplaceInlinedTraitSymbolsPhase
+    final def desugarSpecializedTraitsPhase: Phase = myDesugarSpecializedTraitsPhase
     final def inliningPhase: Phase = myInliningPhase
     final def stagingPhase: Phase = myStagingPhase
     final def splicingPhase: Phase = mySplicingPhase
@@ -307,6 +311,8 @@ object Phases {
       mySetRootTreePhase = phaseOfClass(classOf[SetRootTree])
       myPicklerPhase = phaseOfClass(classOf[Pickler])
       mySpecializeInlineTraitsPhase = phaseOfClass(classOf[SpecializeInlineTraits])
+      myReplaceInlinedTraitSymbolsPhase = phaseOfClass(classOf[ReplaceInlinedTraitSymbols])
+      myDesugarSpecializedTraitsPhase = phaseOfClass(classOf[DesugarSpecializedTraits])
       myInliningPhase = phaseOfClass(classOf[Inlining])
       myStagingPhase = phaseOfClass(classOf[Staging])
       mySplicingPhase = phaseOfClass(classOf[Splicing])

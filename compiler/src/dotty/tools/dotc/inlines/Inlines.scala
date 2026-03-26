@@ -88,13 +88,14 @@ object Inlines:
       )
       && !ctx.typer.hasInliningErrors
       && !ctx.base.stopInlining
-      && !ctx.owner.ownersIterator.exists(_.isInlineTrait)
+      // && !ctx.owner.ownersIterator.exists(_.isInlineTrait)
 
     tree match
       case Block(_, expr) =>
         needsInlining(expr)
       case tdef @ TypeDef(_, impl: Template) =>
-        !tdef.symbol.isInlineTrait && impl.parents.map(symbolFromParent).exists(_.isInlineTrait) && isInlineableInCtx
+        // !tdef.symbol.isInlineTrait &&
+        impl.parents.map(symbolFromParent).exists(_.isInlineTrait) && isInlineableInCtx
       case _ =>
         def isUnapplyExpressionWithDummy: Boolean =
           // The first step of typing an `unapply` consists in typing the call
@@ -108,7 +109,7 @@ object Inlines:
         isInlineable(tree.symbol) && !tree.tpe.widenTermRefExpr.isInstanceOf[MethodOrPoly] && isInlineableInCtx && !ctx.mode.is(Mode.NoInline) && !isUnapplyExpressionWithDummy
 
   private[dotc] def symbolFromParent(parent: Tree)(using Context): Symbol =
-    if parent.symbol.isConstructor then parent.symbol.owner else parent.symbol
+    if parent.symbol.isConstructor then parent.symbol.owner else parent.tpe.typeSymbol
 
   private def inlineTraitAncestors(cls: TypeDef)(using Context): List[Tree] = cls match {
     case tpd.TypeDef(_, tmpl: Template) =>
@@ -246,6 +247,35 @@ object Inlines:
     tree2
   end inlineCall
 
+  private def updateFlagsFromInlinedParent(child: FlagSet, parent: FlagSet): FlagSet = 
+    var updatedFlags = child
+    // Parent needs to be initialised so child must also as initialisers have been inlined
+    if (!parent.is(NoInits))
+      updatedFlags &~= NoInits
+
+    // Parent is impure; contaminates child as non-abstract methods have been inlined
+    if (!parent.is(PureInterface))
+      updatedFlags &~= PureInterface
+    updatedFlags
+
+
+  def transformInlineTrait(inlineTrait: TypeDef)(using Context): TypeDef =
+    val tpd.TypeDef(_, tmpl: Template) = inlineTrait: @unchecked
+    val body1 = tmpl.body.flatMap {
+      // case innerClass: TypeDef if innerClass.symbol.isClass =>
+      //   val newTrait = makeTraitFromInnerClass(innerClass)
+      //   val newType = makeTypeFromInnerClass(inlineTrait.symbol, innerClass, newTrait.symbol)
+      //   List(newTrait, newType)
+      case member: MemberDef =>
+        List(member)
+      case _ =>
+        // Remove non-memberdefs, as they are normally placed into $init()
+        Nil
+    }
+    val tmpl1 = cpy.Template(tmpl)(body = body1)
+    cpy.TypeDef(inlineTrait)(rhs = tmpl1)
+  end transformInlineTrait
+
   def inlineParentInlineTraits(cls: Tree)(using Context): Tree =
     cls match {
       case cls @ tpd.TypeDef(_, impl: Template) =>
@@ -256,8 +286,9 @@ object Inlines:
               val parentTraitInliner = InlineParentTrait(parent)
               val overriddenSymbols = clsOverriddenSyms ++ inlineDefs.flatMap(_.symbol.allOverriddenSymbols)
               val inlinedDefs1 = inlineDefs ::: parentTraitInliner.expandDefs(overriddenSymbols)
-              val childDefs1 = parentTraitInliner.adaptDefs(childDefs)  // TODO do this outside of inlining: we need to adapt ALL references to inlined stuff
-              (inlinedDefs1, childDefs1)
+              cls.symbol.flags = updateFlagsFromInlinedParent(cls.symbol.flags, parent.symbol.flags)
+
+              (inlinedDefs1, childDefs)
           }
         }
         val impl1 = cpy.Template(impl)(body = newDefs._1 ::: newDefs._2)
@@ -704,7 +735,6 @@ object Inlines:
 
     private val parentSym = symbolFromParent(parent)
     private val paramAccessorsMapper = ParamAccessorsMapper()
-    private val innerClassNewSyms: mutable.LinkedHashMap[Symbol, Symbol] = mutable.LinkedHashMap.empty
 
     private val childThisType = ctx.owner.thisType
     private val childThisTree = This(ctx.owner.asClass).withSpan(parent.span)
@@ -720,8 +750,6 @@ object Inlines:
         case Right(tree) => inlinedRhs(tree)
       }
     end expandDefs
-
-    def adaptDefs(definitions: List[Tree]): List[Tree] = definitions.mapconserve(defsAdapter(_))
 
     protected class InlineTraitTypeMap extends InlinerTypeMap {
       override def apply(t: Type) = super.apply(t) match {
@@ -742,9 +770,13 @@ object Inlines:
               tree
           }
         case Select(qual, name) =>
-          paramAccessorsMapper.getParamAccessorName(qual.symbol, name) match {
-            case Some(newName) => Select(this(qual), newName).withSpan(parent.span)
-            case None => Select(this(qual), name)
+          inContext(ctx.withSource(tree.source)) { // Need to ensure we preserve the fact that this Select was inlined
+                                                   // potentially from a different file. Recreating it discards that info.
+                                                   // See: inline-trait-multiple-stages-generic-defs.
+            paramAccessorsMapper.getParamAccessorName(qual.symbol, name) match {
+                case Some(newName) => Select(this(qual), newName).withSpan(parent.span)
+                case None => Select(this(qual), name)
+            }
           }
         case tree =>
           tree
@@ -754,8 +786,6 @@ object Inlines:
     override protected val inlinerTypeMap: InlinerTypeMap = InlineTraitTypeMap()
     override protected val inlinerTreeMap: InlinerTreeMap = InlineTraitTreeMap()
 
-    override protected def substFrom: List[Symbol] = innerClassNewSyms.keys.toList
-    override protected def substTo: List[Symbol] = innerClassNewSyms.values.toList
     override protected def inlineCopier: tpd.TreeCopier = new TypedTreeCopier() {
       // FIXME it feels weird... Is this correct?
       override def Apply(tree: Tree)(fun: Tree, args: List[Tree])(using Context): Apply =
@@ -782,7 +812,9 @@ object Inlines:
         inlinedTypeDef(stat, inlinedSym)
 
     private def inlinedSym(sym: Symbol, withoutFlags: FlagSet = EmptyFlags)(using Context): Symbol =
-      if sym.isClass then inlinedClassSym(sym.asClass, withoutFlags) else inlinedMemberSym(sym, withoutFlags)
+      val newSym = if sym.isClass then inlinedClassSym(sym.asClass, withoutFlags) else inlinedMemberSym(sym, withoutFlags)
+      ctx.inlineTraitState.registerInlinedSymbol(sym, newSym, ctx.owner.thisType.widenDealias)
+      newSym
 
     private def inlinedClassSym(sym: ClassSymbol, withoutFlags: FlagSet = EmptyFlags)(using Context): ClassSymbol =
       sym.info match {
@@ -804,7 +836,8 @@ object Inlines:
             sym.privateWithin,
             spanCoord(parent.span)
           )
-          innerClassNewSyms.put(sym, inlinedSym)
+          // ctx.inlineTraitState.registerInlinedInnerClassSymbol(sym, inlinedSym, childThisType)
+          ctx.inlineTraitState.registerInlinedSymbol(sym, inlinedSym, childThisType.widenDealias)
           inlinedSym.entered
         case _ =>
           report.error(s"Class symbol ${sym.show} does not have class info")
@@ -831,6 +864,10 @@ object Inlines:
         paramAccessorsMapper
           .getParamAccessorRhs(vdef.symbol.owner, vdef.symbol.name)
           .getOrElse(inlinedRhs(vdef, inlinedSym))
+        
+      // TODO: We might only need to do this to evidence params but tbh I can't see much harm in applying it when we want to? 
+      if (rhs.tpe.exists && !vdef.symbol.isMutableVar) // we can't narrow vars because e.g. var current = 0 would be narrowed to type 0 but someone may letter set i
+        inlinedSym.info = rhs.tpe
       tpd.ValDef(inlinedSym.asTerm, rhs).withSpan(parent.span)
 
     private def inlinedDefDef(ddef: DefDef, inlinedSym: Symbol)(using Context): DefDef =
@@ -880,32 +917,6 @@ object Inlines:
         // TODO make version of inlined that does not return bindings?
         Inlined(tpd.ref(parentSym), Nil, inlined(rhs)._2).withSpan(parent.span)
 
-    private val defsAdapter =
-      val typeMap = new DeepTypeMap {
-        override def apply(tp: Type): Type = tp match {
-          case TypeRef(_, sym: Symbol) if innerClassNewSyms.contains(sym) =>
-            TypeRef(childThisType, innerClassNewSyms(sym))
-          case _ =>
-            mapOver(tp)
-        }
-      }
-      def treeMap(tree: Tree) = tree match {
-        case ident: Ident if innerClassNewSyms.contains(ident.symbol) =>
-          Ident(innerClassNewSyms(ident.symbol).namedType)
-        case tdef: TypeDef if tdef.symbol.isClass =>
-          tdef.symbol.info = typeMap(tdef.symbol.info)
-          tdef
-        case tree =>
-          tree
-      }
-      new TreeTypeMap(
-        typeMap = typeMap,
-        treeMap = treeMap,
-        substFrom = substFrom,
-        substTo = substTo,
-      )
-    end defsAdapter
-
     private class ParamAccessorsMapper:
       private val paramAccessorsTrees: mutable.Map[Symbol, Map[Name, Tree]] = mutable.Map.empty
       private val paramAccessorsNewNames: mutable.Map[(Symbol, Name), Name] = mutable.Map.empty
@@ -938,4 +949,28 @@ object Inlines:
         paramAccessorsNewNames.get(parent, paramAccessorName)
     end ParamAccessorsMapper
   end InlineParentTrait
+
+  class InlineTraitState:
+    // Map representing all symbols we have inlined from inline traits,
+    // from the symbol in the parent trait, and the type of the child class-like
+    // to the inlined symbol in that child class-like.
+    // E.g. inline trait A {def foo#1000}; trait B extends A {def foo#2000 // created by inlining}
+    // The map has (foo#1000, trait B) => foo#2000
+    private val inlinedTraitSymbols = mutable.HashMap[(Symbol, Type), Symbol]()
+
+    // Record that we just inlined oldSym into childClasslike which created
+    // childClassLike.newSym
+    def registerInlinedSymbol(oldSym: Symbol, newSym: Symbol, childClasslike: Type) =
+      inlinedTraitSymbols((oldSym, childClasslike)) = newSym
+    
+    // Map (e.g.) B.foo#1000 into foo#2000 
+    def lookupInlinedSymbol(oldSym: Symbol, childClasslike: Type) =
+      inlinedTraitSymbols((oldSym, childClasslike))
+    
+    // Check if oldSym has been inlined into childClasslike
+    def inlinedSymbolIsRegistered(oldSym: Symbol, childClasslike: Type) =
+      inlinedTraitSymbols.contains((oldSym, childClasslike))
+
+  end InlineTraitState
+
 end Inlines
