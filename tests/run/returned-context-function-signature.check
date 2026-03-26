@@ -1,6 +1,6 @@
 public void CtxFns$.puts(java.lang.Object,CtxFns$Context)
 class java.lang.Object,class CtxFns$Context -> void
-T -> scala.Function1<CtxFns$Context, scala.runtime.BoxedUnit>
+T,class CtxFns$Context -> void
 private java.lang.Object CtxFns$.writeReplace()
  -> class java.lang.Object
  -> class java.lang.Object

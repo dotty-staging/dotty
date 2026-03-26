@@ -16,6 +16,7 @@ import core.Types.*
 import core.classfile.ClassfileConstants
 
 import config.Printers.transforms
+import dotty.tools.dotc.core.NameOps.isContextFunction
 import reporting.trace
 import java.lang.StringBuilder
 
@@ -529,7 +530,14 @@ object GenericSignatures {
     @tailrec def recur(tpe: Type): Type = tpe match
       case mtd: MethodType =>
         vparams ++= mtd.paramInfos.filterNot(_.hasAnnotation(defn.ErasedParamAnnot))
-        recur(mtd.resType)
+        mtd.resType match
+          // Returned context functions are erased by putting their parameters into the method's parameters,
+          // so we must duplicate that logic here
+          case AppliedType(tycon, args) if tycon.typeSymbol.name.isContextFunction =>
+            vparams ++= args.take(args.length - 1)
+            recur(args.last)
+          case _ =>
+            recur(mtd.resType)
       case PolyType(tps, tpe) =>
         tparams ++= tps
         recur(tpe)
