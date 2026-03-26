@@ -363,7 +363,6 @@ class SpecializedTraitCache(
     if (newImplementationSymbols.contains(spec) || implementationSymbols.contains(spec)) then
       this
     else
-      println(s"adding spec ${spec.specialization}")
       val withInterface = addInterface(spec)
       withInterface.copy(newImplementationSymbols = withInterface.newImplementationSymbols + (spec -> genImplementationSymbol(spec, withInterface.getInterfaceSymbol(spec).get)))
 
