@@ -3042,6 +3042,7 @@ object ScaladocConfigs {
       .add(SnippetCompiler(
         snippetCompilerTargets(s"$stdlib/src") ++ referenceSnippetCompilerTargets("docs")
       ))
+      .add(NoSnippetNamesFor(List("_docs/reference")))
       .add(SiteRoot("docs"))
       .add(ApiSubdirectory(true))
       .withTargets((`scala-library-bootstrapped` / Compile / products).value.map(_.getAbsolutePath))

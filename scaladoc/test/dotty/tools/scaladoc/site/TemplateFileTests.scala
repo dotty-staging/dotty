@@ -6,6 +6,7 @@ import com.vladsch.flexmark.parser.Parser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.nio.file.Files
 import util.IO
 
@@ -297,3 +298,48 @@ class TemplateFileTests:
       assertEquals(10, error.pos.line)
       assertEquals(14, error.pos.column)
     finally IO.delete(tmpFile)
+
+  private def renderNamedSnippet(relativePath: String, noSnippetNamesFor: List[String] = Nil): String =
+    val tmpRoot = Files.createTempDirectory("snippet-name-rendering").toFile()
+    val tmpFile = File(tmpRoot, relativePath)
+    try
+      Files.createDirectories(tmpFile.getParentFile.toPath)
+      Files.write(
+        tmpFile.toPath,
+        """---
+          |title: "Snippet names"
+          |---
+          |
+          |```scala sc-name:demo
+          |val xs = List(1, 2, 3)
+          |```
+          |""".stripMargin.getBytes
+      )
+
+      val dctx = DocContext(
+        testArgs().copy(
+          docsRoot = Some(tmpRoot.getAbsolutePath),
+          snippetCompiler = List(s"${tmpFile.getAbsolutePath}=compile"),
+          noSnippetNamesFor = noSnippetNamesFor
+        ),
+        testContext
+      )
+      given StaticSiteContext = dctx.staticSiteContext.get
+
+      loadTemplateFile(tmpFile).resolveInner(RenderingContext(Map.empty)).code
+    finally IO.delete(tmpRoot)
+
+  @Test
+  def namedSnippetLabelsRenderByDefault(): Unit =
+    val rendered = renderNamedSnippet("_docs/snippets.md")
+    assertTrue(rendered.contains("""<div class="snippet-label">demo</div>"""))
+
+  @Test
+  def namedSnippetLabelsCanBeSuppressedForConfiguredPaths(): Unit =
+    val rendered = renderNamedSnippet("_docs/snippets.md", noSnippetNamesFor = List("_docs"))
+    assertTrue(!rendered.contains("""<div class="snippet-label">demo</div>"""))
+
+  @Test
+  def namedSnippetLabelsAreSuppressedInLanguageReference(): Unit =
+    val rendered = renderNamedSnippet("_docs/reference/snippets.md", noSnippetNamesFor = List("_docs/reference"))
+    assertTrue(!rendered.contains("""<div class="snippet-label">demo</div>"""))

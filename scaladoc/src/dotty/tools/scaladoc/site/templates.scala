@@ -117,13 +117,14 @@ case class TemplateFile(
     // We want to render markdown only if next template is html
     val code = if (isHtml || layoutTemplate.exists(!_.isHtml)) rendered else
       // Snippet compiler currently supports markdown only
-      val parser: Parser = Parser.builder(defaultMarkdownOptions).build()
+      val markdownOptions = defaultMarkdownOptions(showSnippetName(file))
+      val parser: Parser = Parser.builder(markdownOptions).build()
       val parsedMd = parser.parse(rendered).pipe { md =>
         FlexmarkSnippetProcessor.processSnippets(md, None, snippetCheckingFunc)(using ssctx.outerCtx)
       }.pipe { md =>
         FlexmarkSectionWrapper(md)
       }
-      HtmlRenderer.builder(defaultMarkdownOptions).build().render(parsedMd)
+      HtmlRenderer.builder(markdownOptions).build().render(parsedMd)
 
     // If we have a layout template, we need to embed rendered content in it. Otherwise, we just leave the content as is.
     layoutTemplate match {

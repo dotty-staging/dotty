@@ -24,6 +24,9 @@ val docsRootDRI: DRI = DRI(location = "_docs/index", symbolUUID = staticFileSymb
 val apiPageDRI: DRI = DRI(location = "api/index")
 
 def defaultMarkdownOptions(using ctx: StaticSiteContext): DataHolder =
+  defaultMarkdownOptions(showSnippetName = true)
+
+def defaultMarkdownOptions(showSnippetName: Boolean)(using ctx: StaticSiteContext): DataHolder =
   new MutableDataSet()
     .setFrom(ParserEmulationProfile.COMMONMARK.getOptions)
     .set(EmojiExtension.ROOT_IMAGE_PATH, "https://github.global.ssl.fastly.net/images/icons/emoji/")
@@ -36,11 +39,17 @@ def defaultMarkdownOptions(using ctx: StaticSiteContext): DataHolder =
       YamlFrontMatterExtension.create(),
       StrikethroughExtension.create(),
       WikiLinkExtension.create(),
-      tasty.comments.markdown.SnippetRenderingExtension,
+      tasty.comments.markdown.SnippetRenderingExtension(showSnippetName),
       tasty.comments.markdown.SectionRenderingExtension
     ))
     .set(HtmlRenderer.GENERATE_HEADER_ID, false)
     .set(HtmlRenderer.RENDER_HEADER_ID, false)
+
+def showSnippetName(file: File)(using ctx: StaticSiteContext): Boolean =
+  val path = file.toPath.toAbsolutePath.normalize
+  !ctx.args.noSnippetNamesFor.exists { relativePath =>
+    path.startsWith(ctx.root.toPath.toAbsolutePath.normalize.resolve(relativePath).normalize)
+  }
 
 def emptyTemplate(file: File, title: String): TemplateFile = TemplateFile(
   file = file,
