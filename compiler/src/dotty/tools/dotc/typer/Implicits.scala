@@ -1128,10 +1128,17 @@ trait Implicits:
         // spurious import skip (if the import is a wildcard import). See i12802 for a test case.
         var searchCtx = ctx
         if ctx.owner.isImport then
+          val originalTyperState = ctx.typerState
           while
             searchCtx = searchCtx.outer
             (searchCtx.scope eq ctx.scope) && (searchCtx.owner eq ctx.owner.owner)
           do ()
+          // Preserve the current typer state across the outer walk so that
+          // exploratory searches (e.g. `viewExists`) stay non-committable and
+          // retain their constraint. Without this, walking outer past the import
+          // context reverts to the enclosing (committable) typer state.
+          if searchCtx.typerState ne originalTyperState then
+            searchCtx = searchCtx.fresh.setTyperState(originalTyperState)
 
         def searchStr =
           if argument.isEmpty then i"argument of type $pt"
