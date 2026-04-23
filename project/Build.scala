@@ -647,6 +647,7 @@ object Build {
     `tasty-core-bootstrapped`,
     `scala3-staging`,
     `scala3-tasty-inspector`,
+    `scala3-reflect`,
     `scala3-repl`,
     `scala2-library`,
     scaladoc,
@@ -1038,6 +1039,32 @@ object Build {
       // Configure to use the non-bootstrapped compiler
       bootstrappedScalaInstanceSettings,
       bspEnabled := false,
+    )
+
+  /* Configuration of the org.scala-lang:scala-reflect_3:*.**.**-bootstrapped project */
+  lazy val `scala3-reflect` = project.in(file("reflect"))
+    // Keep compiler/TASTy implementation details out of downstream compile classpaths,
+    // while making them available to the compatibility runtime.
+    .dependsOn(`scala3-compiler-bootstrapped` % "provided; compile->runtime; test->test")
+    .settings(publishSettings)
+    .settings(
+      name          := "scala3-reflect",
+      moduleName    := "scala-reflect",
+      version       := dottyVersion,
+      versionScheme := Some("semver-spec"),
+      scalaVersion  := dottyNonBootstrappedVersion,
+      crossPaths    := true,
+      autoScalaLibrary := false,
+      Compile / unmanagedSourceDirectories := Seq(baseDirectory.value / "src"),
+      Test    / unmanagedSourceDirectories := Seq(baseDirectory.value / "test"),
+      Compile / packageBin / publishArtifact := true,
+      Compile / packageDoc / publishArtifact := true,
+      Compile / packageSrc / publishArtifact := true,
+      Test    / publishArtifact := false,
+      libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
+      publish / skip := false,
+      bootstrappedScalaInstanceSettings,
+      bspEnabled := true,
     )
 
   lazy val `scala3-repl` = project.in(file("repl"))
