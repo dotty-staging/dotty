@@ -8,7 +8,10 @@ facade, tests, and a compatibility manifest.
 The goal from here is not to make Scala 2 compiler internals reappear in Scala
 3. The goal is to let common Scala 2 `scala-reflect` users migrate source code
 as far as Scala 3 can reasonably support, while unsupported legacy behavior is
-explicit and well documented.
+explicit and well documented. A concrete compatibility target is fixing
+scala/scala3#25896, where initializing `scala.reflect.runtime.universe` under
+Scala 3.8+ currently crashes Scala 2.13 `scala-reflect` users such as Spark
+integration code because `scala.Array.apply` is not found.
 
 ## Current state
 
@@ -41,6 +44,11 @@ scaffold that needs normal Scala 3 compilation and review before expanding it.
    are path-dependent type refinements in `scala.reflect.api.Universe`,
    bootstrap-project classpath settings, and conflicts with the existing
    `scala.reflect` package in `scala-library`.
+
+   Add a regression test for scala/scala3#25896 while doing this stabilization:
+   simply initializing `scala.reflect.runtime.universe` from Scala 3 code must
+   not fail. This keeps the Spark `ScalaReflection` initialization crash in
+   scope for the port rather than leaving it as a downstream-only workaround.
 
 3. Decide whether `TypeTag` materialization should remain string-backed for v0
    or immediately move to a compiler/TASTy-backed representation. String-backed
@@ -154,4 +162,3 @@ Use small test files first, then broaden to a corpus.
 4. Symbol/type PR: richer wrappers and TASTy-backed metadata.
 5. Macro facade PR: `Context` migration helpers and negative legacy-macro tests.
 6. Documentation PR: migration cookbook and unsupported-behavior guide.
-

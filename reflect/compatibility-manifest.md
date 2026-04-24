@@ -11,6 +11,7 @@ This manifest records the first compatibility slice. Status values:
 | Scala 2 surface | Status | Scala 3 compatibility behavior |
 | --- | --- | --- |
 | `scala.reflect.runtime.universe` | adapted | Stable object exposing the initial `Universe` API. |
+| scala/scala3#25896 universe initialization | pending | Initializing `scala.reflect.runtime.universe` from Scala 3 code must not crash because `scala.Array.apply` is missing; this is a named regression target for Spark-style `ScalaReflection` initialization. |
 | `scala.reflect.runtime.currentMirror` | adapted | Uses the thread context class loader, falling back to the module class loader. |
 | `scala.reflect.api.Universe` | adapted | Provides names, flags, symbols, types, trees, constants, positions, tags, and simple printers. |
 | `scala.reflect.api.JavaUniverse` | adapted | Provides JVM mirrors backed by Java reflection for basic lookup/invocation. |
