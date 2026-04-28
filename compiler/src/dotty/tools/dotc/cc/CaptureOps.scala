@@ -923,22 +923,57 @@ class CleanupRetains(using Context) extends TypeMap:
  */
 object Explicify {
 
-  /** True if `rhs` is — or transitively wraps — a poly-fn literal.
-   *  Wrappers are non-poly closures whose body is itself a closure,
-   *  e.g. `(i: Int) => { [C^] => ... }` or `[A] => zs => [C^] => ...`.
+  /** True if `rhs` is — or transitively wraps — a capset-carrying
+   *  literal: a poly-fn literal (capset binder) or a Function1 whose
+   *  result mentions a path-dependent capset member (e.g.
+   *  `(c: Cap) => ...^{c.C}...` where `Cap` has `type C^`).
+   *
+   *  NOTE: the path-dep branch is included for *structural* correctness
+   *  through PostTyper, but cc's check phase currently doesn't fully
+   *  resolve `c.C` substitutions at application sites — even the plain
+   *  `def convertDef(c: Cap)(xs: List[File^{c.C}])` fails on stock
+   *  branch. So this gate alone doesn't make path-dep capset lambdas
+   *  usable; that needs a separate cc-side fix.
    */
   def isPolyFunLiteralRhs(rhs: Tree)(using Context): Boolean = rhs match
     case closureDef(dd) =>
-      dd.symbol.info.isInstanceOf[PolyType] || isPolyFunLiteralRhs(dd.rhs)
+      val triggers = dd.symbol.info match
+        case _: PolyType => true
+        case mt: MethodType => mentionsCapSetMember(mt.resType)
+        case _ => false
+      triggers || isPolyFunLiteralRhs(dd.rhs)
+    case _ => false
+
+  /** True if `tp` mentions a `retain[T]` whose argument T is — or
+   *  contains — a path-dependent TypeRef to a capset-bound abstract
+   *  type member (e.g. `^{a.b.c.C}` where `C` is bound by `type C^`).
+   */
+  private def mentionsCapSetMember(tp: Type)(using Context): Boolean =
+    val acc = new TypeAccumulator[Boolean]:
+      def apply(found: Boolean, tp: Type): Boolean =
+        if found then true
+        else tp match
+          case AnnotatedType(parent, ann: RetainingAnnotation) =>
+            apply(found, parent) || ann.argumentTypes.exists(isCapSetMemberRef)
+          case _ => foldOver(found, tp)
+    acc(false, tp)
+
+  private def isCapSetMemberRef(tp: Type)(using Context): Boolean = tp match
+    case tp: TypeRef if tp.prefix ne NoPrefix =>
+      tp.symbol.info match
+        case TypeBounds(_, hi) => hi.derivesFromCapSet
+        case _ => false
+    case OrType(tp1, tp2) => isCapSetMemberRef(tp1) || isCapSetMemberRef(tp2)
+    case AnnotatedType(parent, _) => isCapSetMemberRef(parent)
     case _ => false
 
   /** Walk `tp`'s lambda chain, leaving params and binder bounds alone
    *  and sanitizing only the innermost result.
    */
   def explicify(tp: Type)(using Context): Type = tp match
-    case defn.PolyFunctionOf(mt: MethodOrPoly) =>
+    case tp @ defn.RefinedFunctionOf(mt: MethodOrPoly) =>
       val mt1 = explicify(mt).asInstanceOf[MethodOrPoly]
-      if mt1 eq mt then tp else defn.PolyFunctionOf(mt1)
+      if mt1 eq mt then tp else tp.derivedRefinedType(tp.parent, tp.refinedName, mt1)
     case mt: MethodOrPoly =>
       mt.derivedLambdaType(resType = explicify(mt.resType))
     case tp @ AppliedType(tycon, args) if defn.isFunctionType(tp) =>
