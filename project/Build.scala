@@ -1062,6 +1062,17 @@ object Build {
       Compile / packageSrc / publishArtifact := true,
       Test    / publishArtifact := false,
       libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
+      // scala-reflect_3 exposes a compatibility facade; compiler internals are
+      // implementation details and should not leak into published downstream POMs.
+      pomPostProcess := { (node: XmlNode) =>
+        new RuleTransformer(new RewriteRule {
+          override def transform(node: XmlNode): XmlNodeSeq = node match {
+            case e: Elem if e.label == "dependency" && e.child.exists(child => child.label == "artifactId" && child.text == "scala3-compiler_3") =>
+              XmlNodeSeq.Empty
+            case _ => node
+          }
+        }).transform(node).head
+      },
       publish / skip := false,
       bootstrappedScalaInstanceSettings,
       bspEnabled := true,

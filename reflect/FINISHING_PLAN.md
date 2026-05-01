@@ -1,9 +1,10 @@
 # Finishing the Scala 3 `scala-reflect` compatibility port
 
 This module is the starting point for a source-compatible `scala-reflect_3`
-artifact. The first slice adds build wiring, a minimal `runtime.universe`,
-materialized `TypeTag`/`WeakTypeTag`, basic JVM runtime mirrors, a macro-context
-facade, tests, and a compatibility manifest.
+artifact with `org.scala-lang:scala-reflect:2.13.18` as the API baseline. The
+first slice adds build wiring, a minimal `runtime.universe`, materialized
+`TypeTag`/`WeakTypeTag`, basic JVM runtime mirrors, a macro-context facade,
+tests, and a compatibility manifest.
 
 The goal from here is not to make Scala 2 compiler internals reappear in Scala
 3. The goal is to let common Scala 2 `scala-reflect` users migrate source code
@@ -22,9 +23,9 @@ integration code because `scala.Array.apply` is not found.
 - `reflect/compatibility-manifest.md` classifies the first API slice.
 - `reflect/README.md` describes the current compatibility boundary.
 
-Known caveat: this first slice has not yet been fully compiler-validated in this
-thread because Metals cancelled the compile request. Treat the current code as a
-scaffold that needs normal Scala 3 compilation and review before expanding it.
+This slice now compiles through Metals MCP and publishes locally through sbt.
+Treat it as a compatibility facade that still needs API-surface expansion before
+it can claim full `scala-reflect:2.13.18` coverage.
 
 ## Immediate next steps
 
@@ -45,10 +46,11 @@ scaffold that needs normal Scala 3 compilation and review before expanding it.
    bootstrap-project classpath settings, and conflicts with the existing
    `scala.reflect` package in `scala-library`.
 
-   Add a regression test for scala/scala3#25896 while doing this stabilization:
-   simply initializing `scala.reflect.runtime.universe` from Scala 3 code must
-   not fail. This keeps the Spark `ScalaReflection` initialization crash in
-   scope for the port rather than leaving it as a downstream-only workaround.
+   Keep the scala/scala3#25896 regression in scope while doing this
+   stabilization: simply initializing `scala.reflect.runtime.universe` from
+   Scala 3 code must not fail. This keeps the Spark `ScalaReflection`
+   initialization crash covered by the port rather than leaving it as a
+   downstream-only workaround.
 
 3. Decide whether `TypeTag` materialization should remain string-backed for v0
    or immediately move to a compiler/TASTy-backed representation. String-backed
@@ -66,9 +68,8 @@ on.
 
 1. **Stabilize module wiring**
    - Confirm `scala3-reflect` publishes as `org.scala-lang::scala-reflect`.
-   - Keep `scala3-compiler` as `provided` for downstream compile classpaths, but
-     available at runtime where the compatibility layer needs TASTy/quoted
-     internals.
+   - Do not leak `scala3-compiler` into the published downstream POM unless the
+     public compatibility API actually requires it.
    - Add MiMa or explicit “no binary compatibility promise” release notes only
      after maintainers decide the artifact policy.
 

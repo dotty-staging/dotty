@@ -3,7 +3,7 @@ package scala.reflect.runtime
 import scala.quoted.*
 import scala.reflect.api.JavaUniverse
 
-object universe extends JavaUniverse:
+object RuntimeUniverse extends JavaUniverse:
   type Mirror = RuntimeMirror
 
   inline given materializeTypeTag[T]: TypeTag[T] = ${ CompatTagMacros.typeTagImpl[T] }
@@ -61,26 +61,26 @@ object universe extends JavaUniverse:
       className match
         case Some(clsName) =>
           val cls = loadClass(clsName, currentMirror.classLoader)
-          cls.getMethods.find(_.getName == name.decodedName)
-            .map(method => RuntimeMethodSymbol(TermName(method.getName), method.toString, RuntimeType(method.getReturnType.getName, Some(method.getReturnType.getName))))
-            .orElse(cls.getDeclaredFields.find(_.getName == name.decodedName).map(field =>
-              RuntimeTermSymbol(TermName(field.getName), field.toString, RuntimeType(field.getType.getName, Some(field.getType.getName)))
+          cls.getMethods.find(_.getName == name.decoded)
+            .map(method => RuntimeMethodSymbol(new TermName(method.getName), method.toString, RuntimeType(method.getReturnType.getName, Some(method.getReturnType.getName))))
+            .orElse(cls.getDeclaredFields.find(_.getName == name.decoded).map(field =>
+              RuntimeTermSymbol(new TermName(field.getName), field.toString, RuntimeType(field.getType.getName, Some(field.getType.getName)))
             ))
             .getOrElse(NoSymbol)
         case None => NoSymbol
 
   private final case class RuntimeClassSymbol(fullName: String, override val info: Type) extends ClassSymbol:
-    val name: Name = TypeName(fullName.split('.').lastOption.getOrElse(fullName))
+    val name: Name = new TypeName(fullName.split('.').lastOption.getOrElse(fullName))
 
   private final case class RuntimeMethodSymbol(name: Name, fullName: String, override val info: Type) extends MethodSymbol
 
   private final case class RuntimeTermSymbol(name: Name, fullName: String, override val info: Type) extends TermSymbol
 
   private final case class RuntimePackageSymbol(fullName: String) extends Symbol:
-    val name: Name = TermName(fullName.split('.').lastOption.getOrElse(fullName))
+    val name: Name = new TermName(fullName.split('.').lastOption.getOrElse(fullName))
 
   final case class RuntimeMirror(classLoader: ClassLoader) extends JavaMirror:
-    val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
+    val universe: scala.reflect.runtime.RuntimeUniverse.type = scala.reflect.runtime.RuntimeUniverse
 
     override def staticClass(fullName: String): ClassSymbol =
       val cls = loadClass(fullName, classLoader)
@@ -124,20 +124,20 @@ object universe extends JavaUniverse:
     override def apply(args: Any*): Any =
       instance match
         case Some(value) =>
-          val method = value.getClass.getMethods.find(_.getName == symbol.name.decodedName)
-            .getOrElse(throw new NoSuchMethodException(symbol.name.decodedName))
+          val method = value.getClass.getMethods.find(_.getName == symbol.name.decoded)
+            .getOrElse(throw new NoSuchMethodException(symbol.name.decoded))
           method.invoke(value, args.map(_.asInstanceOf[AnyRef])*)
         case None =>
           val cls = mirror.runtimeClass(symbol.owner.info)
           val ctor = cls.getConstructors.find(_.getParameterCount == args.size)
-            .getOrElse(throw new NoSuchMethodException(symbol.name.decodedName))
+            .getOrElse(throw new NoSuchMethodException(symbol.name.decoded))
           ctor.newInstance(args.map(_.asInstanceOf[AnyRef])*)
 
   private final case class RuntimeFieldMirror(mirror: RuntimeMirror, instance: Any, symbol: TermSymbol) extends FieldMirror:
     private def field =
-      val f = instance.getClass.getDeclaredField(symbol.name.decodedName)
+      val f = instance.getClass.getDeclaredField(symbol.name.decoded)
       scala.reflect.ensureAccessible(f)
 
     override def get: Any = field.get(instance)
     override def set(value: Any): Unit = field.set(instance, value.asInstanceOf[AnyRef])
-end universe
+end RuntimeUniverse
