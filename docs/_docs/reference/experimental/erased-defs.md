@@ -20,7 +20,7 @@ Sometimes, we need a value only to present evidence that some type can be constr
 We can make serialization safe by defining an additional type class that has instances precisely for those types that are deeply serializable. For instance, like this:
 ```scala
 /** Type class for types that are deeply serializable */
-trait CanSerialize[T]
+class CanSerialize[T]
 
 inline given CanSerialize[String] = CanSerialize()
 inline given [T: CanSerialize] => CanSerialize[List[T]] = CanSerialize()
@@ -129,7 +129,7 @@ inline def g(x: Int): Int =
 methodWithErasedInt2(5)  // ok
 methodWithErasedInt2(f(5))  // error, f(22) is not a pure expression
 methodWithErasedInt2(g(5))  // ok since `g` is `inline`.
-
+```
 Besides parameters, `val` definitions can also be marked with `erased`.
 These will also only be usable as arguments to `erased` parameters or
 as part of the definitions of other erased `val`s. Furthermore, the
