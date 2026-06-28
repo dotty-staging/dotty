@@ -926,12 +926,16 @@ class QuotesImpl private (using val ctx: Context) extends Quotes, QuoteUnpickler
         val meth = dotc.core.Symbols.newAnonFun(owner, tpe)
         withDefaultPos(tpd.Closure(meth, tss => xCheckedMacroOwners(xCheckMacroValidExpr(rhsFn(meth, tss.head.map(withDefaultPos).toList)), meth)))
 
-      def unapply(tree: Block): Option[(List[ValDef], Term)] = tree match {
-        case Block((ddef @ DefDef(_, tpd.ValDefs(params) :: Nil, _, Some(body))) :: Nil, Closure(meth, _))
-        if ddef.symbol == meth.symbol =>
-          Some((params.toList, body))
+      private def isValueParams(params: List[ValOrTypeDef]) = params match
+        case Nil => true
+        case (_: ValDef) :: _ => true
+        case _ => false
+
+      def unapply(tree: Block): Option[(List[ValDef], Term)] = tree match
+        case Block((ddef @ DefDef(_, params :: Nil, _, Some(body))) :: Nil, Closure(meth, _))
+        if ddef.symbol == meth.symbol && isValueParams(params) =>
+          Some((params.asInstanceOf[List[ValDef]], body))
         case _ => None
-      }
     end Lambda
 
     type If = tpd.If
