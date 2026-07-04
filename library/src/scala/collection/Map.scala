@@ -406,6 +406,33 @@ transparent trait MapOps[K, +V, +CC[_, _] <: IterableOps[?, AnyConstr, ?], +C]
    */
   /*@`inline` final*/ def ++ [V2 >: V](xs: collection.IterableOnce[(K, V2)]^): CC[K, V2]^{this, xs} = concat(xs)
 
+  /** Inverts this $coll: each value becomes a key of the result, and the
+   *  original keys that shared a value are grouped into a set.
+   *
+   *  This is the map analogue of swapping tuple positions, but safe for
+   *  many-to-one relationships: `Map("a" -> 1, "c" -> 1).invert` is
+   *  `Map(1 -> Set("a", "c"))`.
+   *
+   *  $willForceEvaluation
+   *
+   *  @tparam V1 the key type of the result, a supertype of this $coll's value
+   *             type (required because the value type moves into the invariant
+   *             key position)
+   *  @return an immutable map associating each value of this $coll with the
+   *          set of keys that were mapped to it
+   */
+  def invert[V1 >: V]: immutable.Map[V1, immutable.Set[K]] = {
+    val m = mutable.Map.empty[V1, mutable.Builder[K, immutable.Set[K]]]
+    val it = iterator
+    while (it.hasNext) {
+      val kv = it.next()
+      m.getOrElseUpdate(kv._2, immutable.Set.newBuilder[K]) += kv._1
+    }
+    var result = immutable.Map.empty[V1, immutable.Set[K]]
+    m.foreachEntry((v, bldr) => result = result.updated(v, bldr.result()))
+    result
+  }
+
   override def addString(sb: StringBuilder, start: String, sep: String, end: String): sb.type =
     iterator.map { case (k, v) => s"$k -> $v" }.addString(sb, start, sep, end)
 
