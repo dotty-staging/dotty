@@ -100,6 +100,29 @@ trait Iterable[+A] extends IterableOnce[A]
    *         or chained calls to `lazyZip`. Implicit conversion to `Iterable[(A, B)]` is also supported.
    */
   def lazyZip[B](that: Iterable[B]^): LazyZip2[A, B, this.type]^{this, that} = new LazyZip2(this, this, that)
+
+  /** Analogous to `zipAll` except that the elements in each collection are not consumed until a strict
+   *  operation is invoked on the returned `LazyZip2` decorator: the lazy counterpart of `zipAll`, as
+   *  `lazyZip` is of `zip`.
+   *
+   *  If this $coll is shorter than `that`, it is padded with `thisDefault`; if `that` is
+   *  the shorter side, it is padded with `thatDefault`.
+   *
+   *  @tparam A1 the type of the first half of the eventual pairs, a supertype of the element type
+   *             of this $coll
+   *  @tparam B  the type of the second half of the eventual pairs
+   *  @param that the iterable providing the second half of each eventual pair
+   *  @param thisDefault the element used to pad this $coll if it is shorter than `that`
+   *  @param thatDefault the element used to pad `that` if it is shorter than this $coll
+   *  @return a decorator `LazyZip2` over the padded pairings that allows strict operations to be
+   *          performed lazily, or chained calls to `lazyZip`
+   */
+  def lazyZipAll[A1 >: A, B](that: Iterable[B]^)(thisDefault: A1, thatDefault: B): LazyZip2[A1, B, this.type]^{this, that} = {
+    val self = this
+    val padded1 = View.fromIteratorProvider(() => self.iterator.zipAll(that.iterator, thisDefault, thatDefault).map(_._1))
+    val padded2 = View.fromIteratorProvider(() => self.iterator.zipAll(that.iterator, thisDefault, thatDefault).map(_._2))
+    new LazyZip2(this, padded1, padded2)
+  }
 }
 
 /** Base trait for Iterable operations
