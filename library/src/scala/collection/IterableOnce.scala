@@ -552,6 +552,37 @@ transparent trait IterableOnceOps[+A, +CC[_], +C] extends Any { this: IterableOn
    */
   def zipWithIndex: CC[(A @uncheckedVariance, Int)]^{this}
 
+  /** Zips this $coll with another collection, only if the two have exactly the
+   *  same number of elements.
+   *
+   *  Unlike `zip`, which silently truncates to the shorter side, and `zipAll`,
+   *  which pads the shorter side, `zipStrict` reports a length mismatch by
+   *  returning `None`. Two empty inputs yield `Some` of an empty iterator.
+   *
+   *  When both sides have a non-negative `knownSize`, the sizes are compared
+   *  without consuming any elements and the resulting iterator is lazy.
+   *  Otherwise both inputs are consumed to verify that they end together.
+   *  $consumesIterator
+   *
+   *  @tparam B    the type of the second half of the returned pairs
+   *  @param that  the collection providing the second half of each returned pair
+   *  @return      `Some` iterator of pairs in left-to-right pairing order if both
+   *               inputs have the same number of elements, `None` otherwise
+   */
+  def zipStrict[B](that: IterableOnce[B]^): Option[Iterator[(A, B)]^{this, that}] = {
+    val thisSize = this.knownSize
+    val thatSize = that.knownSize
+    if (thisSize >= 0 && thatSize >= 0) {
+      if (thisSize == thatSize) Some(this.iterator.zip(that)) else None
+    } else {
+      val it1 = this.iterator
+      val it2 = that.iterator
+      val buf = mutable.ArrayBuffer.empty[(A, B)]
+      while (it1.hasNext && it2.hasNext) buf += ((it1.next(), it2.next()))
+      if (it1.hasNext || it2.hasNext) None else Some(buf.iterator)
+    }
+  }
+
   /** Splits this $coll into a prefix/suffix pair according to a predicate.
    *
    *  Note: `c span p`  is equivalent to (but possibly more efficient than)
