@@ -139,6 +139,31 @@ transparent trait MapOps[K, V, +CC[X, Y] <: MapOps[X, Y, CC, ?], +C <: MapOps[K,
     nextValue
   }
 
+  /** Inserts a new value, or combines it in place with the existing value at the key.
+   *
+   *  If this map does not contain `key`, associates it with `value`. Otherwise
+   *  replaces the current value with `remappingFunction(currentValue, value)`.
+   *  Unlike `java.util.Map.merge`, this method never removes a mapping: the
+   *  remapping function returns `V`, so the key is always present afterwards.
+   *  If the remapping function throws an exception, the exception is rethrown
+   *  and the current mapping is left unchanged.
+   *
+   *  @param key    the key to insert or update
+   *  @param value  the value to associate with `key` if it is absent, and the
+   *                second argument to `remappingFunction` if it is present
+   *  @param remappingFunction a function combining the existing value (first
+   *                           argument) with `value` (second argument)
+   *  @return the value associated with `key` after the operation
+   */
+  def merge(key: K, value: V, remappingFunction: (V, V) => V): V = {
+    val nextValue = this.get(key) match {
+      case Some(existing) => remappingFunction(existing, value)
+      case None => value
+    }
+    this.update(key, nextValue)
+    nextValue
+  }
+
   /** If given key is already in this map, returns associated value.
    *
    *  Otherwise, computes value from given expression `defaultValue`, stores with key
