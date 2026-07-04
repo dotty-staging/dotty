@@ -658,6 +658,89 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
     m.to(immutable.Map)
   }
 
+  /** Partitions this $coll into a `SeqMap` of ${coll}s according to a
+   *  discriminator function, preserving the order in which keys are first
+   *  encountered.
+   *
+   *  Like `groupBy`, but the result is a `SeqMap` whose keys appear in
+   *  encounter order; values inside each group preserve input order, and
+   *  repeated keys append to the existing group.
+   *
+   *  $willForceEvaluation
+   *
+   *  @tparam K the type of keys returned by the discriminator function
+   *  @param extractKey the discriminator function
+   *  @return a `SeqMap` from keys in first-seen order to ${coll}s of the
+   *          elements that map to them
+   */
+  def groupByOrdered[K](extractKey: A => K): immutable.SeqMap[K, C^{this}] = {
+    val m = mutable.LinkedHashMap.empty[K, Builder[A, C^{this}]]
+    for (elem <- this)
+      m.getOrElseUpdate(extractKey(elem), newSpecificBuilder) += elem
+    val b = immutable.SeqMap.newBuilder[K, C^{this}]
+    m.foreachEntry((k, bldr) => b += ((k, bldr.result())))
+    b.result()
+  }
+
+  /** Partitions this $coll into a `SeqMap` of extracted values according to a
+   *  discriminator function, preserving the order in which keys are first
+   *  encountered.
+   *
+   *  Like `groupMap`, but the result is a `SeqMap` whose keys appear in
+   *  encounter order; values inside each group preserve input order, and
+   *  repeated keys append to the existing group.
+   *
+   *  $willForceEvaluation
+   *
+   *  @tparam K the type of keys returned by the discriminator function
+   *  @tparam V the type of values returned by the transformation function
+   *  @param extractKey the discriminator function
+   *  @param extractValue the element transformation function
+   *  @return a `SeqMap` from keys in first-seen order to ${coll}s of the
+   *          values extracted from the elements that map to them
+   */
+  def groupByOrdered[K, V](extractKey: A => K, extractValue: A => V): immutable.SeqMap[K, CC[V]] = {
+    val m = mutable.LinkedHashMap.empty[K, Builder[V, CC[V]]]
+    for (elem <- this)
+      m.getOrElseUpdate(extractKey(elem), iterableFactory.newBuilder[V]) += extractValue(elem)
+    val b = immutable.SeqMap.newBuilder[K, CC[V]]
+    m.foreachEntry((k, bldr) => b += ((k, bldr.result())))
+    b.result()
+  }
+
+  /** Partitions this $coll into a `SeqMap` of optionally extracted values
+   *  according to a discriminator function, preserving the order in which keys
+   *  are first encountered.
+   *
+   *  Like the two-argument `groupByOrdered`, but the value extractor returns
+   *  an `Option`: a `None` adds nothing to the group, while the key is still
+   *  created (with an empty group if no element ever yields a value). This
+   *  fits rows produced by left or full outer joins, where a parent row can
+   *  carry no child value but the parent must still appear.
+   *
+   *  $willForceEvaluation
+   *
+   *  @tparam K the type of keys returned by the discriminator function
+   *  @tparam V the type of values returned by the transformation function
+   *  @param extractKey the discriminator function
+   *  @param extractValue the optional element transformation function
+   *  @return a `SeqMap` from keys in first-seen order to ${coll}s of the
+   *          defined values extracted from the elements that map to them
+   */
+  def groupByOrderedOpt[K, V](extractKey: A => K, extractValue: A => Option[V]): immutable.SeqMap[K, CC[V]] = {
+    val m = mutable.LinkedHashMap.empty[K, Builder[V, CC[V]]]
+    for (elem <- this) {
+      val bldr = m.getOrElseUpdate(extractKey(elem), iterableFactory.newBuilder[V])
+      extractValue(elem) match {
+        case Some(v) => bldr += v
+        case None =>
+      }
+    }
+    val b = immutable.SeqMap.newBuilder[K, CC[V]]
+    m.foreachEntry((k, bldr) => b += ((k, bldr.result())))
+    b.result()
+  }
+
   /** Computes a prefix scan of the elements of the collection.
    *
    *  Note: The neutral element `z` may be applied more than once.

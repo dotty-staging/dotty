@@ -15,6 +15,9 @@ object MiMaFilters {
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.BuildFrom.buildFromIArray"),
         // IArray integration with Scala Collections:
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.generic.IsSeq.iarrayIsSeq"),
+        // STA proposal 4.1: IterableOps.groupByOrdered/groupByOrderedOpt
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.IterableOps.groupByOrdered"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.IterableOps.groupByOrderedOpt"),
     ))
 
     val BackwardsBreakingChanges: Map[String, Seq[ProblemFilter]] = Map(
