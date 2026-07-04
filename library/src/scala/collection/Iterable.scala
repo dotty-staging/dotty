@@ -777,6 +777,31 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
 
   def zipWithIndex: CC[(A @uncheckedVariance, Int)]^{this} = iterableFactory.from(new View.ZipWithIndex(this))
 
+  /** Builds a new $coll by applying a function to each element of this $coll
+   *  while threading an accumulating state through the traversal.
+   *
+   *  @tparam B the element type of the returned $coll
+   *  @tparam S the type of the threaded state
+   *  @param z  the initial state
+   *  @param f  a function mapping an element and the current state to the
+   *            mapped element and the next state
+   *  @return   a pair of the mapped $coll (with the receiver's
+   *            element-collection type, like `map`) and the final state.
+   *            The traversal is strict, single-pass and preserves encounter
+   *            order; an empty $coll returns an empty $coll and `z` unchanged.
+   */
+  def mapAccumulate[B, S](z: S)(f: (A, S) => (B, S)): (CC[B], S) = {
+    val b = iterableFactory.newBuilder[B]
+    var state = z
+    val it = iterator
+    while (it.hasNext) {
+      val (mapped, next) = f(it.next(), state)
+      b += mapped
+      state = next
+    }
+    (b.result(), state)
+  }
+
   /** Returns a $coll formed from this $coll and another iterable collection
    *  by combining corresponding elements in pairs.
    *  If one of the two collections is shorter than the other,
