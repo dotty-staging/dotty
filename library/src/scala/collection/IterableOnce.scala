@@ -688,6 +688,31 @@ transparent trait IterableOnceOps[+A, +CC[_], +C] extends Any { this: IterableOn
     res
   }
 
+  /** Counts how often each element appears in this $coll.
+   *
+   *  The result is built in a single pass and is strict: it is an unordered
+   *  map from each distinct element of this $coll to the number of times it
+   *  occurs.
+   *
+   *  $willNotTerminateInf
+   *  $consumesIterator
+   *
+   *  @tparam A1 the type of the keys of the result, a supertype of the element
+   *             type of this $coll (needed because `Map` is invariant in its
+   *             key type)
+   *  @return a map associating each distinct element of this $coll with the
+   *          number of times it appears
+   */
+  def frequencies[A1 >: A]: immutable.Map[A1, Int] = {
+    val result = mutable.HashMap.empty[A1, Int]
+    val it = iterator
+    while (it.hasNext) {
+      val elem = it.next()
+      result.update(elem, result.getOrElse(elem, 0) + 1)
+    }
+    result.toMap
+  }
+
   /** Finds the first element of the $coll satisfying a predicate, if any.
    *
    *  $mayNotTerminateInf
