@@ -211,6 +211,36 @@ transparent trait SetOps[A, +CC[_], +C <: SetOps[A, CC, C]]
    */
   @`inline` final def &~ (that: Set[A]): C = this diff that
 
+  /** Computes the full relationship between this set and another set in one
+   *  operation: the elements only in this set, the elements in both, and the
+   *  elements only in `that`.
+   *
+   *  Component-wise equal to `(this diff that, this intersect that, that diff this)`,
+   *  but each element's membership is tested exactly once.
+   *
+   *  @tparam B the element type of `that`, a supertype of this set's element type
+   *  @param that the set to fully intersect with
+   *  @return a triple `(elementsOnlyInThis, elementsInBoth, elementsOnlyInThat)`;
+   *          the first two use this set's own type `C`, the third is `CC[B]`
+   */
+  def fullIntersection[B >: A](that: Set[B]): (C, C, CC[B]) = {
+    val onlyThis = newSpecificBuilder
+    val both = newSpecificBuilder
+    val onlyThat = iterableFactory.newBuilder[B]
+    val it = iterator
+    while (it.hasNext) {
+      val a = it.next()
+      if (that.contains(a)) both += a else onlyThis += a
+    }
+    val it2 = that.iterator
+    while (it2.hasNext) {
+      val b = it2.next()
+      // the cast is erasure-safe: `contains` only uses equality, like `that.diff(this)` would
+      if (!this.contains(b.asInstanceOf[A])) onlyThat += b
+    }
+    (onlyThis.result(), both.result(), onlyThat.result())
+  }
+
   @deprecated("Consider requiring an immutable Set", "2.13.0")
   def -- (that: IterableOnce[A]^): C = {
     val toRemove = that.iterator.to(immutable.Set)
