@@ -539,6 +539,77 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
   def sliding(size: Int, step: Int): Iterator[C^{this}]^{this} =
     iterator.sliding(size, step).map(fromSpecific)
 
+  /** Partitions elements into maximal runs of adjacent elements that map to
+   *  the same value under a discriminator function.
+   *
+   *  A new run starts whenever the value of `f` changes. Each run preserves
+   *  element order and is the receiver's own collection type; runs are
+   *  produced lazily by the outer iterator, like [[grouped]] and [[sliding]].
+   *
+   *  $orderDependent
+   *
+   *  @tparam B  the type of the discriminator values
+   *  @param  f  the discriminator function
+   *  @return an iterator of pairs of the discriminator value of a run and the
+   *          run itself, in encounter order
+   */
+  def runsBy[B](f: A => B): Iterator[(B, C^{this})]^{this, f} = {
+    val elems = iterator
+    new AbstractIterator[(B, C^{this})] {
+      private var pendingElem: A = compiletime.uninitialized
+      private var pendingDefined = false
+      def hasNext = pendingDefined || elems.hasNext
+      def next() = {
+        if (!hasNext) Iterator.empty.next()
+        val head = if (pendingDefined) { pendingDefined = false; pendingElem } else elems.next()
+        val key = f(head)
+        val b = newSpecificBuilder
+        b += head
+        var done = false
+        while (!done && elems.hasNext) {
+          val a = elems.next()
+          if (f(a) == key) b += a
+          else {
+            pendingElem = a
+            pendingDefined = true
+            done = true
+          }
+        }
+        (key, b.result())
+      }
+    }
+  }
+
+  /** Partitions elements into maximal runs of adjacent elements on which the
+   *  predicate is constant.
+   *
+   *  A new run starts whenever the result of `p` changes, so runs alternate
+   *  between elements satisfying and not satisfying the predicate. Each run
+   *  preserves element order and is the receiver's own collection type; runs
+   *  are produced lazily by the outer iterator, like [[grouped]] and
+   *  [[sliding]].
+   *
+   *  $orderDependent
+   *
+   *  @param  p  the predicate defining the run boundaries
+   *  @return an iterator of the runs, in encounter order
+   */
+  def runsWith(p: A => Boolean): Iterator[C^{this}]^{this, p} = runsBy(p).map(_._2)
+
+  /** Selects the maximal runs of adjacent elements that all satisfy the
+   *  predicate.
+   *
+   *  Like [[runsWith]], but only the runs whose elements satisfy `p` are
+   *  returned.
+   *
+   *  $orderDependent
+   *
+   *  @param  p  the predicate that all elements of a returned run satisfy
+   *  @return an iterator of the matching runs, in encounter order
+   */
+  def matchingRuns(p: A => Boolean): Iterator[C^{this}]^{this, p} =
+    runsBy(p).filter(_._1).map(_._2)
+
   /** The rest of the collection without its first element. */
   def tail: C^{this} = {
     if (isEmpty) throw new UnsupportedOperationException
