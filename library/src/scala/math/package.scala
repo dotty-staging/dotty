@@ -747,4 +747,107 @@ package object math {
    */
   def toIntExact(x: Long): Int = java.lang.Math.toIntExact(x)
 
+  /** Clamps a `Long` value into an `Int` range.
+   *
+   *  Values below `lower` return `lower`, values above `upper` return `upper`,
+   *  and values inside the interval are returned unchanged. Taking a `Long`
+   *  value with `Int` bounds allows clamping a `Long` into an `Int` range
+   *  without a separate overflow check, matching `java.lang.Math.clamp(long, int, int)`.
+   *
+   *  @group minmax
+   *
+   *  @param value the value to clamp
+   *  @param lower the inclusive lower bound of the interval
+   *  @param upper the inclusive upper bound of the interval
+   *  @return `value` clamped to the closed interval `[lower, upper]`
+   *  @throws IllegalArgumentException if `lower` is greater than `upper`
+   */
+  def clamp(value: Long, lower: Int, upper: Int): Int = {
+    if (lower > upper)
+      throw new IllegalArgumentException(s"$lower > $upper")
+    java.lang.Math.min(java.lang.Math.max(value, lower.toLong), upper.toLong).toInt
+  }
+
+  /** Clamps a `Long` value to a closed interval.
+   *
+   *  Values below `lower` return `lower`, values above `upper` return `upper`,
+   *  and values inside the interval are returned unchanged.
+   *
+   *  @group minmax
+   *
+   *  @param value the value to clamp
+   *  @param lower the inclusive lower bound of the interval
+   *  @param upper the inclusive upper bound of the interval
+   *  @return `value` clamped to the closed interval `[lower, upper]`
+   *  @throws IllegalArgumentException if `lower` is greater than `upper`
+   */
+  def clamp(value: Long, lower: Long, upper: Long): Long = {
+    if (lower > upper)
+      throw new IllegalArgumentException(s"$lower > $upper")
+    java.lang.Math.min(java.lang.Math.max(value, lower), upper)
+  }
+
+  /** Clamps a `Float` value to a closed interval.
+   *
+   *  Values below `lower` return `lower`, values above `upper` return `upper`,
+   *  and values inside the interval are returned unchanged. A NaN `value`
+   *  passes through unchanged. A negative-zero `value` with a positive-zero
+   *  bound (or vice versa) is resolved as by [[max]] and [[min]].
+   *
+   *  @group minmax
+   *
+   *  @param value the value to clamp
+   *  @param lower the inclusive lower bound of the interval
+   *  @param upper the inclusive upper bound of the interval
+   *  @return `value` clamped to the closed interval `[lower, upper]`, or NaN if `value` is NaN
+   *  @throws IllegalArgumentException if `lower` is greater than `upper`, or either bound is NaN
+   */
+  def clamp(value: Float, lower: Float, upper: Float): Float = {
+    if (!(lower <= upper))
+      throw new IllegalArgumentException(s"$lower > $upper")
+    java.lang.Math.min(java.lang.Math.max(value, lower), upper)
+  }
+
+  /** Clamps a `Double` value to a closed interval.
+   *
+   *  Values below `lower` return `lower`, values above `upper` return `upper`,
+   *  and values inside the interval are returned unchanged. A NaN `value`
+   *  passes through unchanged. A negative-zero `value` with a positive-zero
+   *  bound (or vice versa) is resolved as by [[max]] and [[min]].
+   *
+   *  @group minmax
+   *
+   *  @param value the value to clamp
+   *  @param lower the inclusive lower bound of the interval
+   *  @param upper the inclusive upper bound of the interval
+   *  @return `value` clamped to the closed interval `[lower, upper]`, or NaN if `value` is NaN
+   *  @throws IllegalArgumentException if `lower` is greater than `upper`, or either bound is NaN
+   */
+  def clamp(value: Double, lower: Double, upper: Double): Double = {
+    if (!(lower <= upper))
+      throw new IllegalArgumentException(s"$lower > $upper")
+    java.lang.Math.min(java.lang.Math.max(value, lower), upper)
+  }
+
+  /** Clamps a value to a closed interval, according to an `Ordering`.
+   *
+   *  Values below `lower` return `lower`, values above `upper` return `upper`,
+   *  and values inside the interval are returned unchanged.
+   *
+   *  @group minmax
+   *
+   *  @param value the value to clamp
+   *  @param lower the inclusive lower bound of the interval
+   *  @param upper the inclusive upper bound of the interval
+   *  @return `value` clamped to the closed interval `[lower, upper]`
+   *  @throws IllegalArgumentException if `lower` is greater than `upper`
+   */
+  def clamp[T](value: T, lower: T, upper: T)(using ord: Ordering[T]): T = {
+    if (ord.gt(lower, upper))
+      throw new IllegalArgumentException(s"$lower > $upper")
+    if (ord.lt(value, lower)) lower
+    else if (ord.gt(value, upper)) upper
+    else value
+  }
+
 }
