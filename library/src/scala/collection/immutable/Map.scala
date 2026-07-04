@@ -87,6 +87,22 @@ transparent trait MapOps[K, +V, +CC[X, +Y] <: MapOps[X, Y, CC, ?], +C <: MapOps[
    */
   def removed(key: K): C
 
+  /** Retrieves the value associated with a key, together with this map without
+   *  that binding.
+   *
+   *  If the key is absent, no new map is built: the second half of the result
+   *  is this map itself.
+   *
+   *  @param key the key to look up and remove
+   *  @return a pair of an option value containing the value associated with
+   *          `key` (or `None` if it is absent), and the map without a binding
+   *          for `key`
+   */
+  def getAndRemove(key: K): (Option[V], C) = get(key) match {
+    case some @ Some(_) => (some, removed(key))
+    case None => (None, coll)
+  }
+
   /** Alias for `removed`.
    *
    *  @param key the key to remove from this map

@@ -15,6 +15,8 @@ object MiMaFilters {
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.BuildFrom.buildFromIArray"),
         // IArray integration with Scala Collections:
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.generic.IsSeq.iarrayIsSeq"),
+        // STA proposal 4.7: immutable.MapOps.getAndRemove
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.immutable.MapOps.getAndRemove"),
     ))
 
     val BackwardsBreakingChanges: Map[String, Seq[ProblemFilter]] = Map(
