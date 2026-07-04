@@ -973,6 +973,35 @@ final class StringOps(private val s: String) extends AnyVal { self =>
     s.split(re)
   }
 
+  /** Splits this string around matches of the given regular expression,
+   *  returning the tokens as an immutable array.
+   *
+   *  This method behaves exactly like `java.lang.String.split(regex)` — in
+   *  particular, trailing empty strings are removed from the result — but
+   *  returns an [[IArray]], so common string-processing code does not have to
+   *  deal with a mutable `Array`.
+   *
+   *  @param regex the regular expression to split around
+   *  @return an immutable array of the tokens, in order
+   */
+  @throws(classOf[java.util.regex.PatternSyntaxException])
+  def splitToIArray(regex: String): IArray[String] =
+    IArray.unsafeFromArray(s.split(regex))
+
+  /** Splits this string around matches of the given regular expression, with
+   *  the given result threshold, returning the tokens as an immutable array.
+   *
+   *  This method behaves exactly like `java.lang.String.split(regex, limit)`
+   *  but returns an [[IArray]].
+   *
+   *  @param regex the regular expression to split around
+   *  @param limit the result threshold, with the same meaning as in `java.lang.String.split`
+   *  @return an immutable array of the tokens, in order
+   */
+  @throws(classOf[java.util.regex.PatternSyntaxException])
+  def splitToIArray(regex: String, limit: Int): IArray[String] =
+    IArray.unsafeFromArray(s.split(regex, limit))
+
   /** You can follow a string with `.r`, turning it into a `Regex`. E.g.
    *
    *  `"""A\w*""".r`   is the regular expression for ASCII-only identifiers starting with `A`.
