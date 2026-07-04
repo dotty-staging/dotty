@@ -397,6 +397,73 @@ transparent trait MapOps[K, +V, +CC[_, _] <: IterableOps[?, AnyConstr, ?], +C]
     case _ => iterator.concat(suffix.iterator)
   })
 
+  /** Returns a new $coll containing all key/value pairs of this $coll and `that`,
+   *  combining the values of keys that appear in both maps with `f`.
+   *
+   *  Keys that appear in only one of the two maps keep their value, unlike
+   *  `concat`, where the right-hand side wins for every duplicate key.
+   *
+   *  @tparam V2 the value type of the returned $coll, a supertype of `V`
+   *  @param that the map to union this $coll with
+   *  @param f    a function combining the two values of a key that appears in
+   *              both maps; its arguments are the key, the value in this $coll,
+   *              and the value in `that`
+   *  @return a new $coll with all keys of both maps
+   */
+  def unionWith[V2 >: V](that: collection.Map[K, V2], f: (K, V2, V2) => V2): CC[K, V2] = {
+    val b = mapFactory.newBuilder[K, V2]
+    val it = iterator
+    while (it.hasNext) {
+      val kv = it.next()
+      b += (that.get(kv._1) match {
+        case Some(w) => (kv._1, f(kv._1, kv._2, w))
+        case None    => kv
+      })
+    }
+    val it2 = that.iterator
+    while (it2.hasNext) {
+      val kv = it2.next()
+      if (!this.contains(kv._1)) b += kv
+    }
+    b.result()
+  }
+
+  /** Returns a new $coll containing the key/value pairs of this $coll and `that`,
+   *  combining the values of keys that appear in both maps with `f`, which may
+   *  choose to remove the key by returning `None`.
+   *
+   *  Keys that appear in only one of the two maps keep their value.
+   *
+   *  @tparam V2 the value type of the returned $coll, a supertype of `V`
+   *  @param that the map to union this $coll with
+   *  @param f    a function combining the two values of a key that appears in
+   *              both maps; its arguments are the key, the value in this $coll,
+   *              and the value in `that`; returning `None` removes the key
+   *  @return a new $coll with all keys of both maps, except the keys appearing
+   *          in both maps for which `f` returned `None`
+   */
+  def unionWithOption[V2 >: V](that: collection.Map[K, V2], f: (K, V2, V2) => Option[V2]): CC[K, V2] = {
+    val b = mapFactory.newBuilder[K, V2]
+    val it = iterator
+    while (it.hasNext) {
+      val kv = it.next()
+      that.get(kv._1) match {
+        case Some(w) =>
+          f(kv._1, kv._2, w) match {
+            case Some(v) => b += ((kv._1, v))
+            case None    =>
+          }
+        case None => b += kv
+      }
+    }
+    val it2 = that.iterator
+    while (it2.hasNext) {
+      val kv = it2.next()
+      if (!this.contains(kv._1)) b += kv
+    }
+    b.result()
+  }
+
   // Not final because subclasses refine the result type, e.g. in SortedMap, the result type is
   // SortedMap's CC, while Map's CC is fixed to Map
   /** Alias for `concat`.
