@@ -19,7 +19,7 @@ a *basis for discussion*, incorporating the review feedback into the design.
 | 3.1 | `SeqSet` / `VectorSet` | ✅ MEDIUM | planned | `stdlib/seq-set` | New insertion-ordered immutable set, mirroring `SeqMap`/`VectorMap`. Largest item; also unblocks the `SeqMap` flavor of 4.9. |
 | 3.2 | `zipStrict` | 🤓 discuss | **done** (discussion basis) | `stdlib/zip-strict` | Design revised per review: on `IterableOnceOps`, returns `Option[Iterator[(A, B)]]`; `knownSize` fast path (lazy result when sizes known equal, `None` when known unequal), buffering fallback otherwise. |
 | 3.3 | `lazyZipAll` | ✅ LOW | **done** | `stdlib/lazy-zip-all` | Lazy padding counterpart of `zipAll`, returns `LazyZip2`; padded views re-derive per traversal (lockstep decorator = follow-up optimization). |
-| 3.4 | `groupFlatMap` | 🤔 motivation | planned | `stdlib/group-flat-map` | Grouping counterpart of `flatMap`, completes the `groupMap` family. |
+| 3.4 | `groupFlatMap` | 🤔 motivation | **done** (discussion basis) | `stdlib/group-flat-map` | Grouping counterpart of `flatMap`, completes the `groupMap` family. |
 | 4.1 | `groupByOrdered` (+ `Opt` overload) | 🤓 discuss | planned | `stdlib/group-by-ordered` | Strict `SeqMap`-returning version per PDF; review's lazy `Factory`/`BuildFrom` alternative documented as open design question. |
 | 4.2 | `IterableOnce.frequencies` | ✅ HIGH | **done** | `stdlib/frequencies` | Single pass via one `mutable.HashMap`; on `IterableOnceOps` (fixed result type), `A1 >: A` for key invariance. |
 | 4.3 | `mapAccumulate` | 🤔 motivation | **done** (discussion basis) | `stdlib/map-accumulate` | Review: near-equivalent to `foldLeft` with pair state; doc addresses what it adds (no pattern matching, builder chosen automatically). |
