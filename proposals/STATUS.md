@@ -16,7 +16,7 @@ a *basis for discussion*, incorporating the review feedback into the design.
 | # | API | Approval | Implementation | Branch | Notes / deviations |
 |---|-----|----------|----------------|--------|--------------------|
 | 2 | `Vector` vs `List` performance report | ✅ HIGH | not started | — | Deliverable is a report, not an API. Review: Martin sceptical it helps the compiler; profile typical `List` sizes and `mapConserve` patterns. |
-| 3.1 | `SeqSet` / `VectorSet` | ✅ MEDIUM | planned | `stdlib/seq-set` | New insertion-ordered immutable set, mirroring `SeqMap`/`VectorMap`. Largest item; also unblocks the `SeqMap` flavor of 4.9. |
+| 3.1 | `SeqSet` / `VectorSet` | ✅ MEDIUM | **done** | `stdlib/seq-set` | Insertion-ordered immutable set mirroring `SeqMap`/`VectorMap`; `VectorSet` wraps `VectorMap[A, Unit]`. Follow-ups in doc: `ListSet <: SeqSet`, small-size specializations, `TreeSeqSet`. Unblocks the `SeqMap` flavor of 4.9. |
 | 3.2 | `zipStrict` | 🤓 discuss | **done** (discussion basis) | `stdlib/zip-strict` | Design revised per review: on `IterableOnceOps`, returns `Option[Iterator[(A, B)]]`; `knownSize` fast path (lazy result when sizes known equal, `None` when known unequal), buffering fallback otherwise. |
 | 3.3 | `lazyZipAll` | ✅ LOW | **done** | `stdlib/lazy-zip-all` | Lazy padding counterpart of `zipAll`, returns `LazyZip2`; padded views re-derive per traversal (lockstep decorator = follow-up optimization). |
 | 3.4 | `groupFlatMap` | 🤔 motivation | **done** (discussion basis) | `stdlib/group-flat-map` | Grouping counterpart of `flatMap`, completes the `groupMap` family. |
