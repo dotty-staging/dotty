@@ -624,6 +624,41 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
     result.built
   }
 
+  /** Partitions this $coll into a map of ${coll}s according to a discriminator function `key`,
+   *  expanding each element into zero or more transformed values.
+   *
+   *  It is equivalent to `groupMap(key)(f).view.mapValues(_.flatten)`, but more efficient: the
+   *  grouping and the flattening happen in one pass.
+   *
+   *  Note: an element whose expansion is empty still forces its key's group to exist (with no
+   *  values appended for that element).
+   *
+   *  $willForceEvaluation
+   *
+   *  @tparam K the type of keys returned by the discriminator function
+   *  @tparam B the type of values returned by the transformation function
+   *  @param key the discriminator function
+   *  @param f the element transformation function, producing zero or more outputs per element
+   *  @return a map associating each key `k` produced by `key` with a $coll of all values produced
+   *          by applying `f` to elements that map to `k`, in encounter order
+   */
+  def groupFlatMap[K, B](key: A => K)(f: A => IterableOnce[B]^): immutable.Map[K, CC[B]] = {
+    val m = mutable.Map.empty[K, Builder[B, CC[B]]]
+    for (elem <- this) {
+      val k = key(elem)
+      val bldr = m.getOrElseUpdate(k, iterableFactory.newBuilder[B])
+      bldr ++= f(elem)
+    }
+    class Result extends runtime.AbstractFunction1[(K, Builder[B, CC[B]]), Unit] {
+      var built = immutable.Map.empty[K, CC[B]]
+      def apply(kv: (K, Builder[B, CC[B]])) =
+        built = built.updated(kv._1, kv._2.result())
+    }
+    val result = new Result
+    m.foreach(result)
+    result.built
+  }
+
   /** Partitions this $coll into a map according to a discriminator function `key`. All the values that
    *  have the same discriminator are then transformed by the `f` function and then reduced into a
    *  single value with the `reduce` function.
