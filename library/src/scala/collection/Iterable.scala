@@ -471,6 +471,18 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
    */
   def takeWhile(p: A => Boolean): C^{this, p} = fromSpecific(new View.TakeWhile(this, p))
 
+  /** Takes the prefix of elements up to and including the first element that
+   *  satisfies a predicate.
+   *
+   *  Unlike [[takeWhile]], the terminating element is part of the result.
+   *  $orderDependent
+   *  @param   p  The predicate used to test elements.
+   *  @return  the prefix of this $coll up to and including the first element
+   *           that satisfies the predicate `p`. If no element satisfies `p`,
+   *           the whole $coll is returned.
+   */
+  def takeTo(p: A => Boolean): C^{this, p} = fromSpecific(View.fromIteratorProvider(() => iterator.takeTo(p)))
+
   def span(p: A => Boolean): (C^{this, p}, C^{this, p}) = (takeWhile(p), dropWhile(p))
 
   def drop(n: Int): C^{this} = fromSpecific(new View.Drop(this, n))
@@ -485,6 +497,18 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
   def dropRight(n: Int): C^{this} = fromSpecific(new View.DropRight(this, n))
 
   def dropWhile(p: A => Boolean): C^{this, p} = fromSpecific(new View.DropWhile(this, p))
+
+  /** Drops the prefix of elements up to and including the first element that
+   *  satisfies a predicate.
+   *
+   *  Unlike [[dropWhile]], the terminating element is excluded from the result.
+   *  $orderDependent
+   *  @param   p  The predicate used to test elements.
+   *  @return  the rest of this $coll after the first element that satisfies
+   *           the predicate `p`, excluding that element. If no element
+   *           satisfies `p`, an empty $coll is returned.
+   */
+  def dropTo(p: A => Boolean): C^{this, p} = fromSpecific(View.fromIteratorProvider(() => iterator.dropTo(p)))
 
   /** Partitions elements in fixed size ${coll}s.
    *  @see [[scala.collection.Iterator]], method `grouped`

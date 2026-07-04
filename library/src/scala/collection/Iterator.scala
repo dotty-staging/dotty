@@ -675,6 +675,30 @@ trait Iterator[+A] extends IterableOnce[A] with IterableOnceOps[A, Iterator, Ite
     def next() = if (hasNext) { hdDefined = false; hd } else Iterator.empty.next()
   }
 
+  /** Takes elements up to and including the first element that satisfies the predicate.
+   *
+   *  Unlike [[takeWhile]], the terminating element is part of the result. The
+   *  iterator never reads past the terminator, so this also works on unbounded
+   *  sources.
+   *
+   *  @param  p the predicate used to test values.
+   *  @return an iterator returning the elements of this iterator up to and
+   *          including the first element for which `p` returns true. If no
+   *          element satisfies `p`, all elements are returned.
+   *  @note   Reuse: $consumesAndProducesIterator
+   */
+  def takeTo(p: A => Boolean): Iterator[A]^{this, p} = new AbstractIterator[A] {
+    private var done = false
+    def hasNext = !done && self.hasNext
+    def next() =
+      if (done) Iterator.empty.next()
+      else {
+        val a = self.next()
+        if (p(a)) done = true
+        a
+      }
+  }
+
   def drop(n: Int): Iterator[A]^{this} = sliceIterator(n, -1)
 
   def dropWhile(p: A => Boolean): Iterator[A]^{this, p} = new AbstractIterator[A] {
@@ -706,6 +730,29 @@ trait Iterator[+A] extends IterableOnce[A] with IterableOnceOps[A, Iterator, Ite
         }
       }
       else Iterator.empty.next()
+  }
+
+  /** Drops elements up to and including the first element that satisfies the predicate.
+   *
+   *  Unlike [[dropWhile]], the terminating element is excluded from the result.
+   *
+   *  @param  p the predicate used to test values.
+   *  @return an iterator returning the elements of this iterator after and
+   *          excluding the first element for which `p` returns true. If no
+   *          element satisfies `p`, the resulting iterator is empty.
+   *  @note   Reuse: $consumesAndProducesIterator
+   */
+  def dropTo(p: A => Boolean): Iterator[A]^{this, p} = new AbstractIterator[A] {
+    // -1 = have not searched for the terminator yet, 0 = terminator found, 1 = no terminator
+    private var status = -1
+    private def skip(): Unit =
+      if (status == -1) {
+        status = 1
+        while (status == 1 && self.hasNext)
+          if (p(self.next())) status = 0
+      }
+    def hasNext = { skip(); status == 0 && self.hasNext }
+    def next() = { skip(); if (status == 0) self.next() else Iterator.empty.next() }
   }
 
   /** @inheritdoc
