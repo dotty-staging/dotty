@@ -777,6 +777,20 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
 
   def zipWithIndex: CC[(A @uncheckedVariance, Int)]^{this} = iterableFactory.from(new View.ZipWithIndex(this))
 
+  /** Builds a new $coll by applying a function to each element of this $coll
+   *  together with its index.
+   *
+   *  Unlike `zipWithIndex.map`, no intermediate collection of pairs is built
+   *  and the mapping function receives the element and its index directly.
+   *
+   *  @tparam B the element type of the returned $coll
+   *  @param f  the function applied to each element and its index. Indices start at `0`.
+   *  @return   a new $coll containing `f(a, i)` for each element `a` at index `i`
+   *            of this $coll, in encounter order
+   */
+  def mapWithIndex[B](f: (A, Int) => B): CC[B]^{this, f} =
+    iterableFactory.from(new View.Map(new View.ZipWithIndex(this), (pair: (A, Int)) => f(pair._1, pair._2)))
+
   /** Returns a $coll formed from this $coll and another iterable collection
    *  by combining corresponding elements in pairs.
    *  If one of the two collections is shorter than the other,
