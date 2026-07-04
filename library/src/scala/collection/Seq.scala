@@ -975,6 +975,90 @@ transparent trait SeqOps[+A, +CC[_], +C] extends Any
     iterableFactory.from(new View.Updated(this, index, elem))
   }
 
+  /** A copy of this $coll with the element at the given index removed.
+   *
+   *  @param  index  the position of the element to remove
+   *  @return a new $coll which is a copy of this $coll without the element at
+   *          position `index`; the surrounding order is preserved
+   *  @throws IndexOutOfBoundsException if `index` does not satisfy `0 <= index < length`,
+   *                                    matching `updated` (and unlike `patch`)
+   */
+  def deleted(index: Int): C^{this} = {
+    if (index < 0) throw new IndexOutOfBoundsException(index.toString)
+    val b = newSpecificBuilder
+    val it = iterator
+    var i = 0
+    var found = false
+    while (it.hasNext) {
+      val a = it.next()
+      if (i == index) found = true else b += a
+      i += 1
+    }
+    if (!found) throw new IndexOutOfBoundsException(index.toString)
+    b.result()
+  }
+
+  /** A copy of this $coll with the element at the given index replaced or
+   *  removed, depending on its current value.
+   *
+   *  If `f` returns `Some(b)`, the element is replaced by `b` (like `updated`);
+   *  if `f` returns `None`, the element is removed (like `deleted`).
+   *
+   *  @tparam B      the element type of the returned $coll
+   *  @param  index  the position of the element to replace or remove
+   *  @param  f      the function deciding the fate of the element at `index`
+   *  @return a new $coll which is a copy of this $coll with the element at
+   *          position `index` replaced or removed according to `f`
+   *  @throws IndexOutOfBoundsException if `index` does not satisfy `0 <= index < length`,
+   *                                    matching `updated`
+   */
+  def updatedWith[B >: A](index: Int, f: A => Option[B]): CC[B]^{this} = {
+    if (index < 0) throw new IndexOutOfBoundsException(index.toString)
+    val b = iterableFactory.newBuilder[B]
+    val it = iterator
+    var i = 0
+    var found = false
+    while (it.hasNext) {
+      val a = it.next()
+      if (i == index) {
+        found = true
+        f(a) match {
+          case Some(replacement) => b += replacement
+          case None =>
+        }
+      } else b += a
+      i += 1
+    }
+    if (!found) throw new IndexOutOfBoundsException(index.toString)
+    b.result()
+  }
+
+  /** Splits this $coll around the first element equal to the given separator,
+   *  excluding that separator from both halves.
+   *
+   *  Only the first occurrence is the split point, so later occurrences remain
+   *  in the second half: `"bucket/path/prefix".toList.splitAround('/')` is
+   *  `("bucket".toList, "path/prefix".toList)`. If the separator does not
+   *  occur, the result is `(this, empty)`, the limit case of `span`.
+   *
+   *  @tparam A1 the type of the separator, a supertype of the element type
+   *  @param separator the element to split around
+   *  @return a pair of ${coll}s of the elements before and after the first
+   *          occurrence of `separator`, both excluding it
+   */
+  def splitAround[A1 >: A](separator: A1): (C^{this}, C^{this}) = {
+    val before = newSpecificBuilder
+    val after = newSpecificBuilder
+    val it = iterator
+    var found = false
+    while (!found && it.hasNext) {
+      val a = it.next()
+      if (a == separator) found = true else before += a
+    }
+    while (it.hasNext) after += it.next()
+    (before.result(), after.result())
+  }
+
   protected[collection] def occCounts[B](sq: Seq[B]): mutable.Map[B, Int] = {
     val occ = new mutable.HashMap[B, Int]()
     for (y <- sq) occ.updateWith(y) {
