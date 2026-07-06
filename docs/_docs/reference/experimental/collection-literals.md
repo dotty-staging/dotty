@@ -125,15 +125,18 @@ enum Color:
   case Red, Green, Blue
 
 val colors: Seq[Color] = [Red, Green, Blue]
-val byColor: Map[Color, List[Color]] = [(Red, [Green, Blue])]
+val byColor: Map[Color, List[Color]] = [Red -> [Green, Blue]]
 ```
 
-Two boundaries, both consistent with SIP-80's own rules:
+The key of a `->` pair is the *receiver* of `->`, so its expected type is not
+directly given by the element type; it is derived by companion scope
+inference's receiver-position rule, which unifies the result type of
+candidates for `->` (the `Predef` extension method) with the expected element
+type `(Color, List[Color])` to determine the receiver type `Color`. The same
+derivation applies to any extension method or implicit-class operator, not
+just `->`. Tuple-form pairs `[(Red, [Green, Blue])]` also work, through plain
+component-type propagation.
 
-- The key of a `->` pair is the *receiver* of `->`, a position that no
-  expected-type mechanism reaches, so a bare case there does not resolve:
-  write the pair in tuple form `(Red, ...)` — tuple literals propagate
-  component expected types — or qualify the key (`Color.Red -> ...`).
-- With no expected type the default rule applies and elements are typed
-  without a target, so `val xs = [Red]` is an error, consistent with SIP-80's
-  rule for `Seq(Red)`. Ascribe the literal.
+With no expected type the default rule applies and elements are typed without
+a target, so `val xs = [Red]` is an error, consistent with SIP-80's rule for
+`Seq(Red)`. Ascribe the literal.

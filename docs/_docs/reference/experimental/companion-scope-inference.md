@@ -49,15 +49,46 @@ the meaning of any program that compiles today:
 2. **If normal lookup found nothing**, and the position has a known
    expected type `T`, reduce `T`:
     - strip prototype layers,
+    - strip annotations (e.g. from `inline` parameters),
     - dealias transparent aliases,
     - drop dependent refinements,
     - take the principal class component (for refined/intersection types),
+    - use the upper bound of a type variable constrained from above,
     - drop `Null` arms from `T | Null` (recursively).
 3. **Look up the identifier** as a term-level member of the reduced type's
    companion object. Opaque type aliases use their own companion.
 4. **Re-type** the desugared `T.X` through the usual `Select` machinery,
    so implicit conversions, overload resolution, and pattern-mode handling
    all apply.
+
+## Receiver positions
+
+When the unresolved identifier is the qualifier of a selection `X.op(args)`,
+`X` itself carries no expected type — only the fully applied selection's
+result does. In that case the expected type of the receiver is *derived*:
+candidates for `op` that are applicable without knowing the receiver —
+extension methods visible in scope, and members provided by
+conversion-shaped implicits in the implicit context (implicit classes,
+implicit conversion methods, `given Conversion` values) — have their type
+parameters instantiated by unifying the candidate's final result type with
+the selection's expected result. This determines the receiver parameter's
+type, and companion lookup proceeds with it. The derivation applies only
+when all successful candidates agree on a single fully-defined receiver
+type; all probing runs in an exploring constraint that is discarded.
+
+```scala
+enum Color:
+  case Red, Green, Blue
+
+val pair: (Color, Int) = Red -> 1
+// `Red` is the receiver of `->` (the `Predef` extension method).
+// Unifying `->`'s result `(A, B)` with `(Color, Int)` gives `A := Color`,
+// so `Red` resolves in `Color`'s companion.
+```
+
+No operator is special-cased: the same derivation covers any pipeline- or
+builder-style extension or implicit-class operator whose result type
+mentions its receiver type parameter.
 
 ## Patterns
 

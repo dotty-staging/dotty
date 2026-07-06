@@ -27,11 +27,11 @@ object Test:
   // companion vals, not just enum cases
   val licenses: Seq[License] = [MIT, Apache2]
 
-  // nesting: both features recurse together. A `->` key is a receiver, which
-  // no expected-type mechanism reaches, so it needs qualification ...
-  val byColor: Map[Color, List[Geometry]] = [Color.Red -> [Circle, Rectangle]]
-  // ... while tuple-form pairs propagate component expected types, so bare
-  // cases work in both positions
+  // nesting: both features recurse together. A `->` key is the receiver of
+  // `->`; the receiver-position rule derives its expected type from
+  // ArrowAssoc's result unified with the element type, so bare keys work
+  val byColor: Map[Color, List[Geometry]] = [Red -> [Circle, Rectangle], Green -> [Triangle]]
+  // tuple-form pairs propagate component expected types directly
   val byColor2: Map[Color, List[Geometry]] = [(Red, [Circle, Rectangle]), (Green, [Triangle])]
 
   // record literals pin constructor parameter types; defaults still apply
@@ -45,3 +45,20 @@ object Test:
   // as arguments
   def paint(colors: Seq[Color]): Int = colors.size
   val n = paint([Red, Green])
+
+  // parameterized enum cases ("class cases") resolve as factory members of
+  // the enum companion
+  enum ColorMode:
+    case Plain
+    case Rgb(r: Int, g: Int, b: Int)
+
+  val modes: Seq[ColorMode] = [Plain, Rgb(255, 0, 0)]
+  val modeMap: Map[String, ColorMode] = ["accent" -> Rgb(0, 255, 0)]
+
+  // a class case is itself a case class, so it is a record literal target
+  val rgb: ColorMode.Rgb = (r = 1, g = 2, b = 3)
+
+  // class cases inside record literals, with defaults on the schema
+  case class Screen(background: ColorMode, mode: ColorMode = ColorMode.Plain)
+  val screen: Screen = (background = Rgb(0, 0, 0))
+  val screens: Vector[Screen] = [(background = Rgb(1, 1, 1), mode = Plain), (background = Plain)]

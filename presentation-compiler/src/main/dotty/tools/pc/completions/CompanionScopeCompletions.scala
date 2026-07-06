@@ -6,7 +6,7 @@ import dotty.tools.dotc.ast.tpd.*
 import dotty.tools.dotc.config.Feature
 import dotty.tools.dotc.core.Contexts.Context
 import dotty.tools.dotc.core.Flags
-import dotty.tools.dotc.core.NameOps.*
+// import dotty.tools.dotc.core.NameOps.*
 import dotty.tools.dotc.core.Symbols
 import dotty.tools.dotc.core.Symbols.NoSymbol
 import dotty.tools.dotc.core.Types.NoPrefix
