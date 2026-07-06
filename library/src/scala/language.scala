@@ -384,6 +384,22 @@ object language {
      */
     @compileTimeOnly("`dedentedStringLiterals` can only be used at compile time in import statements")
     object dedentedStringLiterals
+
+    /** Experimental support for collection literals, e.g. `[1, 2, 3]`.
+     *  With an expected type, elaboration is directed by the
+     *  `scala.compiletime.ExpressibleAsCollectionLiteral` type class;
+     *  with no usable expected type, a collection literal is an
+     *  `scala.collection.immutable.Seq`.
+     */
+    @compileTimeOnly("`collectionLiterals` can only be used at compile time in import statements")
+    object collectionLiterals
+
+    /** Experimental support for record literals: a named tuple literal
+     *  `(f1 = v1, ..., fn = vn)` whose expected type is a case class `C`
+     *  is elaborated to the constructor call `C(f1 = v1, ..., fn = vn)`.
+     */
+    @compileTimeOnly("`recordLiterals` can only be used at compile time in import statements")
+    object recordLiterals
   end experimental
 
   /** The deprecated object contains features that are no longer officially suypported in Scala.

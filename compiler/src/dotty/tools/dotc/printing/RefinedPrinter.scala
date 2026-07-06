@@ -784,6 +784,8 @@ class RefinedPrinter(_ctx: Context) extends PlainPrinter(_ctx) {
         "(" ~ toTextGlobal(t) ~ ")"
       case Tuple(ts) =>
         "(" ~ toTextGlobal(ts, ", ") ~ ")"
+      case CollectionLiteral(ts) =>
+        "[" ~ toTextGlobal(ts, ", ") ~ "]"
       case ForYield(enums, expr) =>
         forText(enums, expr, keywordStr(" yield "))
       case ForDo(enums, expr) =>

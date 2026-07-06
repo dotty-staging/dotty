@@ -102,7 +102,7 @@ No `->` shape detection ([sjrd, CL #24][cl-24] stands; dropped in [CL #36][cl-36
 
 #### 2.2.3 Stdlib instances
 
-Immutable collections (`Seq`, `List`, `Vector`, `Set`, `Map`, `IArray`; `Array` given `ClassTag`) get instances in their companions, so no imports are needed. Mutable collections' instances live behind `import scala.collection.mutable.literals`, so nikitaga's case ([CL #104][cl-104]) — a literal silently satisfying a mutable parameter — requires an explicit opt-in. The untargeted default is always immutable `Seq` regardless of imports. (The `ClassTag` problem from [CL #5][cl-5], "No ClassTag available for Any", is one reason the fixed default is `Seq` rather than `IArray`.)
+Immutable collections (`Seq`, `List`, `Vector`, `Set`, `Map`; `IArray` given `ClassTag`) get instances in the type class companion, so no imports are needed. Instances for mutable collections — including `Array` — live behind `import scala.compiletime.ExpressibleAsCollectionLiteral.mutableLiterals.given`, so nikitaga's case ([CL #104][cl-104]) — a literal silently satisfying a mutable parameter — requires an explicit opt-in. The untargeted default is always immutable `Seq` regardless of imports. (The `ClassTag` problem from [CL #5][cl-5], "No ClassTag available for Any", is one reason the fixed default is `Seq` rather than `IArray`.)
 
 #### 2.2.4 Record literals
 

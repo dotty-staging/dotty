@@ -1063,6 +1063,14 @@ object Parsers {
       lookahead.skipParens()
       lookahead.token == ARROW
 
+    /** Is the `[...]` starting at the current token a collection literal rather
+     *  than the type parameter clause of a polymorphic function literal?
+     *  It is unless the matching closing bracket is followed by `=>`.
+     *  @pre  The current token is `[`
+     */
+    def followingIsCollectionLiteral: Boolean =
+      in.featureEnabled(Feature.collectionLiterals) && !followingIsArrow()
+
     def followingIsExtension() =
       val next = in.lookahead.token
       next == LBRACKET || next == LPAREN
@@ -2615,7 +2623,7 @@ object Parsers {
             em"`implicit` lambdas are no longer supported, use a lambda with `?=>` instead",
             in.sourcePos(), MigrationVersion.Scala2Implicits)
           closure(start, location, modifiers(BitSet(IMPLICIT)))
-        case LBRACKET =>
+        case LBRACKET if !followingIsCollectionLiteral =>
           val start = in.offset
           val tparams = typeParamClause(ParamOwner.Type)
           val arrowOffset = accept(ARROW)
@@ -3016,6 +3024,8 @@ object Parsers {
           atSpan(start) { Ident(pname) }
         case LPAREN =>
           atSpan(in.offset) { makeTupleOrParens(inParensWithCommas(exprsInParensOrBindings())) }
+        case LBRACKET if in.featureEnabled(Feature.collectionLiterals) =>
+          collectionLiteral()
         case LBRACE | INDENT =>
           canApply = false
           blockExpr()
@@ -3090,6 +3100,18 @@ object Parsers {
             case None =>
               t
     end simpleExprRest
+
+    /** CollectionLiteral ::= ‘[’ [ExprInParens {‘,’ ExprInParens}] ‘]’
+     *
+     *  Enabled under `language.experimental.collectionLiterals`.
+     */
+    def collectionLiteral(): Tree =
+      atSpan(in.offset) {
+        CollectionLiteral(
+          inBracketsWithCommas(
+            if in.token == RBRACKET then Nil
+            else commaSeparated(exprInParens)))
+      }
 
     /** SimpleExpr    ::=  ‘new’ ConstrApp {`with` ConstrApp} [TemplateBody]
      *                  |  ‘new’ TemplateBody

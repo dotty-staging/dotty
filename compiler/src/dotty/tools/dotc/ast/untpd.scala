@@ -109,6 +109,8 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
     override def isTerm: Boolean = trees.isEmpty || stripNamedArg(trees.head).isTerm
     override def isType: Boolean = !isTerm
   }
+  /** A collection literal `[x1, ..., xn]` under `language.experimental.collectionLiterals` */
+  case class CollectionLiteral(trees: List[Tree])(implicit @constructorOnly src: SourceFile) extends TermTree
   case class Throw(expr: Tree)(implicit @constructorOnly src: SourceFile) extends TermTree
   case class ForYield(enums: List[Tree], expr: Tree)(implicit @constructorOnly src: SourceFile) extends TermTree
   case class ForDo(enums: List[Tree], body: Tree)(implicit @constructorOnly src: SourceFile) extends TermTree
@@ -701,6 +703,10 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
       case tree: Tuple if trees eq tree.trees => tree
       case _ => finalize(tree, untpd.Tuple(trees)(using tree.source))
     }
+    def CollectionLiteral(tree: Tree)(trees: List[Tree])(using Context): Tree = tree match {
+      case tree: CollectionLiteral if trees eq tree.trees => tree
+      case _ => finalize(tree, untpd.CollectionLiteral(trees)(using tree.source))
+    }
     def Throw(tree: Tree)(expr: Tree)(using Context): TermTree = tree match {
       case tree: Throw if expr eq tree.expr => tree
       case _ => finalize(tree, untpd.Throw(expr)(using tree.source))
@@ -788,6 +794,8 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
         cpy.Parens(tree)(transform(t))
       case Tuple(trees) =>
         cpy.Tuple(tree)(transform(trees))
+      case CollectionLiteral(trees) =>
+        cpy.CollectionLiteral(tree)(transform(trees))
       case Throw(expr) =>
         cpy.Throw(tree)(transform(expr))
       case ForYield(enums, expr) =>
@@ -846,6 +854,8 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
       case Parens(t) =>
         this(x, t)
       case Tuple(trees) =>
+        this(x, trees)
+      case CollectionLiteral(trees) =>
         this(x, trees)
       case Throw(expr) =>
         this(x, expr)

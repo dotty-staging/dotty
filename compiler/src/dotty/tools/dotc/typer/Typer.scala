@@ -1263,6 +1263,44 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
     }
   }
 
+  /** Type a collection literal `[x1, ..., xn]`.
+   *
+   *  If the expected type `E` is usable — a fully defined value type — and a
+   *  given instance `ecl` of `ExpressibleAsCollectionLiteral[E]` can be
+   *  summoned, elaborate to `ecl.fromLiteral(x1, ..., xn)`; the elements then
+   *  get `ecl.Elem` as their expected type through normal argument typing,
+   *  which makes nested literals work. An ambiguity between instances is an
+   *  error.
+   *
+   *  Otherwise the literal is `scala.collection.immutable.Seq(x1, ..., xn)`.
+   *  This default is fixed; no given search takes part in it.
+   */
+  def typedCollectionLiteral(tree: untpd.CollectionLiteral, pt: Type)(using Context): Tree =
+    record("typedCollectionLiteral")
+    val target = pt.dealias match
+      case tv: TypeVar if !tv.isInstantiated =>
+        // A type variable constrained from above by a specific type, as in
+        // `1 -> [1, 2]` at expected type `(Int, List[Int])`, is usable: search
+        // with the upper bound; the elaborated result then constrains the
+        // variable from below as usual.
+        TypeComparer.fullUpperBound(tv.origin).dealias
+      case tp => tp
+    def defaultApp = untpd.Apply(untpd.ref(defn.SeqModule.termRef), tree.trees)
+    val app =
+      if target.isValueType && isFullyDefined(target, ForceDegree.none) then
+        inferImplicit(defn.ExpressibleAsCollectionLiteralClass.typeRef.appliedTo(target), EmptyTree, tree.span) match
+          case SearchSuccess(arg, _, _, _) =>
+            untpd.Apply(untpd.Select(untpd.TypedSplice(arg), nme.fromLiteral), tree.trees)
+          case fail: SearchFailure if fail.isAmbiguous =>
+            return errorTree(tree,
+              em"""ambiguous instances of ${defn.ExpressibleAsCollectionLiteralClass}
+                  |for collection literal with expected type $target:
+                  |${fail.reason.explanation}""")
+          case _ =>
+            defaultApp
+      else defaultApp
+    typed(app.withSpan(tree.span), pt)
+
   def typedLiteral(tree: untpd.Literal)(using Context): Tree = {
     val tree1 = assignType(tree)
     if (ctx.mode.is(Mode.Type)) tpd.SingletonTypeTree(tree1) // this ensures that tree is classified as a type tree
@@ -3789,6 +3827,31 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
       if ctx.mode.is(Mode.Pattern) && hasNamedArg(tree.trees)
       then pt0.stripNull()
       else pt0
+    // Under experimental.recordLiterals, a named tuple literal whose expected
+    // type is a case class is a record literal: it elaborates to a constructor
+    // call `C(f1 = v1, ..., fn = vn)`, so default arguments apply and fields
+    // get their expected types from the constructor. This is an interpretation
+    // of the literal only; there is no subtyping or conversion between named
+    // tuples and case classes.
+    def recordLiteralCompanion: Symbol =
+      if Feature.enabled(Feature.recordLiterals)
+        && !ctx.mode.is(Mode.Pattern) && !ctx.mode.is(Mode.Type)
+        && tree.trees.nonEmpty
+        && tree.trees.forall(_.isInstanceOf[untpd.NamedArg])
+      then
+        val target = pt.dealias
+        if target.isValueType && isFullyDefined(target, ForceDegree.none)
+          && !target.isNamedTupleType
+        then
+          val cls = target.classSymbol
+          if cls.is(Case) && !defn.isTupleClass(cls) && cls.companionModule.exists
+          then cls.companionModule
+          else NoSymbol
+        else NoSymbol
+      else NoSymbol
+    val companion = recordLiteralCompanion
+    if companion.exists then
+      return typed(untpd.Apply(untpd.ref(companion.termRef), tree.trees).withSpan(tree.span), pt)
     val tree1 = desugar.tuple(tree, pt).withAttachmentsFrom(tree)
     checkDeprecatedAssignmentSyntax(tree)
     if tree1 ne tree then typed(tree1, pt)
@@ -3934,6 +3997,7 @@ class Typer(@constructorOnly nestingLevel: Int = 0) extends Namer
           case tree: untpd.TypedSplice => typedTypedSplice(tree)
           case tree: untpd.UnApply => typedUnApply(tree, pt)
           case tree: untpd.Tuple => typedTuple(tree, pt)
+          case tree: untpd.CollectionLiteral => typedCollectionLiteral(tree, pt)
           case tree: untpd.InLambdaTypeTree => typedInLambdaTypeTree(tree, pt)
           case tree: untpd.ContextBoundTypeTree => typedContextBoundTypeTree(tree)
           case tree: untpd.InfixOp => typedInfixOp(tree, pt)

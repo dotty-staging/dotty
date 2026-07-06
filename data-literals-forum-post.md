@@ -74,7 +74,7 @@ The `->` shape detection from the original proposal is dropped entirely — I th
 
 ### Standard library instances
 
-Immutable collections (`Seq`, `List`, `Vector`, `Set`, `Map`, `IArray`; `Array` given `ClassTag`) get instances in their companions. Instances for **mutable** collections exist but live behind `import scala.collection.mutable.literals`, so a literal can never silently satisfy a mutable parameter without an explicit opt-in at the use site. The untargeted default is immutable `Seq` regardless of imports.
+Immutable collections (`Seq`, `List`, `Vector`, `Set`, `Map`; `IArray` given `ClassTag`) get instances in the type class companion. Instances for **mutable** collections — including `Array` — exist but live behind `import scala.compiletime.ExpressibleAsCollectionLiteral.mutableLiterals.given`, so a literal can never silently satisfy a mutable parameter without an explicit opt-in at the use site. The untargeted default is immutable `Seq` regardless of imports.
 
 ### Record literals
 

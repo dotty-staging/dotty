@@ -976,6 +976,8 @@ class Definitions {
 
   @tu lazy val ValueOfClass: ClassSymbol = requiredClass("scala.ValueOf")
 
+  @tu lazy val ExpressibleAsCollectionLiteralClass: ClassSymbol = requiredClass("scala.compiletime.ExpressibleAsCollectionLiteral")
+
   @tu lazy val FromDigitsClass: ClassSymbol           = requiredClass("scala.util.FromDigits")
   @tu lazy val FromDigits_WithRadixClass: ClassSymbol = requiredClass("scala.util.FromDigits.WithRadix")
   @tu lazy val FromDigits_DecimalClass: ClassSymbol   = requiredClass("scala.util.FromDigits.Decimal")

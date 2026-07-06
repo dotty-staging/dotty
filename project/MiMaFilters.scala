@@ -15,6 +15,16 @@ object MiMaFilters {
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.BuildFrom.buildFromIArray"),
         // IArray integration with Scala Collections:
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.generic.IsSeq.iarrayIsSeq"),
+        // New experimental features: collection literals and record literals
+        ProblemFilters.exclude[MissingClassProblem]("scala.compiletime.ExpressibleAsCollectionLiteral*"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.language$experimental$collectionLiterals$"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.language$experimental$recordLiterals$"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.language#experimental.collectionLiterals"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.language#experimental.recordLiterals"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$experimental$collectionLiterals$"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.stdLibPatches.language$experimental$recordLiterals$"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.runtime.stdLibPatches.language#experimental.collectionLiterals"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.runtime.stdLibPatches.language#experimental.recordLiterals"),
     ))
 
     val BackwardsBreakingChanges: Map[String, Seq[ProblemFilter]] = Map(

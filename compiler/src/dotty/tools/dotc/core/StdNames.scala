@@ -502,6 +502,7 @@ object StdNames {
     val format: N               = "format"
     val fresh: N                = "fresh"
     val fromDigits: N           = "fromDigits"
+    val fromLiteral: N          = "fromLiteral"
     val fromProduct: N          = "fromProduct"
     val genericArrayOps: N      = "genericArrayOps"
     val genericClass: N         = "genericClass"

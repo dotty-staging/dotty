@@ -288,6 +288,7 @@ SimpleExpr        ::=  SimpleRef
                     |  ‘new’ ConstrApp {‘with’ ConstrApp} [TemplateBody]        New(constr | templ)
                     |  ‘new’ TemplateBody
                     |  ‘(’ ExprsInParens ‘)’                                    Parens(exprs)
+                    |  CollectionLiteral                                        -- under language.experimental.collectionLiterals
                     |  SimpleExpr ‘.’ id                                        Select(expr, id)
                     |  SimpleExpr ‘.’ MatchClause
                     |  SimpleExpr TypeArgs                                      TypeApply(expr, args)
@@ -295,6 +296,7 @@ SimpleExpr        ::=  SimpleRef
                     |  SimpleExpr ColonArgument                                 -- under language.experimental.fewerBraces
                     |  SimpleExpr ‘_’                                           PostfixOp(expr, _) (to be dropped)
                     |  XmlExpr							-- to be dropped
+CollectionLiteral ::=  ‘[’ [ExprInParens {‘,’ ExprInParens}] ‘]’                CollectionLiteral(exprs)
 ColonArgument     ::=  colon {LambdaStart}
                        indent (CaseClauses | Block) outdent
                     |  colon LambdaStart {LambdaStart} expr ENDlambda                         -- ENDlambda is inserted for each production at next EOL
