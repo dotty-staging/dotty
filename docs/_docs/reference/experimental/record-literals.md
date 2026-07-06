@@ -57,6 +57,28 @@ val proj: Project = (
 - With no expected type, or with a named tuple expected type, a named tuple
   literal is a named tuple, exactly as without the feature.
 
+## Composition with companion scope inference
+
+Because a record literal elaborates to a named-argument constructor call,
+every field position carries the constructor parameter's type as expected
+type — which is what
+[companion scope inference](./companion-scope-inference.md) (SIP-80) consumes.
+Under both features, enum cases and companion members inside a record literal
+need no qualification, recursively:
+
+```scala
+import language.experimental.{collectionLiterals, recordLiterals, companionScopeInference}
+
+enum Geometry:
+  case Circle, Rectangle, Triangle
+enum Color:
+  case Red, Green, Blue
+case class Shape(geometry: Geometry, color: Color = Color.Red)
+
+val shape: Shape = (geometry = Circle)  // default color applies
+val shapes: Vector[Shape] = [(geometry = Circle, color = Blue), (geometry = Triangle)]
+```
+
 ## Relationship to the Pre-SIP discussions
 
 This is the interpretation that emerged at the end of the

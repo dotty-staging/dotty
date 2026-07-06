@@ -109,3 +109,31 @@ with two deviations that came out of the discussion:
 See also [record literals](./record-literals.md), which extend the same
 target-type-directed interpretation to named tuple literals at case class
 types.
+
+## Composition with companion scope inference
+
+Collection literals compose with
+[companion scope inference](./companion-scope-inference.md) (SIP-80): a
+literal's elements receive `Elem` as their expected type, which is exactly
+what companion scope inference consumes, so enum cases and companion members
+need no qualification inside a literal:
+
+```scala
+import language.experimental.{collectionLiterals, companionScopeInference}
+
+enum Color:
+  case Red, Green, Blue
+
+val colors: Seq[Color] = [Red, Green, Blue]
+val byColor: Map[Color, List[Color]] = [(Red, [Green, Blue])]
+```
+
+Two boundaries, both consistent with SIP-80's own rules:
+
+- The key of a `->` pair is the *receiver* of `->`, a position that no
+  expected-type mechanism reaches, so a bare case there does not resolve:
+  write the pair in tuple form `(Red, ...)` — tuple literals propagate
+  component expected types — or qualify the key (`Color.Red -> ...`).
+- With no expected type the default rule applies and elements are typed
+  without a target, so `val xs = [Red]` is an error, consistent with SIP-80's
+  rule for `Seq(Red)`. Ascribe the literal.

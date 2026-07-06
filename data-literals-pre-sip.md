@@ -121,7 +121,7 @@ The two halves compose recursively: a record field typed `Seq[Developer]` gives 
 #### 2.2.6 Out of scope for v1 (compatible later)
 
 - Pattern-position literals (`case [x, rest*] =>`).
-- Relative scoping for enum/companion members in literal positions (`licenses = [..MIT]`) — the relative-scoping Pre-SIP (Ichoran/soronpo; cf. [AL #13][al-13]) fits naturally and would remove remaining import noise in config files, but should not be a rider on this SIP.
+- Resolution of enum cases and companion members in literal positions (`licenses = [MIT]`) — this is [SIP-80 companion scope inference][sip80] (soronpo; the sigil-free descendant of the relative-scoping ideas at [AL #13][al-13]), a separate proposal that composes with this one rather than a rider on it. Data literals manufacture expected types at exactly the positions SIP-80 consumes them: a collection literal gives its elements `Elem` as expected type, a record literal pins constructor parameter types, so under both features `val shapes: Vector[Shape] = [(geometry = Circle, color = Blue)]` resolves `Circle` and `Blue` through the respective companions with no imports. The two features also share their notion of a usable expected type (target-type reduction, including constrained type variables via upper bounds), and SIP-80 obeys the same principle as P1: names are resolved against the expected type by fixed rule, never against ambient scope, and only where normal resolution fails — so the composition adds no new choice points. One verified boundary: the key of a `->` pair is the *receiver* of `->`, a position no expected-type mechanism reaches, so bare enum keys need the tuple form — `[(Red, [Circle])]` works, `[Red -> [Circle]]` does not — an argument for preferring tuple-form pairs in the data notation (§2.5).
 
 ### 2.3 The motivating example: Mill
 
@@ -227,7 +227,7 @@ Dropped from the predecessor proposals, each for a specific documented reason: t
 
 - **Stage A** (experimental): sequence literals — typeclass-directed under an expected type, fixed `Seq` default otherwise. This is the existing `language.experimental.collectionLiterals` implementation minus the `->` map detection.
 - **Stage B**: record literals for case classes — the amendment to the named-tuples SIP Odersky said he would file ([CL #94][cl-94]) — plus `ExpressibleAsRecordLiteral`.
-- **Stage C** (optional; requires new evidence): patterns (`case [x, rest*] =>`), relative scoping in literal positions.
+- **Stage C** (optional; requires new evidence): patterns (`case [x, rest*] =>`); [SIP-80][sip80] proceeds on its own track and composes without coordination (§2.2.6).
 
 **Severability** (restating P1): if the committee does not accept the untargeted default, it can be removed from Stage A without affecting the rest, in two grades — declared defaults (§2.5.1 note 2a) or full target-typed-only ([tarsa CL #255][cl-255]) — at the cost of rejecting bare compiled data documents (§2.5.1 mode 3). This should be decided before stabilization: a shipped default cannot be retracted, a withheld one can be added.
 
@@ -311,6 +311,7 @@ The proposal combines: Odersky's typeclass machinery and fixed `Seq` default fro
 [al-6]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-aggregate-literals/6697/6
 [al-12]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-aggregate-literals/6697/12
 [al-13]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-aggregate-literals/6697/13
+[sip80]: https://github.com/soronpo/scala-sips/blob/master/content/080-companion-scope-inference.md
 [al-33]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-aggregate-literals/6697/33
 [al-44]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-aggregate-literals/6697/44
 [al-53]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-aggregate-literals/6697/53

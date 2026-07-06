@@ -124,7 +124,8 @@ With the default rule this compiles as-is — `features: Seq[String]`, `replicas
 - The `->` map-shape rule and the untargeted `Map` default (dropped; see above).
 - `[...]` as sugar for arbitrary companion `apply` methods, and the `#` companion placeholder (rejected in the aggregate-literals thread; I agree with the rejection).
 - Positional-tuple-to-case-class adaptation (the names are the point).
-- Pattern-position literals and relative scoping (`licenses = [..MIT]`) — compatible later, not riders on this proposal.
+- Pattern-position literals — compatible later, not a rider on this proposal.
+- Resolution of bare enum cases and companion members in literal positions (`licenses = [MIT]`, `(color = Red)`) — that is [SIP-80 companion scope inference](https://github.com/soronpo/scala-sips/blob/master/content/080-companion-scope-inference.md), a separate proposal that composes naturally with this one: literals manufacture expected types at exactly the positions SIP-80 consumes them, and both resolve against the expected type by fixed rule rather than ambient scope. I have verified the composition against SIP-80's reference implementation.
 
 ## Severability
 
