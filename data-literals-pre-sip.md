@@ -221,7 +221,27 @@ Two notes:
 
 Dropped from the predecessor proposals, each for a specific documented reason: the `->` map-shape detection and the `Map` default; `[…]` as sugar for arbitrary `apply`; the `#` placeholder; positional-tuple-to-case-class adaptation. What remains is the subset that survived both discussions, plus a shipped library ([SCON][scon]) exercising the notation end to end.
 
-### 2.7 Staging and open questions
+### 2.7 Compilation performance
+
+Measured on the reference implementation (this branch), because compile-time cost was a recurring process concern in the CL thread. Method: synthetic single-file programs holding one bulk-data value with N entries, N doubling from 50 to 800; five variants — a `Map[Color, List[Geometry]]` in vanilla syntax, as collection literals with qualified names, and as collection literals with bare enum keys and values (exercising the receiver-position rule on every key); a `Vector[Shape]` in vanilla syntax and as record literals with bare enum fields. Compiled in-process with `dotty.tools.dotc.Bench` (15 runs per file, average of best 5, single machine). Corpus generator and the N=800 pair are committed under `tests/bench/dataLiterals*.scala`.
+
+Results (ms, steady state):
+
+| variant | 50 | 100 | 200 | 400 | 800 |
+|---|---|---|---|---|---|
+| map, vanilla | 56 | 59 | 73 | 105 | 153 |
+| map, literals, qualified names | 60 | 75 | 97 | 143 | 220 |
+| map, literals, bare names | 60 | 76 | 104 | 149 | 234 |
+| records, vanilla | 39 | 39 | 42 | 45 | 44 |
+| records, literals, bare names | 43 | 45 | 51 | 55 | 59 |
+
+Findings:
+
+1. **Scaling is preserved.** Growth per size-doubling is in the 1.2–1.6 range for every variant (2.0 = pure linear marginal cost) and the literal variants scale the same way as their vanilla counterparts; nothing super-linear appears in the elaboration or the resolution machinery.
+2. **Companion scope inference is not the cost center.** Bare names vs qualified names at N=800: 234 vs 220 ms — the 800 receiver-position probes plus 1600 element companion lookups add about 6%, on the order of 6µs per resolution.
+3. **The overhead that exists is literal elaboration itself**: collection literals with qualified names cost 1.44× vanilla at N=800 (about 1.8× marginal per-entry cost). This is the per-literal instance search plus the inline expansion of `fromLiteral` — each nested `[g1, g2]` passes through the inliner where `List(g1, g2)` does not. Record literals show the same shape at much smaller absolute cost (1.34× at N=800), since their elaboration is a plain constructor call. If this ever matters in practice, the optimization target is bounded and known: non-inline fast paths for the standard library instances, not the resolution machinery.
+
+### 2.8 Staging and open questions
 
 **Staging:**
 
