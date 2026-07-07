@@ -56,6 +56,15 @@ val proj: Project = (
   make the form safe.
 - With no expected type, or with a named tuple expected type, a named tuple
   literal is a named tuple, exactly as without the feature.
+- There is no empty record literal. `()` is the Unit value, and there is no
+  named tuple literal of arity zero, so the rule has no empty case to
+  interpret: constructing a case class with no fields, or with every field
+  defaulted, is written `C()`. This is deliberate — a record literal earns
+  its conciseness by trading the class name for field names, and at arity
+  zero the class name is the only information left. Any nonempty subset of
+  fields works, with defaults filling the rest. A `()` written at a case
+  class type with a fully-defaulted constructor gets an error note pointing
+  at the `C()` spelling.
 
 ## Composition with companion scope inference
 

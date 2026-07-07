@@ -114,6 +114,8 @@ A named-tuple literal `(f₁ = v₁, …, fₙ = vₙ)` whose expected type is a
 
 Rules carried over from [CL #137][cl-137]: target-type interpretation of literals only — no subtyping, no implicit conversion between named tuples and classes. Positional tuples do not convert ([Ichoran, CL #158][cl-158]: the names are what make the form safe; `((5,12),(25,192))` for a `Rect` stays illegal). Non-case types can opt in via a mirror typeclass `ExpressibleAsRecordLiteral[C]` with an inline `fromRecord`, symmetric to the collection typeclass.
 
+There is no empty record literal. `()` is the Unit value and there is no named tuple literal of arity zero, so the rule has no empty case to interpret: a case class with no fields, or with every field defaulted, is constructed as `C()`. The rationale mirrors the names argument: a record literal trades the class name for *n* field names, and at *n* = 0 the class name is the only information left — `()` at type `Config` would tell the reader nothing. Odersky floated the opposite choice in [CL #85][cl-85] ("`()` could fill a case class whose fields all have defaults"); it is not adopted here, matching Swift, whose leading-dot syntax requires `.init()` rather than bare parentheses. Any nonempty subset of fields works, with defaults filling the rest, and a `()` written at a fully-defaulted case class type gets a dedicated error note pointing at the `C()` spelling.
+
 #### 2.2.5 Composition
 
 The two halves compose recursively: a record field typed `Seq[Developer]` gives an inner `[...]` its target; each element's target `Developer` makes `(id = …, name = …)` a record literal; and so on down. Records inside collections inside records is the case that build and config files consist of, and neither Pre-SIP alone covers it.
@@ -291,6 +293,7 @@ The proposal combines: Odersky's typeclass machinery and fixed `Seq` default fro
 [cl-73]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/73
 [cl-79]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/79
 [cl-80]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/80
+[cl-85]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/85
 [cl-92]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/92
 [cl-94]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/94
 [cl-104]: https://contributors.scala-lang.org/t/pre-sip-a-syntax-for-collection-literals/6990/104

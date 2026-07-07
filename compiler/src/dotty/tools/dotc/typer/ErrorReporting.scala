@@ -196,7 +196,25 @@ object ErrorReporting {
             case None       => Nil
         case _ => Nil
 
+      // Under experimental.recordLiterals, a named tuple literal at a case
+      // class type is a constructor call, but there is no empty named tuple
+      // literal: `()` is always the Unit value. When a user writes `()` at a
+      // case class type whose constructor is callable without arguments,
+      // point them at the explicit spelling.
+      def emptyRecordLiteralNote: List[Note] =
+        val cls = pt.dealias.classSymbol
+        if Feature.enabled(Feature.recordLiterals)
+          && cls.is(Case) && !defn.isTupleClass(cls) && cls.companionModule.exists
+          && cls.primaryConstructor.exists
+          && cls.primaryConstructor.paramSymss.forall(_.forall(p => p.isType || p.is(HasDefault)))
+        then Note(
+          i"""\n\n`()` is the Unit value, never a record literal.
+             |To construct a value of type ${cls.name} with all parameters defaulted, write `${cls.name}()`.""") :: Nil
+        else Nil
+
       def moreNotes = tree match
+        case Literal(Constant(())) if !tree.span.isZeroExtent =>
+          emptyRecordLiteralNote
         case If(_, _, elsep @ Literal(Constant(()))) if elsep.span.isSynthetic =>
           Note("\n\nMaybe you are missing an else part for the conditional?") :: Nil
         case Literal(Constant(())) if tree.span.isZeroExtent =>

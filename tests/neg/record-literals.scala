@@ -12,3 +12,12 @@ object Test:
   // named tuple values do not convert, only literals are interpreted
   val nt = (x = 1, y = 2)
   val r: Point = nt // error
+
+  // `()` is the Unit value, never a record literal: empty or all-default
+  // construction must name the class
+  case class Empty()
+  case class Config(verbose: Boolean = false, level: Int = 0)
+  val e: Empty = () // error
+  val cfg: Config = () // error
+  val cfg2: Config = (verbose = true) // ok: partial, level defaulted
+  val cfg3: Config = Config() // ok: explicit form
