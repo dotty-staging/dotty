@@ -558,6 +558,22 @@ class Definitions {
   def ConsType: TypeRef                 = ConsClass.typeRef
   @tu lazy val SeqFactoryClass: Symbol  = requiredClass("scala.collection.SeqFactory")
 
+  @tu lazy val RangeClass: ClassSymbol  = requiredClass("scala.collection.immutable.Range")
+    @tu lazy val Range_foreach: Symbol  = RangeClass.requiredMethod(nme.foreach)
+    @tu lazy val Range_by: Symbol       = RangeClass.requiredMethod("by")
+  @tu lazy val RangeModule: Symbol      = requiredModule("scala.collection.immutable.Range")
+    @tu lazy val RangeModule_apply: Symbol             = RangeModule.requiredMethod(nme.apply, List(IntType, IntType))
+    @tu lazy val RangeModule_applyWithStep: Symbol     = RangeModule.requiredMethod(nme.apply, List(IntType, IntType, IntType))
+    @tu lazy val RangeModule_inclusive: Symbol         = RangeModule.requiredMethod("inclusive", List(IntType, IntType))
+    @tu lazy val RangeModule_inclusiveWithStep: Symbol = RangeModule.requiredMethod("inclusive", List(IntType, IntType, IntType))
+  @tu lazy val RichIntClass: ClassSymbol = requiredClass("scala.runtime.RichInt")
+    @tu lazy val RichInt_to: Symbol            = RichIntClass.requiredMethod("to", List(IntType))
+    @tu lazy val RichInt_toWithStep: Symbol    = RichIntClass.requiredMethod("to", List(IntType, IntType))
+    @tu lazy val RichInt_until: Symbol         = RichIntClass.requiredMethod("until", List(IntType))
+    @tu lazy val RichInt_untilWithStep: Symbol = RichIntClass.requiredMethod("until", List(IntType, IntType))
+  @tu lazy val LowPriorityImplicits_intWrapper: Symbol =
+    requiredClass("scala.LowPriorityImplicits").requiredMethod("intWrapper")
+
   @tu lazy val PreciseClass: ClassSymbol = requiredClass("scala.Precise")
 
   @tu lazy val SingletonClass: ClassSymbol =
@@ -641,11 +657,16 @@ class Definitions {
     @tu lazy val Int_>= : Symbol = IntClass.requiredMethod(nme.GE, List(IntType))
     @tu lazy val Int_<= : Symbol = IntClass.requiredMethod(nme.LE, List(IntType))
     @tu lazy val Int_>  : Symbol = IntClass.requiredMethod(nme.GT, List(IntType))
+    @tu lazy val Int_toLong: Symbol = IntClass.requiredMethod(nme.toLong)
   @tu lazy val LongType: TypeRef = valueTypeRef("scala.Long", java.lang.Long.TYPE, LongEnc, nme.specializedTypeNames.Long)
   def LongClass(using Context): ClassSymbol = LongType.symbol.asClass
     @tu lazy val Long_+ : Symbol = LongClass.requiredMethod(nme.PLUS, List(LongType))
+    @tu lazy val Long_- : Symbol = LongClass.requiredMethod(nme.MINUS, List(LongType))
     @tu lazy val Long_* : Symbol = LongClass.requiredMethod(nme.MUL, List(LongType))
     @tu lazy val Long_/ : Symbol = LongClass.requiredMethod(nme.DIV, List(LongType))
+    @tu lazy val Long_% : Symbol = LongClass.requiredMethod(nme.MOD, List(LongType))
+    @tu lazy val Long_> : Symbol = LongClass.requiredMethod(nme.GT, List(LongType))
+    @tu lazy val Long_!= : Symbol = LongClass.requiredMethod(nme.NE, List(LongType))
 
   @tu lazy val FloatType: TypeRef = valueTypeRef("scala.Float", java.lang.Float.TYPE, FloatEnc, nme.specializedTypeNames.Float)
   def FloatClass(using Context): ClassSymbol = FloatType.symbol.asClass
@@ -723,6 +744,11 @@ class Definitions {
   def NoSuchElementExceptionType = NoSuchElementExceptionClass.typeRef
   @tu lazy val IllegalArgumentExceptionClass = requiredClass("java.lang.IllegalArgumentException")
   def IllegalArgumentExceptionType = IllegalArgumentExceptionClass.typeRef
+    @tu lazy val IllegalArgumentExceptionClass_stringConstructor: TermSymbol  = IllegalArgumentExceptionClass.info.member(nme.CONSTRUCTOR).suchThat(_.info.firstParamTypes match {
+      case List(pt) =>
+        pt.stripNull().isRef(StringClass)
+      case _ => false
+    }).symbol.asTerm
 
   // in scalac modified to have Any as parent
 

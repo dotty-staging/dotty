@@ -8,7 +8,7 @@ import parsing.Parser
 import Phases.Phase
 import transform.*
 import backend.jvm.GenBCode
-import localopt.{StringInterpolatorOpt, DropForMap}
+import localopt.{StringInterpolatorOpt, DropForMap, RangeForeachOpt}
 
 /** The central class of the dotc compiler. The job of a compiler is to create
  *  runs, which process given `phases` in a given `rootContext`.
@@ -65,6 +65,7 @@ class Compiler {
          new ElimPackagePrefixes,    // Eliminate references to package prefixes in Select nodes
          new CookComments,           // Cook the comments: expand variables, doc, etc.
          new CheckLoopingImplicits,  // Check that implicit defs do not call themselves in an infinite loop
+         new RangeForeachOpt,        // Rewrite `foreach` on statically constructed ranges into while loops
          new BetaReduce,             // Reduce closure applications
          new InlineVals,             // Check right hand-sides of an `inline val`s
          new ExpandSAMs,             // Expand single abstract method closures to anonymous classes
