@@ -579,31 +579,14 @@ object IArray:
    *  @param arr the immutable array to wrap
    *  @return an `ArraySeq[T]` backed by `arr`, or `null` if `arr` is `null`
    */
-  @annotation.nowarn("cat=deprecation")
-  inline implicit def genericWrapArrayTagged[T](arr: IArray[T])(using tag: Species.Tag[T]): tag.Out =
-    inline erasedValue[T] match
-      case _: (AnyRef | Null) =>
-        wrapRefArray(arr.asInstanceOf[IArray[AnyRef | Null]]).asInstanceOf[tag.Out]
-      case _: Boolean =>
-        wrapBooleanIArray(arr.asInstanceOf[IArray[Boolean]]).asInstanceOf[tag.Out]
-      case _: Byte =>
-        wrapByteIArray(arr.asInstanceOf[IArray[Byte]]).asInstanceOf[tag.Out]
-      case _: Char =>
-        wrapCharIArray(arr.asInstanceOf[IArray[Char]]).asInstanceOf[tag.Out]
-      case _: Double =>
-        wrapDoubleIArray(arr.asInstanceOf[IArray[Double]]).asInstanceOf[tag.Out]
-      case _: Float =>
-        wrapFloatIArray(arr.asInstanceOf[IArray[Float]]).asInstanceOf[tag.Out]
-      case _: Int =>
-        wrapIntArray(arr.asInstanceOf[IArray[Int]]).asInstanceOf[tag.Out]
-      case _: Long =>
-        wrapLongIArray(arr.asInstanceOf[IArray[Long]]).asInstanceOf[tag.Out]
-      case _: Short =>
-        wrapShortIArray(arr.asInstanceOf[IArray[Short]]).asInstanceOf[tag.Out]
-      case _: Unit =>
-        wrapUnitIArray(arr.asInstanceOf[IArray[Unit]]).asInstanceOf[tag.Out]
-      case _ =>
-        genericWrapArray(arr).asInstanceOf[tag.Out]
+  implicit def genericWrapArrayTagged[T](arr: IArray[T])(using tag: Species.Tag[T]): tag.Out =
+    tag(arr)
+
+  // FIXME: the above implicit conversion is not possible to express via new style conversions!
+  // given genericWrapArrayTagged: [T, Out0 <: ArraySeq[T]]
+  //   => (tag: Species.Tag[T] { type Out = Out0 })
+  //   => Conversion[IArray[T], Out0] =
+  //     (arr: IArray[T]) => tag(arr) // - this will always pick `intExact`.
 
   def genericWrapArray[T](arr: IArray[T]): ArraySeq[T] =
     mapNull(arr, ArraySeq.unsafeWrapArray(arr.asInstanceOf[Array[T]]))
@@ -628,57 +611,117 @@ object IArray:
    *  @param arr the immutable `Int` array to wrap
    *  @return an `ArraySeq.ofInt` backed by `arr`, or `null` if `arr` is `null`
    */
-  @deprecated("Use `IArray.genericWrapArray` instead.", "3.10.0")
   def wrapIntArray(arr: IArray[Int]): ArraySeq.ofInt =
     mapNull(arr, new ArraySeq.ofInt(arr.asInstanceOf[Array[Int]]))
 
   object Species:
     sealed trait Tag[T]:
       type Out <: ArraySeq[T]
+      def apply(arr: IArray[T]): Out
 
     type Aux[T, Out0 <: ArraySeq[T]] = Tag[T] { type Out = Out0 }
 
     sealed trait LowPriorityTags:
-      // Tags have no runtime members, so the generic witness can be shared for every T.
-      private val genericTag: Aux[Any, ArraySeq[Any]] = new Tag[Any]:
+
+      protected val refTag: Aux[AnyRef | Null, ArraySeq.ofRef[AnyRef | Null]] = new Tag[AnyRef | Null]:
+        type Out = ArraySeq.ofRef[AnyRef | Null]
+        def apply(arr: IArray[AnyRef | Null]): ArraySeq.ofRef[AnyRef | Null] = wrapRefArray(arr)
+
+      protected val booleanTag: Aux[Boolean, ArraySeq.ofBoolean] = new Tag[Boolean]:
+        type Out = ArraySeq.ofBoolean
+        def apply(arr: IArray[Boolean]): ArraySeq.ofBoolean = wrapBooleanIArray(arr)
+
+      protected val byteTag: Aux[Byte, ArraySeq.ofByte] = new Tag[Byte]:
+        type Out = ArraySeq.ofByte
+        def apply(arr: IArray[Byte]): ArraySeq.ofByte = wrapByteIArray(arr)
+
+      protected val charTag: Aux[Char, ArraySeq.ofChar] = new Tag[Char]:
+        type Out = ArraySeq.ofChar
+        def apply(arr: IArray[Char]): ArraySeq.ofChar = wrapCharIArray(arr)
+
+      protected val doubleTag: Aux[Double, ArraySeq.ofDouble] = new Tag[Double]:
+        type Out = ArraySeq.ofDouble
+        def apply(arr: IArray[Double]): ArraySeq.ofDouble = wrapDoubleIArray(arr)
+
+      protected val floatTag: Aux[Float, ArraySeq.ofFloat] = new Tag[Float]:
+        type Out = ArraySeq.ofFloat
+        def apply(arr: IArray[Float]): ArraySeq.ofFloat = wrapFloatIArray(arr)
+
+      protected val intTag: Aux[Int, ArraySeq.ofInt] = new Tag[Int]:
+        type Out = ArraySeq.ofInt
+        def apply(arr: IArray[Int]): ArraySeq.ofInt = wrapIntArray(arr)
+
+      protected val longTag: Aux[Long, ArraySeq.ofLong] = new Tag[Long]:
+        type Out = ArraySeq.ofLong
+        def apply(arr: IArray[Long]): ArraySeq.ofLong = wrapLongIArray(arr)
+
+      protected val shortTag: Aux[Short, ArraySeq.ofShort] = new Tag[Short]:
+        type Out = ArraySeq.ofShort
+        def apply(arr: IArray[Short]): ArraySeq.ofShort = wrapShortIArray(arr)
+
+      protected val unitTag: Aux[Unit, ArraySeq.ofUnit] = new Tag[Unit]:
+        type Out = ArraySeq.ofUnit
+        def apply(arr: IArray[Unit]): ArraySeq.ofUnit = wrapUnitIArray(arr)
+
+      protected val genericTag: Aux[Any, ArraySeq[Any]] = new Tag[Any]:
         type Out = ArraySeq[Any]
+        def apply(arr: IArray[Any]): ArraySeq[Any] = genericWrapArray(arr)
 
       given generic[T]: Aux[T, ArraySeq[T]] =
         genericTag.asInstanceOf[Aux[T, ArraySeq[T]]]
 
+      given genericRef[T <: AnyRef | Null]: Aux[T, ArraySeq[T]] =
+        refTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+      given genericBoolean[T <: Boolean]: Aux[T, ArraySeq[T]] =
+        booleanTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+      given genericByte[T <: Byte]: Aux[T, ArraySeq[T]] =
+        byteTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+      given genericChar[T <: Char]: Aux[T, ArraySeq[T]] =
+        charTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+      given genericDouble[T <: Double]: Aux[T, ArraySeq[T]] =
+        doubleTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+      given genericFloat[T <: Float]: Aux[T, ArraySeq[T]] =
+        floatTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+      given genericInt[T <: Int]: Aux[T, ArraySeq[T]] =
+        intTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
     object Tag extends LowPriorityTags:
-      private val refTag: Aux[AnyRef | Null, ArraySeq.ofRef[AnyRef | Null]] = new Tag[AnyRef | Null]:
-        type Out = ArraySeq.ofRef[AnyRef | Null]
 
       given ref[T <: AnyRef | Null]: Aux[T, ArraySeq.ofRef[T]] =
         refTag.asInstanceOf[Aux[T, ArraySeq.ofRef[T]]]
 
-      given booleanExact: Aux[Boolean, ArraySeq.ofBoolean] = new Tag[Boolean]:
-        type Out = ArraySeq.ofBoolean
+      given booleanExact: Aux[Boolean, ArraySeq.ofBoolean] =
+        booleanTag
 
-      given byteExact: Aux[Byte, ArraySeq.ofByte] = new Tag[Byte]:
-        type Out = ArraySeq.ofByte
+      given byteExact: Aux[Byte, ArraySeq.ofByte] =
+        byteTag
 
-      given charExact: Aux[Char, ArraySeq.ofChar] = new Tag[Char]:
-        type Out = ArraySeq.ofChar
+      given charExact: Aux[Char, ArraySeq.ofChar] =
+        charTag
 
-      given doubleExact: Aux[Double, ArraySeq.ofDouble] = new Tag[Double]:
-        type Out = ArraySeq.ofDouble
+      given doubleExact: Aux[Double, ArraySeq.ofDouble] =
+        doubleTag
 
-      given floatExact: Aux[Float, ArraySeq.ofFloat] = new Tag[Float]:
-        type Out = ArraySeq.ofFloat
+      given floatExact: Aux[Float, ArraySeq.ofFloat] =
+        floatTag
 
-      given intExact: Aux[Int, ArraySeq.ofInt] = new Tag[Int]:
-        type Out = ArraySeq.ofInt
+      given intExact: Aux[Int, ArraySeq.ofInt] =
+        intTag
 
-      given longExact: Aux[Long, ArraySeq.ofLong] = new Tag[Long]:
-        type Out = ArraySeq.ofLong
+      given longExact: Aux[Long, ArraySeq.ofLong] =
+        longTag
 
-      given shortExact: Aux[Short, ArraySeq.ofShort] = new Tag[Short]:
-        type Out = ArraySeq.ofShort
+      given shortExact: Aux[Short, ArraySeq.ofShort] =
+        shortTag
 
-      given unitExact: Aux[Unit, ArraySeq.ofUnit] = new Tag[Unit]:
-        type Out = ArraySeq.ofUnit
+      given unitExact: Aux[Unit, ArraySeq.ofUnit] =
+        unitTag
 
   /** Conversion from IArray to immutable.ArraySeq.
    *
