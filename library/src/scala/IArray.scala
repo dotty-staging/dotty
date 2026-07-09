@@ -6,6 +6,7 @@ import language.experimental.captureChecking
 import scala.collection.{LazyZip2, SeqView, Searching, Stepper, StepperShape, Factory}
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.{ArrayBuilder, Builder}
+import scala.compiletime.erasedValue
 
 opaque type IArray[+T] = Array[? <: T]
 
@@ -525,8 +526,34 @@ object IArray:
    *  @param arr the immutable array to wrap
    *  @return an `ArraySeq[T]` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def genericWrapArray[T](arr: IArray[T]): ArraySeq[T] =
-    mapNull(arr, ArraySeq.unsafeWrapArray(arr))
+  @annotation.nowarn("cat=deprecation")
+  inline implicit def genericWrapArrayTagged[T](arr: IArray[T])(using tag: Species.Tag[T]): tag.Out =
+    inline erasedValue[T] match
+      case _: (AnyRef | Null) =>
+        wrapRefArray(arr.asInstanceOf[IArray[AnyRef | Null]]).asInstanceOf[tag.Out]
+      case _: Boolean =>
+        wrapBooleanIArray(arr.asInstanceOf[IArray[Boolean]]).asInstanceOf[tag.Out]
+      case _: Byte =>
+        wrapByteIArray(arr.asInstanceOf[IArray[Byte]]).asInstanceOf[tag.Out]
+      case _: Char =>
+        wrapCharIArray(arr.asInstanceOf[IArray[Char]]).asInstanceOf[tag.Out]
+      case _: Double =>
+        wrapDoubleIArray(arr.asInstanceOf[IArray[Double]]).asInstanceOf[tag.Out]
+      case _: Float =>
+        wrapFloatIArray(arr.asInstanceOf[IArray[Float]]).asInstanceOf[tag.Out]
+      case _: Int =>
+        wrapIntArray(arr.asInstanceOf[IArray[Int]]).asInstanceOf[tag.Out]
+      case _: Long =>
+        wrapLongIArray(arr.asInstanceOf[IArray[Long]]).asInstanceOf[tag.Out]
+      case _: Short =>
+        wrapShortIArray(arr.asInstanceOf[IArray[Short]]).asInstanceOf[tag.Out]
+      case _: Unit =>
+        wrapUnitIArray(arr.asInstanceOf[IArray[Unit]]).asInstanceOf[tag.Out]
+      case _ =>
+        genericWrapArray(arr).asInstanceOf[tag.Out]
+
+  def genericWrapArray[T](arr: IArray[T]): ArraySeq[T] =
+    mapNull(arr, ArraySeq.unsafeWrapArray(arr.asInstanceOf[Array[T]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
    *
@@ -534,10 +561,10 @@ object IArray:
    *  @param arr the immutable array to wrap
    *  @return an `ArraySeq.ofRef[T]` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapRefArray[T <: AnyRef | Null](arr: IArray[T]): ArraySeq.ofRef[T] =
+  def wrapRefArray[T <: AnyRef | Null](arr: IArray[T]): ArraySeq.ofRef[T] =
     // Since the JVM thinks arrays are covariant, one 0-length Array[AnyRef | Null]
     // is as good as another for all T <: AnyRef | Null.  Instead of creating 100,000,000
-    // unique ones by way of this implicit, let's share one.
+    // unique ones by way of this conversion, let's share one.
     mapNull(arr,
       if (arr.length == 0) ArraySeq.empty[AnyRef | Null].asInstanceOf[ArraySeq.ofRef[T]]
       else ArraySeq.ofRef(arr.asInstanceOf[Array[T]])
@@ -548,15 +575,64 @@ object IArray:
    *  @param arr the immutable `Int` array to wrap
    *  @return an `ArraySeq.ofInt` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapIntArray(arr: IArray[Int]): ArraySeq.ofInt =
+  @deprecated("Use `IArray.genericWrapArray` instead.", "3.10.0")
+  def wrapIntArray(arr: IArray[Int]): ArraySeq.ofInt =
     mapNull(arr, new ArraySeq.ofInt(arr.asInstanceOf[Array[Int]]))
+
+  object Species:
+    sealed trait Tag[T]:
+      type Out <: ArraySeq[T]
+
+    type Aux[T, Out0 <: ArraySeq[T]] = Tag[T] { type Out = Out0 }
+
+    sealed trait LowPriorityTags:
+      // Tags have no runtime members, so the generic witness can be shared for every T.
+      private val genericTag: Aux[Any, ArraySeq[Any]] = new Tag[Any]:
+        type Out = ArraySeq[Any]
+
+      given generic[T]: Aux[T, ArraySeq[T]] =
+        genericTag.asInstanceOf[Aux[T, ArraySeq[T]]]
+
+    object Tag extends LowPriorityTags:
+      private val refTag: Aux[AnyRef | Null, ArraySeq.ofRef[AnyRef | Null]] = new Tag[AnyRef | Null]:
+        type Out = ArraySeq.ofRef[AnyRef | Null]
+
+      given ref[T <: AnyRef | Null]: Aux[T, ArraySeq.ofRef[T]] =
+        refTag.asInstanceOf[Aux[T, ArraySeq.ofRef[T]]]
+
+      given booleanExact: Aux[Boolean, ArraySeq.ofBoolean] = new Tag[Boolean]:
+        type Out = ArraySeq.ofBoolean
+
+      given byteExact: Aux[Byte, ArraySeq.ofByte] = new Tag[Byte]:
+        type Out = ArraySeq.ofByte
+
+      given charExact: Aux[Char, ArraySeq.ofChar] = new Tag[Char]:
+        type Out = ArraySeq.ofChar
+
+      given doubleExact: Aux[Double, ArraySeq.ofDouble] = new Tag[Double]:
+        type Out = ArraySeq.ofDouble
+
+      given floatExact: Aux[Float, ArraySeq.ofFloat] = new Tag[Float]:
+        type Out = ArraySeq.ofFloat
+
+      given intExact: Aux[Int, ArraySeq.ofInt] = new Tag[Int]:
+        type Out = ArraySeq.ofInt
+
+      given longExact: Aux[Long, ArraySeq.ofLong] = new Tag[Long]:
+        type Out = ArraySeq.ofLong
+
+      given shortExact: Aux[Short, ArraySeq.ofShort] = new Tag[Short]:
+        type Out = ArraySeq.ofShort
+
+      given unitExact: Aux[Unit, ArraySeq.ofUnit] = new Tag[Unit]:
+        type Out = ArraySeq.ofUnit
 
   /** Conversion from IArray to immutable.ArraySeq.
    *
    *  @param arr the immutable `Double` array to wrap
    *  @return an `ArraySeq.ofDouble` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapDoubleIArray(arr: IArray[Double]): ArraySeq.ofDouble =
+  def wrapDoubleIArray(arr: IArray[Double]): ArraySeq.ofDouble =
     mapNull(arr, new ArraySeq.ofDouble(arr.asInstanceOf[Array[Double]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -564,7 +640,7 @@ object IArray:
    *  @param arr the immutable `Long` array to wrap
    *  @return an `ArraySeq.ofLong` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapLongIArray(arr: IArray[Long]): ArraySeq.ofLong =
+  def wrapLongIArray(arr: IArray[Long]): ArraySeq.ofLong =
     mapNull(arr, new ArraySeq.ofLong(arr.asInstanceOf[Array[Long]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -572,7 +648,7 @@ object IArray:
    *  @param arr the immutable `Float` array to wrap
    *  @return an `ArraySeq.ofFloat` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapFloatIArray(arr: IArray[Float]): ArraySeq.ofFloat =
+  def wrapFloatIArray(arr: IArray[Float]): ArraySeq.ofFloat =
     mapNull(arr, new ArraySeq.ofFloat(arr.asInstanceOf[Array[Float]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -580,7 +656,7 @@ object IArray:
    *  @param arr the immutable `Char` array to wrap
    *  @return an `ArraySeq.ofChar` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapCharIArray(arr: IArray[Char]): ArraySeq.ofChar =
+  def wrapCharIArray(arr: IArray[Char]): ArraySeq.ofChar =
     mapNull(arr, new ArraySeq.ofChar(arr.asInstanceOf[Array[Char]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -588,7 +664,7 @@ object IArray:
    *  @param arr the immutable `Byte` array to wrap
    *  @return an `ArraySeq.ofByte` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapByteIArray(arr: IArray[Byte]): ArraySeq.ofByte =
+  def wrapByteIArray(arr: IArray[Byte]): ArraySeq.ofByte =
     mapNull(arr, new ArraySeq.ofByte(arr.asInstanceOf[Array[Byte]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -596,7 +672,7 @@ object IArray:
    *  @param arr the immutable `Short` array to wrap
    *  @return an `ArraySeq.ofShort` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapShortIArray(arr: IArray[Short]): ArraySeq.ofShort =
+  def wrapShortIArray(arr: IArray[Short]): ArraySeq.ofShort =
     mapNull(arr, new ArraySeq.ofShort(arr.asInstanceOf[Array[Short]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -604,7 +680,7 @@ object IArray:
    *  @param arr the immutable `Boolean` array to wrap
    *  @return an `ArraySeq.ofBoolean` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapBooleanIArray(arr: IArray[Boolean]): ArraySeq.ofBoolean =
+  def wrapBooleanIArray(arr: IArray[Boolean]): ArraySeq.ofBoolean =
     mapNull(arr, new ArraySeq.ofBoolean(arr.asInstanceOf[Array[Boolean]]))
 
   /** Conversion from IArray to immutable.ArraySeq.
@@ -612,7 +688,7 @@ object IArray:
    *  @param arr the immutable `Unit` array to wrap
    *  @return an `ArraySeq.ofUnit` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def wrapUnitIArray(arr: IArray[Unit]): ArraySeq.ofUnit =
+  def wrapUnitIArray(arr: IArray[Unit]): ArraySeq.ofUnit =
     mapNull(arr, new ArraySeq.ofUnit(arr.asInstanceOf[Array[Unit]]))
 
   /** Converts an array into an immutable array without copying, the original array
