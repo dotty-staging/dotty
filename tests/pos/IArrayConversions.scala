@@ -7,6 +7,9 @@ object Holder {
 
 val arr: IArray[Holder.Id] = IArray.tabulate(10)(Holder.apply)
 val x: Set[Holder.Id] = arr.toSet // ok
+val element: Holder.Id = arr(1)
+
+def intLikeElement[T <: Int](arr: IArray[T]): T = arr(1)
 
 val refConv: ArraySeq.ofRef[String] = IArray("a", "b").toSeq
 val booleanConv: ArraySeq.ofBoolean = IArray(true, false).toSeq

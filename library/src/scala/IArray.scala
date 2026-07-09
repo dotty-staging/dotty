@@ -1,5 +1,6 @@
 package scala
 import reflect.ClassTag
+import annotation.{publicInBinary, targetName}
 
 import language.experimental.captureChecking
 
@@ -25,15 +26,67 @@ object IArray:
    *  @param n   the index of the element to select
    *  @return    the element of the array at the given index
    */
-  extension (arr: IArray[Byte]) def apply(n: Int): Byte = arr.asInstanceOf[Array[Byte]].apply(n)
-  extension (arr: IArray[Short]) def apply(n: Int): Short = arr.asInstanceOf[Array[Short]].apply(n)
-  extension (arr: IArray[Char]) def apply(n: Int): Char = arr.asInstanceOf[Array[Char]].apply(n)
-  extension (arr: IArray[Int]) def apply(n: Int): Int = arr.asInstanceOf[Array[Int]].apply(n)
-  extension (arr: IArray[Long]) def apply(n: Int): Long = arr.asInstanceOf[Array[Long]].apply(n)
-  extension (arr: IArray[Float]) def apply(n: Int): Float = arr.asInstanceOf[Array[Float]].apply(n)
-  extension (arr: IArray[Double]) def apply(n: Int): Double = arr.asInstanceOf[Array[Double]].apply(n)
-  extension [T <: Object](arr: IArray[T]) def apply (n: Int): T = arr.asInstanceOf[Array[T]].apply(n)
-  extension [T](arr: IArray[T]) def apply (n: Int): T = arr.asInstanceOf[Array[T]].apply(n)
+  extension (arr: IArray[Byte])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Byte = arr.asInstanceOf[Array[Byte]].apply(n)
+
+  extension (arr: IArray[Short])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Short = arr.asInstanceOf[Array[Short]].apply(n)
+
+  extension (arr: IArray[Char])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Char = arr.asInstanceOf[Array[Char]].apply(n)
+
+  extension (arr: IArray[Int])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Int = arr.asInstanceOf[Array[Int]].apply(n)
+
+  extension (arr: IArray[Long])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Long = arr.asInstanceOf[Array[Long]].apply(n)
+
+  extension (arr: IArray[Float])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Float = arr.asInstanceOf[Array[Float]].apply(n)
+
+  extension (arr: IArray[Double])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): Double = arr.asInstanceOf[Array[Double]].apply(n)
+
+  extension [T <: Object](arr: IArray[T])
+    @deprecated("Use the generic `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): T = arr.asInstanceOf[Array[T]].apply(n)
+
+  extension [T](arr: IArray[T])
+    @deprecated("Use the inline `IArray.apply` extension instead.", "3.10.0")
+    @publicInBinary
+    private[IArray] def apply(n: Int): T = arr.asInstanceOf[Array[T]].apply(n)
+
+  extension [T](arr: IArray[T])
+    @annotation.nowarn("cat=deprecation")
+    @targetName("applyInline")
+    inline def apply(n: Int): T =
+      inline erasedValue[T] match
+        case _: (AnyRef | Null) => arr.asInstanceOf[IArray[Object]].apply(n).asInstanceOf[T]
+        case _: Boolean => arr.asInstanceOf[Array[Boolean]](n).asInstanceOf[T]
+        case _: Byte => arr.asInstanceOf[IArray[Byte]].apply(n).asInstanceOf[T]
+        case _: Char => arr.asInstanceOf[IArray[Char]].apply(n).asInstanceOf[T]
+        case _: Double => arr.asInstanceOf[IArray[Double]].apply(n).asInstanceOf[T]
+        case _: Float => arr.asInstanceOf[IArray[Float]].apply(n).asInstanceOf[T]
+        case _: Int => arr.asInstanceOf[IArray[Int]].apply(n).asInstanceOf[T]
+        case _: Long => arr.asInstanceOf[IArray[Long]].apply(n).asInstanceOf[T]
+        case _: Short => arr.asInstanceOf[IArray[Short]].apply(n).asInstanceOf[T]
+        case _: Unit => arr.asInstanceOf[Array[Unit]](n).asInstanceOf[T]
+        case _ => arr.asInstanceOf[Array[T]](n)
 
   /** The number of elements in an immutable array.
    *  @param arr  the immutable array
