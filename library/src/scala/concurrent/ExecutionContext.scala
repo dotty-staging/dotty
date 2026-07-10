@@ -220,14 +220,14 @@ object ExecutionContext extends caps.SharedCapability {
    *  Any `NonFatal` or `InterruptedException`s will be reported to the `defaultReporter`.
    */
   object parasitic extends ExecutionContextExecutor with BatchingExecutor {
-    override final def submitForExecution(runnable: Runnable): Unit = runnable.run()
+    override final def submitForExecution(runnable: Runnable^{this}): Unit = runnable.run()
     override final def execute(runnable: Runnable): Unit = submitSyncBatched(runnable)
     override final def reportFailure(t: Throwable): Unit = defaultReporter(t)
   }
 
   /** See [[ExecutionContext.global]]. */
   private[scala] lazy val opportunistic: ExecutionContextExecutor = new ExecutionContextExecutor with BatchingExecutor {
-    final override def submitForExecution(runnable: Runnable): Unit = global.execute(runnable)
+    final override def submitForExecution(runnable: Runnable^{this}): Unit = global.execute(runnable)
 
     final override def execute(runnable: Runnable): Unit =
       if ((!runnable.isInstanceOf[impl.Promise.Transformation[?, ?]] || runnable.asInstanceOf[impl.Promise.Transformation[?, ?]].benefitsFromBatching) && runnable.isInstanceOf[Batchable])

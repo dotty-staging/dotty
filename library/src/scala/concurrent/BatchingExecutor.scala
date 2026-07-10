@@ -12,6 +12,8 @@
 
 package scala.concurrent
 
+import language.experimental.captureChecking
+
 import scala.language.`2.13`
 import java.util.concurrent.Executor
 import java.util.Objects
@@ -20,7 +22,7 @@ import scala.annotation.{switch, tailrec}
 
 /** Marker trait to indicate that a Runnable is Batchable by BatchingExecutors */
 trait Batchable {
-  self: Runnable =>
+  self: Runnable^ =>
 }
 
 private[concurrent] object BatchingExecutorStatics {
@@ -106,7 +108,7 @@ private[concurrent] trait BatchingExecutor extends Executor {
     @annotation.stableNull protected final var first: Runnable | Null,
     protected final var other: Array[Runnable | Null],
     protected final var size: Int
-  ) {
+  ) { this: AbstractBatch^{BatchingExecutor.this} /* Until separation checking, do not try to capture anything more than the executor */ =>
 
     private final def ensureCapacity(curSize: Int): Array[Runnable | Null] = {
       val curOther = this.other
@@ -152,7 +154,7 @@ private[concurrent] trait BatchingExecutor extends Executor {
           }
   }
 
-  private final class AsyncBatch private(_first: Runnable | Null, _other: Array[Runnable | Null], _size: Int) extends AbstractBatch(_first, _other, _size) with Runnable with BlockContext with (BlockContext => Throwable | Null) {
+  private final class AsyncBatch private(_first: Runnable | Null, _other: Array[Runnable | Null], _size: Int) extends AbstractBatch(_first, _other, _size) with Runnable with BlockContext with (BlockContext => Throwable | Null) uses BatchingExecutor.this {
     private final var parentBlockContext: BlockContext = BatchingExecutorStatics.MissingParentBlockContext
 
     final def this(runnable: Runnable) = this(runnable, BatchingExecutorStatics.emptyBatchArray, 1)
@@ -195,7 +197,7 @@ private[concurrent] trait BatchingExecutor extends Executor {
         }
       } else cause // TODO: consider if NonFatals should simply be `reportFailure`:ed rather than rethrown
 
-    private final def cloneAndClear(): AsyncBatch = {
+    private final def cloneAndClear(): AsyncBatch^{this} = {
       val newBatch = new AsyncBatch(this.first, this.other, this.size)
       this.first = null
       this.other = BatchingExecutorStatics.emptyBatchArray
@@ -232,7 +234,8 @@ private[concurrent] trait BatchingExecutor extends Executor {
    *
    *  @param runnable the `Runnable` to submit for execution; must not be null
    */
-  protected def submitForExecution(runnable: Runnable): Unit
+  // CC notes: the runnable is allowed to capture the executor, for notifying itself.
+  protected def submitForExecution(runnable: Runnable^{this}): Unit
 
   /** Reports that an asynchronous computation failed.
    *  See `ExecutionContext.reportFailure(throwable: Throwable)`
