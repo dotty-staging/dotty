@@ -584,14 +584,30 @@ object IArray:
    *  @param arr the immutable array to wrap
    *  @return an `ArraySeq[T]` backed by `arr`, or `null` if `arr` is `null`
    */
-  implicit def genericWrapArrayTagged[T](arr: IArray[T])(using tag: Species.Tag[T]): tag.Out =
-    tag(arr)
+  implicit inline def genericWrapArrayTagged[T, AsSeq <: ArraySeq[T]](arr: IArray[T])(using inline tag: Species.Tag[T] { type Out = AsSeq }): AsSeq =
+    inline arr match
+      case arr: IArray[AnyRef | Null] => wrapRefArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Int] => wrapIntArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Double] => wrapDoubleIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Long] => wrapLongIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Float] => wrapFloatIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Char] => wrapCharIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Byte] => wrapByteIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Short] => wrapShortIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Boolean] => wrapBooleanIArray(arr).asInstanceOf[AsSeq]
+      case arr: IArray[Unit] => wrapUnitIArray(arr).asInstanceOf[AsSeq]
+      case _ => genericWrapArray(arr).asInstanceOf[AsSeq]
+
+  // FIXME: the above implicit conversion is not possible to express via new style conversions!
+  // given genericWrapArrayTagged: [T, Out0 <: ArraySeq[T]]
+  //   => (tag: Species.Tag[T] { type Out = Out0 })
+  //   => Conversion[IArray[T], Out0] =
+  //     (arr: IArray[T]) => tag(arr) // - this will always pick `intExact`.
 
   object Species {
 
     sealed trait Tag[T]:
       type Out <: ArraySeq[T]
-      def apply(arr: IArray[T]): Out
 
     type Aux[T, Out0 <: ArraySeq[T]] = Tag[T] { type Out = Out0 }
 
@@ -599,47 +615,36 @@ object IArray:
 
       protected val genericTag: Aux[Any, ArraySeq[Any]] = new Tag[Any]:
         type Out = ArraySeq[Any]
-        def apply(arr: IArray[Any]): ArraySeq[Any] = genericWrapArray(arr)
 
       protected val refTag: Aux[AnyRef | Null, ArraySeq.ofRef[AnyRef | Null]] = new Tag[AnyRef | Null]:
         type Out = ArraySeq.ofRef[AnyRef | Null]
-        def apply(arr: IArray[AnyRef | Null]): ArraySeq.ofRef[AnyRef | Null] = wrapRefArray(arr)
 
       protected val intTag: Aux[Int, ArraySeq.ofInt] = new Tag[Int]:
         type Out = ArraySeq.ofInt
-        def apply(arr: IArray[Int]): ArraySeq.ofInt = wrapIntArray(arr)
 
       protected val doubleTag: Aux[Double, ArraySeq.ofDouble] = new Tag[Double]:
         type Out = ArraySeq.ofDouble
-        def apply(arr: IArray[Double]): ArraySeq.ofDouble = wrapDoubleIArray(arr)
 
       protected val longTag: Aux[Long, ArraySeq.ofLong] = new Tag[Long]:
         type Out = ArraySeq.ofLong
-        def apply(arr: IArray[Long]): ArraySeq.ofLong = wrapLongIArray(arr)
 
       protected val floatTag: Aux[Float, ArraySeq.ofFloat] = new Tag[Float]:
         type Out = ArraySeq.ofFloat
-        def apply(arr: IArray[Float]): ArraySeq.ofFloat = wrapFloatIArray(arr)
 
       protected val charTag: Aux[Char, ArraySeq.ofChar] = new Tag[Char]:
         type Out = ArraySeq.ofChar
-        def apply(arr: IArray[Char]): ArraySeq.ofChar = wrapCharIArray(arr)
 
       protected val byteTag: Aux[Byte, ArraySeq.ofByte] = new Tag[Byte]:
         type Out = ArraySeq.ofByte
-        def apply(arr: IArray[Byte]): ArraySeq.ofByte = wrapByteIArray(arr)
 
       protected val shortTag: Aux[Short, ArraySeq.ofShort] = new Tag[Short]:
         type Out = ArraySeq.ofShort
-        def apply(arr: IArray[Short]): ArraySeq.ofShort = wrapShortIArray(arr)
 
       protected val booleanTag: Aux[Boolean, ArraySeq.ofBoolean] = new Tag[Boolean]:
         type Out = ArraySeq.ofBoolean
-        def apply(arr: IArray[Boolean]): ArraySeq.ofBoolean = wrapBooleanIArray(arr)
 
       protected val unitTag: Aux[Unit, ArraySeq.ofUnit] = new Tag[Unit]:
         type Out = ArraySeq.ofUnit
-        def apply(arr: IArray[Unit]): ArraySeq.ofUnit = wrapUnitIArray(arr)
 
       given generic[T]: Aux[T, ArraySeq[T]] =
         genericTag.asInstanceOf[Aux[T, ArraySeq[T]]]
@@ -703,12 +708,6 @@ object IArray:
       given unitExact: Aux[Unit, ArraySeq.ofUnit] =
         unitTag
   }
-
-  // FIXME: the above implicit conversion is not possible to express via new style conversions!
-  // given genericWrapArrayTagged: [T, Out0 <: ArraySeq[T]]
-  //   => (tag: Species.Tag[T] { type Out = Out0 })
-  //   => Conversion[IArray[T], Out0] =
-  //     (arr: IArray[T]) => tag(arr) // - this will always pick `intExact`.
 
   def genericWrapArray[T](arr: IArray[T]): ArraySeq[T] =
     mapNull(arr, ArraySeq.unsafeWrapArray(arr.asInstanceOf[Array[T]]))
