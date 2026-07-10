@@ -90,31 +90,53 @@ abstract class RangeProps(kind: String) extends Properties("Range "+kind) {
 
   def multiple(r: Range, x: Int) = (x.toLong - r.start) % r.step == 0
 
-  property("foreach.step") = forAllNoShrink(myGen) { r =>
-    var allValid = true
-    val cnt = new Counter(r)
-    r foreach { x => cnt(x)
-      allValid &&= multiple(r, x)
+  // Calls on range expressions are compiler-optimized, so also keep an indirect
+  // receiver to exercise Range.foreach itself.
+  private def checkForeachVariants(r: Range)(check: ((Int => Unit) => Unit) => Prop): Prop = {
+    def rangeExpression(f: Int => Unit): Unit =
+      if (r.isInclusive) Range.inclusive(r.start, r.end, r.step).foreach(f)
+      else Range(r.start, r.end, r.step).foreach(f)
+
+    def rangeMethod(f: Int => Unit): Unit = {
+      def range: Range = r
+      range.foreach(f)
     }
-    allValid :| str(r)
+
+    (check(rangeExpression) :| "range expression") &&
+      (check(rangeMethod) :| "Range.foreach")
+  }
+
+  property("foreach.step") = forAllNoShrink(myGen) { r =>
+    checkForeachVariants(r) { foreach =>
+      var allValid = true
+      val cnt = new Counter(r)
+      foreach { x => cnt(x)
+        allValid &&= multiple(r, x)
+      }
+      allValid :| str(r)
+    }
   }
 
   property("foreach.inside.range") = forAll(myGen) { r =>
-    var allValid = true
-    val cnt = new Counter(r)
-    r foreach { x => cnt(x)
-      allValid &&= within(r, x)
+    checkForeachVariants(r) { foreach =>
+      var allValid = true
+      val cnt = new Counter(r)
+      foreach { x => cnt(x)
+        allValid &&= within(r, x)
+      }
+      allValid :| str(r)
     }
-    allValid :| str(r)
   }
 
   property("foreach.visited.size") = forAll(myGen) { r =>
-    var visited = 0L
-    val cnt = new Counter(r)
-    r foreach { x => cnt(x)
-      visited += 1L
+    checkForeachVariants(r) { foreach =>
+      var visited = 0L
+      val cnt = new Counter(r)
+      foreach { x => cnt(x)
+        visited += 1L
+      }
+      (visited == expectedSize(r)) :| str(r)
     }
-    (visited == expectedSize(r)) :| str(r)
   }
 
   property("sum") = forAll(myGen) { r =>

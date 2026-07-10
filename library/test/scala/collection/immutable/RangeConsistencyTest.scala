@@ -152,7 +152,10 @@ class RangeConsistencyTest {
     }
     val r = (Int.MinValue to Int.MaxValue by (1<<23))
     val nr = NumericRange(Int.MinValue, Int.MaxValue, 1 << 23)
-    assert({ var i = 0; r.foreach(_ => i += 1); i } == 512)
+    // Test both the optimized expression and Range.foreach through an indirect receiver.
+    assert({ var i = 0; (Int.MinValue to Int.MaxValue by (1<<23)).foreach(_ => i += 1); i } == 512)
+    def indirectRange = r
+    assert({ var i = 0; indirectRange.foreach(_ => i += 1); i } == 512)
     assert({ var i = 0; nr.foreach(_ => i += 1); i } == 512)
     assert(r.sum == Int.MinValue)
     assert(nr.sum == Int.MinValue)
