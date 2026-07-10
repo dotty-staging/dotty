@@ -16,6 +16,8 @@ import scala.language.`2.13`
 import java.util.concurrent.{ ExecutorService, Executor }
 import scala.annotation.implicitNotFound
 
+import language.experimental.captureChecking
+
 /** An `ExecutionContext` can execute program logic asynchronously,
  *  typically but not necessarily on a thread pool.
  *
@@ -68,12 +70,13 @@ consider using Scala's global ExecutionContext by defining
 the following:
 
 implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global""")
-trait ExecutionContext {
+trait ExecutionContext extends caps.SharedCapability {
 
   /** Runs a block of code on this execution context.
    *
    *  @param runnable  the task to execute
    */
+  // TODO: The runnable must be pure at the moment, we can allow it to be impure with separation checking.
   def execute(runnable: Runnable): Unit
 
   /** Reports that an asynchronous computation failed.
@@ -100,7 +103,7 @@ trait ExecutionContext {
    */
   @deprecated("preparation of ExecutionContexts will be removed", "2.12.0")
   // This cannot be removed until there is a suitable replacement
-  def prepare(): ExecutionContext = this
+  def prepare(): ExecutionContext^{this} = this
 }
 
 /** An [[ExecutionContext]] that is also a
@@ -115,7 +118,7 @@ trait ExecutionContextExecutorService extends ExecutionContextExecutor with Exec
 
 
 /** Contains factory methods for creating execution contexts. */
-object ExecutionContext {
+object ExecutionContext extends caps.SharedCapability {
   /** The global [[ExecutionContext]]. This default `ExecutionContext` implementation is backed by a work-stealing thread
    *  pool. It can be configured via the following system properties:
    *
@@ -235,7 +238,7 @@ object ExecutionContext {
     override final def reportFailure(t: Throwable): Unit = global.reportFailure(t)
   }
 
-  object Implicits {
+  object Implicits uses ExecutionContext {
     /** An accessor that can be used to import the global `ExecutionContext` into the implicit scope,
      *  see [[ExecutionContext.global]].
      */
@@ -286,5 +289,5 @@ object ExecutionContext {
    *
    *  @return the function for error reporting
    */
-  final val defaultReporter: Throwable => Unit = _.printStackTrace()
+  final val defaultReporter: Throwable -> Unit = _.printStackTrace()
 }
