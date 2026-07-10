@@ -12,6 +12,8 @@
 
 package scala.concurrent.duration
 
+import language.experimental.captureChecking
+
 import scala.language.`2.13`
 import DurationConversions._
 
