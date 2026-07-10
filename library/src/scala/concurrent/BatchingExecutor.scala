@@ -154,22 +154,22 @@ private[concurrent] trait BatchingExecutor extends Executor {
           }
   }
 
-  private final class AsyncBatch private(_first: Runnable | Null, _other: Array[Runnable | Null], _size: Int) extends AbstractBatch(_first, _other, _size) with Runnable with BlockContext with (BlockContext => Throwable | Null) uses BatchingExecutor.this {
-    private final var parentBlockContext: BlockContext = BatchingExecutorStatics.MissingParentBlockContext
+  private final class AsyncBatch private(_first: Runnable | Null, _other: Array[Runnable | Null], _size: Int) extends AbstractBatch(_first, _other, _size) with Runnable with BlockContext uses BatchingExecutor.this {
+    private final var parentBlockContext: BlockContext^{this} = BatchingExecutorStatics.MissingParentBlockContext
 
     final def this(runnable: Runnable) = this(runnable, BatchingExecutorStatics.emptyBatchArray, 1)
 
     override final def run(): Unit = {
       _tasksLocal.set(this) // This is later cleared in `apply` or `runWithoutResubmit`
 
-      val f = resubmit(BlockContext.usingBlockContext(this)(this))
+      val f = resubmit(BlockContext.usingBlockContext(this)(b => this(b)))
 
       if (f != null)
         throw f
     }
 
     /* LOGIC FOR ASYNCHRONOUS BATCHES */
-    override final def apply(prevBlockContext: BlockContext): Throwable | Null = try {
+    final def apply(prevBlockContext: BlockContext^{this}): Throwable | Null = try {
       parentBlockContext = prevBlockContext
       runN(BatchingExecutorStatics.runLimit)
       null
