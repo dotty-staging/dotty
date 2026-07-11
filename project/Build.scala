@@ -607,6 +607,7 @@ object Build {
     `scala3-tasty-inspector`,
     `scala3-repl`,
     `scala2-library`,
+    `scala-reflect`,
     scaladoc,
     `scaladoc-testcases`,
     `scaladoc-js-common`,
@@ -956,6 +957,44 @@ object Build {
       autoScalaLibrary := false, // do not add a dependency to stdlib
       publishArtifact := false,
       crossPaths := false,
+    )
+
+  /* Scala 2 reflection library (scala/scala 2.13.x src/reflect) ported to compile with Scala 3.
+   * The sources use per-file `import scala.language.2.13` so that erasure and other semantics
+   * follow Scala 2, keeping the same binary signatures as org.scala-lang:scala-reflect.
+   * Compiled with the in-repo nonbootstrapped compiler (not the reference compiler) because it
+   * relies on ExplicitOuter handling of `2.13`-mode inner classes not yet in a released compiler. */
+  lazy val `scala-reflect` = project.in(file("scala-reflect"))
+    .dependsOn(`scala-library-nonbootstrapped`)
+    .settings(
+      name          := "scala-reflect",
+      moduleName    := "scala-reflect",
+      version       := dottyVersion,
+      versionScheme := Some("always"),
+      scalaVersion  := dottyNonBootstrappedVersion,
+      crossPaths    := false,    // org.scala-lang:scala-reflect has no cross path
+      autoScalaLibrary := false, // the stdlib dependency comes from scala-library-nonbootstrapped
+      Compile / unmanagedSourceDirectories := Seq(baseDirectory.value / "src"),
+      Test    / unmanagedSourceDirectories := Seq(baseDirectory.value / "test"),
+      // Remove Scala 3 specific settings that do not apply to these Scala 2 sources.
+      // -Werror is disabled because the vendored sources produce (harmless) warnings under
+      // Scala 3, e.g. `@nowarn` filters for Scala 2-only warning categories.
+      scalacOptions --= Seq("-Yexplicit-nulls", "-Wsafe-init", "-Ysafe-init", "-Werror", "-Xfatal-warnings"),
+      // Scala 2 macro defs (reify, quasiquote apply/unapply, tag materializers) are kept
+      // signature-only and produce no bytecode, exactly as when compiled by Scala 2.
+      Compile / scalacOptions += "-Xignore-scala2-macros",
+      // All sources carry `import scala.language.2.13`; the flag additionally enables the
+      // whole-run Scala 2 compatibility patches (e.g. case-class companions extending
+      // AbstractFunctionN with Serializable) that cannot be toggled per file.
+      Compile / scalacOptions += "-Ycompile-scala2-library",
+      target := baseDirectory.value / ".." / "out" / "bootstrap" / name.value,
+      publishArtifact := false,
+      bootstrappedScalaInstanceSettings,
+      libraryDependencies += Dependencies.sbtJunitInterface % Test,
+      bspEnabled := false,
+      // Binary compatibility with the Scala 2-compiled scala-reflect, in both directions
+      mimaPreviousArtifacts := Set("org.scala-lang" % "scala-reflect" % Versions.scala2Version),
+      mimaCheckDirection := "both",
     )
 
   /* Configuration of the org.scala-lang:scala-library:*.**.**-nonbootstrapped project */

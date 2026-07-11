@@ -142,7 +142,7 @@ quant)
   }
 
   trait SubQuantity extends Quantity {
-    protected def underlying: Quantity
+    def underlying: Quantity
     underlying.children += this
   }
 
@@ -248,7 +248,7 @@ quant)
     //TODO clients may need to do additional synchronization; QuantMap used to extend SynchronizedMap before 2.13
     override def apply(key: K): V = super.apply(key)
     override def toString =
-      this.toSeq.sortWith(_._2 > _._2).map {
+      this.toSeq.sortWith((a, b) => ev(a._2) > b._2).map {
         case (cls: Class[_], elem) =>
           s"${cls.toString.substring(cls.toString.lastIndexOf("$") + 1)}: $elem"
         case (key, elem) =>

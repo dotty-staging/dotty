@@ -64,7 +64,7 @@ abstract class Universe extends scala.reflect.api.Universe {
     def changeOwner(tree: Tree, prev: Symbol, next: Symbol): tree.type
 
     /** Advanced tree factories */
-    val gen: TreeGen
+    def gen: TreeGen
 
     /** The attachment of the symbol. */
     def attachments(symbol: Symbol): Attachments { type Pos = Position }
@@ -345,7 +345,7 @@ abstract class Universe extends scala.reflect.api.Universe {
   }
 
   @deprecated("use `internal.gen` instead", "2.11.0")
-  val treeBuild: TreeGen
+  def treeBuild: TreeGen
 
   /** @inheritdoc */
   @deprecated("compatibility with Scala 2.10 EOL", "2.13.0")

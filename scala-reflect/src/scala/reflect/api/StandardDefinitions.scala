@@ -292,48 +292,48 @@ trait StandardDefinitions {
    */
   trait StandardTypes {
     /** The type of primitive type `Unit`. */
-    val UnitTpe: Type
+    def UnitTpe: Type
 
     /** The type of primitive type `Byte`. */
-    val ByteTpe: Type
+    def ByteTpe: Type
 
     /** The type of primitive type `Short`. */
-    val ShortTpe: Type
+    def ShortTpe: Type
 
     /** The type of primitive type `Char`. */
-    val CharTpe: Type
+    def CharTpe: Type
 
     /** The type of primitive type `Int`. */
-    val IntTpe: Type
+    def IntTpe: Type
 
     /** The type of primitive type `Long`. */
-    val LongTpe: Type
+    def LongTpe: Type
 
     /** The type of primitive type `Float`. */
-    val FloatTpe: Type
+    def FloatTpe: Type
 
     /** The type of primitive type `Double`. */
-    val DoubleTpe: Type
+    def DoubleTpe: Type
 
     /** The type of primitive type `Boolean`. */
-    val BooleanTpe: Type
+    def BooleanTpe: Type
 
     /** The type of core type `Any`. */
-    val AnyTpe: Type
+    def AnyTpe: Type
 
     /** The type of core type `AnyVal`. */
-    val AnyValTpe: Type
+    def AnyValTpe: Type
 
     /** The type of core type `AnyRef`. */
-    val AnyRefTpe: Type
+    def AnyRefTpe: Type
 
     /** The type of core type `Object`. */
-    val ObjectTpe: Type
+    def ObjectTpe: Type
 
     /** The type of core type `Nothing`. */
-    val NothingTpe: Type
+    def NothingTpe: Type
 
     /** The type of core type `Null`. */
-    val NullTpe: Type
+    def NullTpe: Type
   }
 }

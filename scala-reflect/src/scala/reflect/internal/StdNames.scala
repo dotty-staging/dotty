@@ -177,8 +177,7 @@ trait StdNames {
   //        and will not be supported in 3.0. Please change the design and remove
   //        the early initializer.
   /** This should be the first trait in the linearization. */
-  // abstract class Keywords extends CommonNames {
-  abstract class Keywords extends {
+  abstract class Keywords extends CommonNames {
     private[this] val kw = new KeywordSetBuilder
 
     final val ABSTRACTkw: TermName  = kw("abstract")
@@ -234,7 +233,7 @@ trait StdNames {
     final val ATkw: TermName        = kw("@")
 
     final val keywords = kw.result
-  } with CommonNames {
+
     final val javaKeywords = new JavaKeywords()
     final val javaRestrictedIdentifiers = new JavaRestrictedIdentifiers()
   }

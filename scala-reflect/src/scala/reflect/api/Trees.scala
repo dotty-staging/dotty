@@ -2132,7 +2132,7 @@ trait Trees { self: Universe =>
   val noSelfType: ValDef
 
   @deprecated("use `noSelfType` instead", "2.11.0")
-  val emptyValDef: ValDef
+  def emptyValDef: ValDef
 
   /** An empty superclass constructor call corresponding to:
    *    super.<init>()

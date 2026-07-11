@@ -47,7 +47,7 @@ trait UnCurry {
    */
   private def expandAlias(tp: Type): Type = if (!tp.isHigherKinded) tp.normalize else tp
 
-  val uncurry: TypeMap = new TypeMap {
+  lazy val uncurry: TypeMap = new TypeMap {
     @tailrec
     def apply(tp0: Type): Type = {
       val tp = expandAlias(tp0)

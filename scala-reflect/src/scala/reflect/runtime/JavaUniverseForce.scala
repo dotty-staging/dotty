@@ -410,26 +410,26 @@ trait JavaUniverseForce { self: runtime.JavaUniverse  =>
     definitions.NonFatal_apply
     definitions.MacroContextType
     definitions.ProductRootClass
-    definitions.Any_$eq$eq
-    definitions.Any_$bang$eq
+    definitions.`Any_==`
+    definitions.`Any_!=`
     definitions.Any_equals
     definitions.Any_hashCode
     definitions.Any_toString
-    definitions.Any_$hash$hash
+    definitions.`Any_##`
     definitions.Any_getClass
     definitions.Any_isInstanceOf
     definitions.Any_asInstanceOf
     definitions.primitiveGetClassMethods
     definitions.getClassMethods
-    definitions.Object_$hash$hash
-    definitions.Object_$eq$eq
-    definitions.Object_$bang$eq
+    definitions.`Object_##`
+    definitions.`Object_==`
+    definitions.`Object_!=`
     definitions.Object_eq
     definitions.Object_ne
     definitions.Object_isInstanceOf
     definitions.Object_asInstanceOf
     definitions.Object_synchronized
-    definitions.String_$plus
+    definitions.`String_+`
     definitions.ObjectsClass
     definitions.ObjectRefClass
     definitions.VolatileObjectRefClass

@@ -45,7 +45,7 @@ trait StandardNames {
   /** A value containing all [[TermNamesApi standard term names]].
    *  @group StandardNames
    */
-  val termNames: TermNamesApi
+  def termNames: TermNamesApi
 
   /** @see [[typeNames]] */
   @deprecated("use `typeNames` instead", "2.11.0")
@@ -54,7 +54,7 @@ trait StandardNames {
   /** A value containing all [[TypeNamesApi standard type names]].
    *  @group StandardNames
    */
-  val typeNames: TypeNamesApi
+  def typeNames: TypeNamesApi
 
   /** Defines standard names, common for term and type names: These can be accessed via the [[nme]] and [[tpnme]] members.
    *  @group API

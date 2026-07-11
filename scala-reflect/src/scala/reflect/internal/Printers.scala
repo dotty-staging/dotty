@@ -70,12 +70,13 @@ trait Printers extends api.Printers { self: SymbolTable =>
     }
   }
 
-  @nowarn("""cat=deprecation&origin=scala\.reflect\.internal\.Printers\.TreePrinter""")
-  final type InternalTreePrinter = TreePrinter
+  final type InternalTreePrinter = TreePrinterImpl
 
-  @nowarn("msg=shadowing a nested class of a parent is deprecated")
+  // Scala 3 port: the deprecated class shadowing `api.Printers#TreePrinter` is renamed at the
+  // Scala level (Scala 3 disallows overriding class definitions) but keeps its binary name.
+  @annotation.targetName("TreePrinter")
   @deprecated("use InternalTreePrinter instead", since = "2.13.4")
-  class TreePrinter(out: PrintWriter) extends super.TreePrinter {
+  class TreePrinterImpl(out: PrintWriter) extends TreePrinter {
     protected var indentMargin = 0
     protected val indentStep = 2
     protected var indentString = "                                        " // 40
@@ -1185,7 +1186,7 @@ trait Printers extends api.Printers { self: SymbolTable =>
     def get[T: ClassTag]: List[(Int, Any)] =
       classFootnotes[T].toList map (fi => (fi, classIndex[T].find{ case (any, ii) => ii == fi }.get._1))
 
-    def print[T: ClassTag](printer: Printers.super.TreePrinter): Unit = {
+    def print[T: ClassTag](printer: TreePrinter): Unit = {
       val footnotes = get[T]
       if (footnotes.nonEmpty) {
         printer.print(EOL)
@@ -1199,7 +1200,7 @@ trait Printers extends api.Printers { self: SymbolTable =>
   }
 
   // emits more or less verbatim representation of the provided tree
-  class RawTreePrinter(out: PrintWriter) extends super.TreePrinter {
+  class RawTreePrinter(out: PrintWriter) extends TreePrinter {
     private[this] var depth = 0
     private[this] var printTypesInFootnotes = true
     private[this] var printingFootnotes = false

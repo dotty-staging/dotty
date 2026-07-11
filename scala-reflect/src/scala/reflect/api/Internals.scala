@@ -31,7 +31,7 @@ trait Internals { self: Universe =>
   /** @see [[InternalApi]]
    *  @group Internal
    */
-  val internal: Internal
+  def internal: Internal
 
   /** @see [[InternalApi]]
    *  @group Internal
@@ -68,7 +68,7 @@ trait Internals { self: Universe =>
   trait InternalApi { internal =>
     /** This is an internal implementation module.
      */
-    val reificationSupport: ReificationSupportApi
+    def reificationSupport: ReificationSupportApi
 
     /** Creates an importer that moves reflection artifacts between universes.
      *  @see [[Importer]]
@@ -392,7 +392,7 @@ trait Internals { self: Universe =>
     type Decorators <: DecoratorApi
 
     /** @see [[Decorators]] */
-    val decorators: Decorators
+    def decorators: Decorators
 
     /** @see [[Decorators]] */
     trait DecoratorApi {
@@ -1077,7 +1077,7 @@ trait Internals { self: Universe =>
    *  @group Internal
    */
   @deprecated("compatibility with Scala 2.10 EOL", "2.13.0")
-  val compat: Compat
+  def compat: Compat
 
   /** @see [[compat]]
    *  @group Internal

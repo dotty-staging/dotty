@@ -23,6 +23,11 @@ import scala.language.`2.13`
  */
 private[scala] trait SymbolTable extends internal.SymbolTable with JavaMirrors with SymbolLoaders with SynchronizedOps with Gil with ThreadLocalStorage {
 
+  // Scala 3 port: re-assert the concrete alias from internal.Positions. Without it, merging the
+  // F-bounded `api.Positions#Position` with the concrete alias across this cake's parents trips
+  // dotc's cyclic-inheritance check. Pure type alias: no effect on binary signatures.
+  override type Position = scala.reflect.internal.util.Position
+
   def info(msg: => String) =
     if (settings.verbose.value) println("[reflect-compiler] "+msg)
 

@@ -47,7 +47,7 @@ package runtime {
       val scalaPackage = Select(Ident(TermName("_root_")), TermName("scala"))
       val runtimeUniverse = Select(Select(Select(scalaPackage, TermName("reflect")), TermName("runtime")), TermName("universe"))
       val currentMirror = Apply(Select(runtimeUniverse, TermName("runtimeMirror")), List(Select(runtimeClass, TermName("getClassLoader"))))
-      c.Expr[Nothing](currentMirror)(c.WeakTypeTag.Nothing)
+      c.Expr[Nothing](currentMirror)(using c.WeakTypeTag.Nothing)
     }
   }
 }

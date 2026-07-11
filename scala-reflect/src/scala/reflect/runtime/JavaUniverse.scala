@@ -90,9 +90,9 @@ class JavaUniverse extends InternalSymbolTable with JavaUniverseForce with Refle
   }
 
   // can't put this in runtime.Trees since that's mixed with Global in ReflectGlobal, which has the definition from internal.Trees
-  object treeInfo extends {
+  object treeInfo extends TreeInfo {
     val global: JavaUniverse.this.type = JavaUniverse.this
-  } with TreeInfo
+  }
 
   init()
 

@@ -375,9 +375,9 @@ trait Scopes extends api.Scopes { self: SymbolTable =>
       val flat = phase.flatClasses
       val entryName = entry.name(flat)
       if (hashtable ne null)
-        do { e = e.tail } while ((e ne null) && e.name(flat) != entryName)
+        while ({ e = e.tail; (e ne null) && e.name(flat) != entryName }) ()
       else
-        do { e = e.next } while ((e ne null) && e.name(flat) != entryName)
+        while ({ e = e.next; (e ne null) && e.name(flat) != entryName }) ()
       e
     }
 

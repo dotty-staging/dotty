@@ -12,6 +12,7 @@ val `scala3-repl` = Build.`scala3-repl`
 
 // The Standard Library
 val `scala2-library` = Build.`scala2-library`
+val `scala-reflect` = Build.`scala-reflect`
 val `scala-library-nonbootstrapped` = Build.`scala-library-nonbootstrapped`
 val `scala3-library-nonbootstrapped` = Build.`scala3-library-nonbootstrapped`
 val `scala-library-bootstrapped` = Build.`scala-library-bootstrapped`

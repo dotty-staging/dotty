@@ -234,7 +234,7 @@ trait Mirrors { self: Universe =>
    *  `Nothing`, `Null`, and all classes loaded from scala-library, which are shared across all mirrors within the enclosing universe.
    *  @group Mirrors
    */
-  val rootMirror: Mirror
+  def rootMirror: Mirror
 
   /** Abstracts the runtime representation of a class on the underlying platform.
    *  @group Mirrors

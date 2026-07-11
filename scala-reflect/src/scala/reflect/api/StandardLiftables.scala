@@ -16,8 +16,12 @@ package api
 import scala.language.`2.13`
 
 trait StandardLiftables { self: Universe =>
-  import internal._
-  import reificationSupport.{SyntacticTuple, ScalaDot}
+  // Scala 3 port: `internal` and `reificationSupport` are declared as `def`s upstream (a lazy val
+  // may not override a strict val in Scala 3), so stable private aliases are needed for imports.
+  private lazy val internalStable: Internal = internal
+  import internalStable._
+  private lazy val reificationSupportStable: ReificationSupportApi = internal.reificationSupport
+  import reificationSupportStable.{SyntacticTuple, ScalaDot}
 
   trait StandardLiftableInstances {
     private def lift[T: Liftable](value: T): Tree            = implicitly[Liftable[T]].apply(value)

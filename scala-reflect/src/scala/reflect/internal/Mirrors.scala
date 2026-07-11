@@ -34,10 +34,10 @@ trait Mirrors extends api.Mirrors {
 
     protected[scala] def rootLoader: LazyType
 
-    val RootClass: ClassSymbol
-    val RootPackage: ModuleSymbol
-    val EmptyPackageClass: ClassSymbol
-    val EmptyPackage: ModuleSymbol
+    def RootClass: ClassSymbol
+    def RootPackage: ModuleSymbol
+    def EmptyPackageClass: ClassSymbol
+    def EmptyPackage: ModuleSymbol
 
     def symbolOf[T: universe.WeakTypeTag]: universe.TypeSymbol = universe.weakTypeTag[T].in(this).tpe.typeSymbolDirect.asType
 

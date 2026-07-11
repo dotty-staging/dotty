@@ -112,7 +112,7 @@ trait Symbols { self: Universe =>
    *  @group Symbols
    *  @template
    */
-  val NoSymbol: Symbol
+  def NoSymbol: Symbol
 
   /** The API of symbols.
    *  The main source of information about symbols is the [[Symbols]] page.

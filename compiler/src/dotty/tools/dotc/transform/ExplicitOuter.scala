@@ -468,7 +468,23 @@ object ExplicitOuter {
         @tailrec def loop(tree: Tree, count: Int): Tree =
           val treeCls = tree.tpe.classSymbol
           report.log(i"outer to $toCls of $tree: ${tree.tpe}, looking for ${atPhaseNoLater(lambdaLiftPhase)(outerAccName(treeCls.asClass))} in $treeCls")
-          if (count == 0 || count < 0 && treeCls == toCls) tree
+          // A Scala2x (`-Ycompile-scala2-library`/`scala.language.2.13`) inner class of a
+          // self-typed trait has its outer accessor typed as the trait's self type (see
+          // `outerClass`), so the walk may reach a proper subtype of `toCls`, or the class
+          // of `toCls`'s declared self type, instead of `toCls` itself. Either way the
+          // reached value is the enclosing instance (a self-typed trait can only be mixed
+          // into instances conforming to its self type), so accept it, like Scala 2's
+          // ExplicitOuter does. This is restricted to Scala2x classes: elsewhere outer
+          // accessors have precise types and requiring an exact match keeps the walk from
+          // stopping at a derived enclosing class too early.
+          def reachedTarget(): Boolean =
+            treeCls == toCls
+            || toCls.isClass && treeCls.isClass && atPhaseNoLater(explicitOuterPhase) {
+                 treeCls.is(Scala2x)
+                 && (treeCls.asClass.derivesFrom(toCls)
+                     || toCls.asClass.givenSelfType.classSymbol == treeCls)
+               }
+          if (count == 0 || count < 0 && reachedTarget()) tree
           else
             val enclClass = ctx.owner.lexicallyEnclosingClass.asClass
             val outerAcc = atPhaseNoLater(lambdaLiftPhase) {

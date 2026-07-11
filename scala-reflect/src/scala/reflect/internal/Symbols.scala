@@ -2706,7 +2706,8 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
       else ""
 
     private def symbolKind: SymbolKind = {
-      implicit val triple2SK = (SymbolKind.apply _).tupled
+      implicit val triple2SK: Conversion[(String, String, String), SymbolKind] =
+        t => SymbolKind(t._1, t._2, t._3)
       val kind: SymbolKind =
         if (isTermMacro)                         ("term macro",           "macro method",    "MACM")
         else if (isInstanceOf[FreeTermSymbol])   ("free term",            "free term",       "FTE")
@@ -3863,7 +3864,10 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
   }
 
   /** A class for type histories */
-  private final case class TypeHistory protected (private var _validFrom: Period, private var _info: Type, private var _prev: TypeHistory) {
+  // Scala 3 port: constructor `protected` dropped — in Scala 3 the case-class `apply` mirrors
+  // the constructor's access, which would make the `TypeHistory(...)` call sites illegal.
+  // The class itself stays `private`, so nothing changes in the accessible API.
+  private final case class TypeHistory (private var _validFrom: Period, private var _info: Type, private var _prev: TypeHistory) {
     assert((prev eq null) || phaseId(validFrom) > phaseId(prev.validFrom), this)
     assert(validFrom != NoPeriod, this)
 

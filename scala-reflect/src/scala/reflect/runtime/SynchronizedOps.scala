@@ -27,16 +27,24 @@ private[reflect] trait SynchronizedOps extends internal.SymbolTable
 
 // BaseTypeSeqs
 
+  // Scala 3 port: named subclasses instead of anonymous `new BaseTypeSeq(...) with
+  // SynchronizedBaseTypeSeq`: dotc's ExplicitOuter cannot construct the outer path for an
+  // anonymous class that mixes inner members of two different layers of the cake.
+  private final class SynchronizedBaseTypeSeqImpl(parents: List[Type], elems: Array[Type])
+    extends BaseTypeSeq(parents, elems) with SynchronizedBaseTypeSeq
+  private final class SynchronizedMappedBaseTypeSeqImpl(orig: BaseTypeSeq, f: Type => Type)
+    extends MappedBaseTypeSeq(orig, f) with SynchronizedBaseTypeSeq
+
   override protected def newBaseTypeSeq(parents: List[Type], elems: Array[Type]) =
     // only need to synchronize BaseTypeSeqs if they contain refined types
-    if (elems.exists(_.isInstanceOf[RefinedType])) new BaseTypeSeq(parents, elems) with SynchronizedBaseTypeSeq
+    if (elems.exists(_.isInstanceOf[RefinedType])) new SynchronizedBaseTypeSeqImpl(parents, elems)
     else new BaseTypeSeq(parents, elems)
 
   override protected def newMappedBaseTypeSeq(orig: BaseTypeSeq, f: Type => Type) =
     // MappedBaseTypeSeq's are used rarely enough that we unconditionally mixin the synchronized
     // wrapper, rather than doing this conditionally. A previous attempt to do that broke the "late"
     // part of the "lateMap" contract in inspecting the mapped elements.
-    new MappedBaseTypeSeq(orig, f) with SynchronizedBaseTypeSeq
+    new SynchronizedMappedBaseTypeSeqImpl(orig, f)
 
   trait SynchronizedBaseTypeSeq extends BaseTypeSeq {
     override def apply(i: Int): Type = gilSynchronized { super.apply(i) }

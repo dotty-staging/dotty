@@ -26,7 +26,10 @@ import util.StringContextStripMarginOps
 trait Definitions extends api.StandardDefinitions {
   self: SymbolTable =>
 
-  import rootMirror.{getModuleByName, getPackage, getClassByName, getRequiredClass, getRequiredModule, getClassIfDefined, getModuleIfDefined, getPackageIfDefined, getPackageObjectIfDefined, requiredClass, requiredModule}
+  // Scala 3 port: `rootMirror` is declared as a `def` upstream (a lazy val may not override a
+  // strict val in Scala 3), so a stable private alias is needed to use it as an import prefix.
+  private lazy val rootMirrorStable: Mirror = rootMirror
+  import rootMirrorStable.{getModuleByName, getPackage, getClassByName, getRequiredClass, getRequiredModule, getClassIfDefined, getModuleIfDefined, getPackageIfDefined, getPackageObjectIfDefined, requiredClass, requiredModule}
 
   object definitions extends DefinitionsClass
 
@@ -679,10 +682,10 @@ trait Definitions extends api.StandardDefinitions {
     // A unit test checks these are kept in synch with the library.
     val MaxTupleAritySpecialized, MaxProductAritySpecialized, MaxFunctionAritySpecialized = 2
 
-    lazy val ProductClass          = new VarArityClass("Product", MaxProductArity, countFrom = 1, init = Some(UnitClass))
-    lazy val TupleClass            = new VarArityClass("Tuple", MaxTupleArity, countFrom = 1)
-    lazy val FunctionClass         = new VarArityClass("Function", MaxFunctionArity)
-    lazy val AbstractFunctionClass = new VarArityClass("runtime.AbstractFunction", MaxFunctionArity)
+    lazy val ProductClass: VarArityClass          = new VarArityClass("Product", MaxProductArity, countFrom = 1, init = Some(UnitClass))
+    lazy val TupleClass: VarArityClass            = new VarArityClass("Tuple", MaxTupleArity, countFrom = 1)
+    lazy val FunctionClass: VarArityClass         = new VarArityClass("Function", MaxFunctionArity)
+    lazy val AbstractFunctionClass: VarArityClass = new VarArityClass("runtime.AbstractFunction", MaxFunctionArity)
 
     /** Creators for TupleN, ProductN, FunctionN. */
     def tupleType(elems: List[Type])                            = TupleClass.specificType(elems)

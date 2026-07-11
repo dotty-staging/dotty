@@ -37,9 +37,9 @@ trait Transforms { self: SymbolTable =>
     }
   }
 
-  private[this] val uncurryLazy     = new Lazy(new { val global: Transforms.this.type = self } with UnCurry)
-  private[this] val erasureLazy     = new Lazy(new { val global: Transforms.this.type = self } with Erasure)
-  private[this] val postErasureLazy = new Lazy(new { val global: Transforms.this.type = self } with PostErasure)
+  private[this] val uncurryLazy     = new Lazy(new UnCurry { val global: Transforms.this.type = self })
+  private[this] val erasureLazy     = new Lazy(new Erasure { val global: Transforms.this.type = self })
+  private[this] val postErasureLazy = new Lazy(new PostErasure { val global: Transforms.this.type = self })
 
   def uncurry = uncurryLazy.force
   def erasure = erasureLazy.force

@@ -120,7 +120,7 @@ trait Exprs { self: Universe =>
      * }}}
      */
     @compileTimeOnly("cannot use value except for signatures of macro implementations")
-    val value: T
+    def value: T
 
     override def canEqual(x: Any) = x.isInstanceOf[Expr[_]]
 
@@ -149,7 +149,7 @@ trait Exprs { self: Universe =>
     def in[U <: Universe with Singleton](otherMirror: scala.reflect.api.Mirror[U]): U # Expr[T] = {
       val otherMirror1 = otherMirror.asInstanceOf[scala.reflect.api.Mirror[otherMirror.universe.type]]
       val tag1 = (implicitly[WeakTypeTag[T]] in otherMirror).asInstanceOf[otherMirror.universe.WeakTypeTag[T]]
-      otherMirror.universe.Expr[T](otherMirror1, treec)(tag1)
+      otherMirror.universe.Expr[T](otherMirror1, treec)(using tag1)
     }
 
     lazy val tree: Tree = treec(mirror)
@@ -184,6 +184,6 @@ private[scala] class SerializedExpr(var treec: TreeCreator, var tag: ru.WeakType
       case se: SecurityException => null
     }
     val m = runtimeMirror(loader)
-    Expr(m, treec)(tag.in(m))
+    Expr(m, treec)(using tag.in(m))
   }
 }

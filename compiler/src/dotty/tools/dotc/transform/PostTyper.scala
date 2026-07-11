@@ -826,9 +826,9 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
             val companionClass = sym.companionClass
             if !sym.derivesFrom(defn.SerializableClass) && companionClass.derivesFrom(defn.SerializableClass) then
               parents1 = parents1 :+ TypeTree(defn.SerializableType)
-            argTypeOfCaseClassThatNeedsAbstractFunction1(sym) match
+            argTypesOfCaseClassThatNeedsAbstractFunction(sym) match
               case Some(args) if parents1.head.symbol.owner == defn.ObjectClass =>
-                parents1 = New(defn.AbstractFunctionClass(1).typeRef).select(nme.CONSTRUCTOR).appliedToTypes(args).ensureApplied :: parents1.tail
+                parents1 = New(defn.AbstractFunctionClass(args.length - 1).typeRef).select(nme.CONSTRUCTOR).appliedToTypes(args).ensureApplied :: parents1.tail
               case _ =>
             val impl1 = cpy.Template(impl)(parents = parents1)
             cpy.TypeDef(tree)(rhs = impl1)
@@ -844,26 +844,25 @@ class PostTyper extends MacroTransform with InfoTransformer { thisPhase =>
       val companionClass = sym.companionClass
       if !sym.derivesFrom(defn.SerializableClass) && companionClass.derivesFrom(defn.SerializableClass) then
         parents1 = parents1 :+ defn.SerializableType
-      argTypeOfCaseClassThatNeedsAbstractFunction1(sym) match
+      argTypesOfCaseClassThatNeedsAbstractFunction(sym) match
         case Some(args) if parents1.head.typeSymbol == defn.ObjectClass =>
-          parents1 = defn.AbstractFunctionClass(1).typeRef.appliedTo(args) :: parents1.tail
+          parents1 = defn.AbstractFunctionClass(args.length - 1).typeRef.appliedTo(args) :: parents1.tail
         case _ =>
       if parents1 ne info.parents then info.derivedClassInfo(declaredParents = parents1)
       else tp
     case _ => tp
 
-  private def argTypeOfCaseClassThatNeedsAbstractFunction1(sym: Symbol)(using Context): Option[List[Type]] =
+  private def argTypesOfCaseClassThatNeedsAbstractFunction(sym: Symbol)(using Context): Option[List[Type]] =
     val companionClass = sym.companionClass
     if companionClass.is(CaseClass)
       && !companionClass.primaryConstructor.is(Private)
       && !companionClass.primaryConstructor.info.isVarArgsMethod
     then
       sym.info.decl(nme.apply).info match
-        case info: MethodType =>
-          info.paramInfos match
-            case arg :: Nil =>
-              Some(arg :: info.resultType :: Nil)
-            case args => None
+        case info: MethodType
+        if info.paramInfos.sizeIs <= Definitions.MaxImplementedFunctionArity
+           && !info.resultType.isInstanceOf[MethodType] => // no curried case classes
+          Some(info.paramInfos :+ info.resultType)
         case _ => None
     else
       None

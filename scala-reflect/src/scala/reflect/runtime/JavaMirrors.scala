@@ -70,21 +70,21 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
   }
 
   /** The API of a mirror for a reflective universe */
-  @nowarn("""cat=deprecation&origin=scala\.reflect\.runtime\.JavaMirrors\.JavaMirror""")
-  final type MirrorImpl = JavaMirror
+  final type MirrorImpl = JavaMirrorImpl
 
   /**
    * The API of a mirror for a reflective universe.
    *
-   * @deprecated this class's name shadows another; use [[MirrorImpl]] instead
+   * Scala 3 port: the deprecated class shadowing `api.JavaUniverse#JavaMirror` is renamed at the
+   * Scala level (Scala 3 disallows overriding class definitions) but keeps its binary name.
    */
-  @nowarn("msg=shadowing a nested class of a parent is deprecated")
+  @annotation.targetName("JavaMirror")
   @deprecated("use MirrorImpl instead", since = "2.13.4")
-  class JavaMirror(owner: Symbol,
+  class JavaMirrorImpl(owner: Symbol,
                    /* Class loader that is a mastermind behind the reflexive mirror */
                    val classLoader: ClassLoader
   ) extends Roots(owner)
-    with super.JavaMirror { thisMirror =>
+    with JavaMirror { thisMirror =>
 
     val universe: thisUniverse.type = thisUniverse
 
@@ -196,7 +196,7 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
       object AnnotationClass { def unapply(x: jClass[_]) = x.isAnnotation }
 
       object ConstantArg {
-        def enumToSymbol(`enum`: Enum[_]): Symbol = {
+        def enumToSymbol(`enum`: java.lang.Enum[_]): Symbol = {
           val staticPartOfEnum = classToScala(`enum`.getClass).companionSymbol
           staticPartOfEnum.info.declaration(TermName(`enum`.name))
         }
@@ -204,7 +204,7 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
         def unapply(schemaAndValue: (jClass[_], Any)): Option[Any] = schemaAndValue match {
           case (StringClass | PrimitiveClass(), value) => Some(value)
           case (ClassClass, value: jClass[_])          => Some(classToScala(value).toType)
-          case (EnumClass(), value: Enum[_])           => Some(enumToSymbol(value))
+          case (EnumClass(), value: java.lang.Enum[_])           => Some(enumToSymbol(value))
           case _                                       => None
         }
       }
