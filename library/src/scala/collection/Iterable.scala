@@ -649,14 +649,9 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
       val bldr = m.getOrElseUpdate(k, iterableFactory.newBuilder[B])
       bldr ++= f(elem)
     }
-    class Result extends runtime.AbstractFunction1[(K, Builder[B, CC[B]]), Unit] {
-      var built = immutable.Map.empty[K, CC[B]]
-      def apply(kv: (K, Builder[B, CC[B]])) =
-        built = built.updated(kv._1, kv._2.result())
-    }
-    val result = new Result
-    m.foreach(result)
-    result.built
+    val b = immutable.Map.newBuilder[K, CC[B]]
+    m.foreachEntry((k, bldr) => b += ((k, bldr.result())))
+    b.result()
   }
 
   /** Partitions this $coll into a map according to a discriminator function `key`. All the values that
