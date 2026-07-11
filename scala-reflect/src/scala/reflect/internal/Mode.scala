@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 object Mode {
   def apply(bits: Int): Mode = new Mode(bits)
 

@@ -15,6 +15,8 @@ package reflect
 package internal
 package transform
 
+import scala.language.`2.13`
+
 import scala.annotation.tailrec
 
 trait Erasure {

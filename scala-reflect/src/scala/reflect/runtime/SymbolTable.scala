@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 /**
  *  This symbol table trait fills in the definitions so that class information is obtained by reflection.
  *  It can be used either from a reflexive universe (class scala.reflect.runtime.JavaUniverse), or else from

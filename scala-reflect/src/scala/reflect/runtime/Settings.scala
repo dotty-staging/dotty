@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 import scala.reflect.internal.settings.MutableSettings
 import scala.reflect.internal.util.StatisticsStatics
 

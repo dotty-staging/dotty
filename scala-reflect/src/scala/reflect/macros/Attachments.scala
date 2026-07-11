@@ -14,6 +14,8 @@ package scala
 package reflect
 package macros
 
+import scala.language.`2.13`
+
 import reflect.internal.util.Position
 import scala.runtime.ClassValueCompat
 

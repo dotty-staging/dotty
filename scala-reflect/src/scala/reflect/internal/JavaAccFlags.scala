@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import java.lang.{ Class => jClass }
 import java.lang.reflect.{ Member => jMember, Constructor => jConstructor, Field => jField, Method => jMethod }
 import JavaAccFlags._

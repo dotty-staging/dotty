@@ -15,6 +15,8 @@ package reflect
 package internal
 package util
 
+import scala.language.`2.13`
+
 import scala.language.implicitConversions
 
 import TriState._

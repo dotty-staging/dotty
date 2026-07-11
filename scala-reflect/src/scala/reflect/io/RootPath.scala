@@ -12,6 +12,8 @@
 
 package scala.reflect.io
 
+import scala.language.`2.13`
+
 import java.io.Closeable
 import java.nio
 import java.nio.file.Files

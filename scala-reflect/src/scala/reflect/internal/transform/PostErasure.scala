@@ -14,6 +14,8 @@ package scala.reflect
 package internal
 package transform
 
+import scala.language.`2.13`
+
 trait PostErasure {
   // FIXME: With `global` as a `val`, implementers must use early initializers, which
   //        are deprecated and will not be supported in 3.0. Please change the design,

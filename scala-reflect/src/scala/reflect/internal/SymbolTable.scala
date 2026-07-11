@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import java.net.URLClassLoader
 
 import scala.annotation.{elidable, nowarn, tailrec}

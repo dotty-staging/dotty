@@ -14,6 +14,8 @@ package scala
 package reflect
 package api
 
+import scala.language.`2.13`
+
 /** A mirror-aware factory for trees.
  *
  * This class is used internally by Scala Reflection, and is not recommended for use in client code.

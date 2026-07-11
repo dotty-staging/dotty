@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal.util
 
+import scala.language.`2.13`
+
 import scala.collection.mutable
 
 /** A debugging class for logging from whence a method is being called.

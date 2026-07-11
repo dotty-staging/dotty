@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.io.{
   FileInputStream, FileOutputStream, BufferedWriter, OutputStreamWriter,
   BufferedOutputStream, IOException, PrintWriter, File => JFile

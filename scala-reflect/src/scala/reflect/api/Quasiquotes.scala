@@ -13,6 +13,8 @@
 package scala.reflect
 package api
 
+import scala.language.`2.13`
+
 trait Quasiquotes { self: Universe =>
 
   /** Implicit class that introduces `q`, `tq`, `cq,` `pq` and `fq` string interpolators

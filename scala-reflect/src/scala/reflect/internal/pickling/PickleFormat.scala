@@ -15,6 +15,8 @@ package reflect
 package internal
 package pickling
 
+import scala.language.`2.13`
+
 /** This object provides constants for pickling attributes.
  *
  *  If you extend the format, be sure to increase the

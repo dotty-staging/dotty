@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.util
 
+import scala.language.`2.13`
+
 import java.lang.invoke.{MethodHandles, MethodType}
 
 import scala.language.implicitConversions

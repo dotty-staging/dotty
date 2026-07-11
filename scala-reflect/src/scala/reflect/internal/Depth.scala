@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import Depth._
 
 final class Depth private (val depth: Int) extends AnyVal with Ordered[Depth] {

@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.io.{BufferedOutputStream, ByteArrayOutputStream, IOException, InputStream, OutputStream}
 import java.io.{File => JFile}
 import java.net.URL

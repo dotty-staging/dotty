@@ -12,6 +12,8 @@
 
 package scala.reflect.internal.util
 
+import scala.language.`2.13`
+
 import java.io.Closeable
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit

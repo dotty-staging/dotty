@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 import java.io.IOException
 import java.lang.{ Class => jClass, Package => jPackage }
 import java.lang.annotation.{ Annotation => jAnnotation }

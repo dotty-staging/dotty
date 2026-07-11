@@ -12,6 +12,8 @@
 
 package scala.reflect.internal.util
 
+import scala.language.`2.13`
+
 import scala.collection.mutable.ArrayBuffer
 import scala.util.chaining._
 

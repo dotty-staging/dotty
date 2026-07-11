@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.lang.Boolean.{getBoolean => booleanProperty}
 import java.net.URL
 import java.io.{ByteArrayInputStream, FilterInputStream, IOException, InputStream}

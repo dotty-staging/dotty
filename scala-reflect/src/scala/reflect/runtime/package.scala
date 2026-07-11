@@ -13,6 +13,8 @@
 package scala
 package reflect
 
+import scala.language.`2.13`
+
 /** Entry points into runtime reflection.
  *  See [[scala.reflect.api.package the overview page]] for details on how to use them.
  */

@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.pickling
 
+import scala.language.`2.13`
+
 /**
  * Helper methods to serialize a byte array as String that can be written as "modified" UTF-8
  * to classfiles.

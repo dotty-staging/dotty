@@ -12,6 +12,8 @@
 
 package scala.reflect.internal.util
 
+import scala.language.`2.13`
+
 import java.io.{BufferedWriter, IOException, OutputStreamWriter, Writer}
 import java.nio.CharBuffer
 import java.nio.charset.{Charset, CharsetEncoder, StandardCharsets}, StandardCharsets.UTF_8

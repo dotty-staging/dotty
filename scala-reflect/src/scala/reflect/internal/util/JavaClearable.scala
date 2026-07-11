@@ -12,6 +12,8 @@
 
 package scala.reflect.internal.util
 
+import scala.language.`2.13`
+
 import java.lang.ref.WeakReference
 import java.util.{Collection => JCollection, Map => JMap}
 

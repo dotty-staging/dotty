@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import scala.collection.mutable.WeakHashMap
 import scala.ref.WeakReference
 import scala.reflect.internal.Flags._

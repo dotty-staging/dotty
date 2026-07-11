@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 import internal.{SomePhase, NoPhase}
 
 /** A helper trait to initialize things that need to be set before JavaMirrors and other

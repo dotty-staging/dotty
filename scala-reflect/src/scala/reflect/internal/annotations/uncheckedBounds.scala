@@ -14,6 +14,8 @@ package scala.reflect
 package internal
 package annotations
 
+import scala.language.`2.13`
+
 /**
  * An annotation that designates the annotated type should not be checked for violations of
  * type parameter bounds in the `refchecks` phase of the compiler. This can be used by synthesized

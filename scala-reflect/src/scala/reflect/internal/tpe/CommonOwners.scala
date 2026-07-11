@@ -15,6 +15,8 @@ package reflect
 package internal
 package tpe
 
+import scala.language.`2.13`
+
 private[internal] trait CommonOwners {
   self: SymbolTable =>
 

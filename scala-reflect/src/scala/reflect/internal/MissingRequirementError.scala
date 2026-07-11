@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 class MissingRequirementError private (msg: String) extends FatalError(msg) {
   import MissingRequirementError.suffix
   def req: String = if (msg endsWith suffix) msg dropRight suffix.length else msg

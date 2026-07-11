@@ -14,6 +14,8 @@ package scala
 package reflect
 package api
 
+import scala.language.`2.13`
+
 import scala.reflect.runtime.{universe => ru}
 import scala.annotation.compileTimeOnly
 import java.io.ObjectStreamException

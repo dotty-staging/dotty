@@ -13,6 +13,8 @@
 package scala.reflect.internal
 package util
 
+import scala.language.`2.13`
+
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import scala.reflect.NameTransformer

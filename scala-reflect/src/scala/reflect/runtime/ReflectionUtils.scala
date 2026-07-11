@@ -13,6 +13,8 @@
 package scala
 package reflect.runtime
 
+import scala.language.`2.13`
+
 import java.lang.{Class => jClass}
 import java.lang.reflect.{ Method, InvocationTargetException, UndeclaredThrowableException }
 import scala.annotation.tailrec

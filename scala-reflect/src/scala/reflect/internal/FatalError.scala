@@ -12,4 +12,6 @@
 
 package scala
 package reflect.internal
+
+import scala.language.`2.13`
 case class FatalError(msg: String) extends Exception(msg)

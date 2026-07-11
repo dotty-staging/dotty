@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 import scala.collection.mutable.WeakHashMap
 import java.lang.ref.WeakReference
 

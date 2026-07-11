@@ -15,6 +15,8 @@ package reflect
 package internal
 package tpe
 
+import scala.language.`2.13`
+
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ListBuffer

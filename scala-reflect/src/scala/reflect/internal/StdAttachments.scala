@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 trait StdAttachments {
   self: SymbolTable =>
 

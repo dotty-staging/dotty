@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.io.{ ByteArrayInputStream, ByteArrayOutputStream, InputStream, OutputStream, File => JFile }
 
 /** This class implements an in-memory file.

@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 // todo implement in terms of BitSet
 import scala.collection.mutable
 import util.Statistics

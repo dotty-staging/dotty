@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import Flags._
 import util.{FreshNameCreator, ListOfNil}
 import scala.annotation.tailrec

@@ -13,6 +13,8 @@
 package scala.reflect
 package api
 
+import scala.language.`2.13`
+
 trait StandardLiftables { self: Universe =>
   import internal._
   import reificationSupport.{SyntacticTuple, ScalaDot}

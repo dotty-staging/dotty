@@ -15,6 +15,8 @@ package reflect
 package internal
 package tpe
 
+import scala.language.`2.13`
+
 import scala.annotation.tailrec
 import scala.collection.mutable
 import util.{StringContextStripMarginOps, TriState}

@@ -15,6 +15,8 @@ package reflect
 package internal
 package pickling
 
+import scala.language.`2.13`
+
 import PickleFormat._
 import scala.annotation.tailrec
 import util.shortClassOfInstance

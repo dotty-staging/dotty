@@ -12,6 +12,8 @@
 
 package scala.reflect.internal.util
 
+import scala.language.`2.13`
+
 import java.nio.ByteBuffer
 import java.nio.file.StandardOpenOption.{CREATE, TRUNCATE_EXISTING, WRITE}
 import java.nio.file.attribute.PosixFilePermission.{OWNER_EXECUTE, OWNER_READ, OWNER_WRITE}

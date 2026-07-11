@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import scala.annotation.tailrec
 import scala.collection.{AbstractIterable, AbstractIterator}
 import scala.collection.mutable.Clearable

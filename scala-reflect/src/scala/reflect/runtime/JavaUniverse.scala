@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 import scala.annotation.nowarn
 import scala.reflect.internal.{SomePhase, TreeInfo}
 import scala.reflect.internal.{SymbolTable => InternalSymbolTable}

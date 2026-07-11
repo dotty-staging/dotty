@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.io.InputStream
 
 /** A distinguished object so you can avoid both null

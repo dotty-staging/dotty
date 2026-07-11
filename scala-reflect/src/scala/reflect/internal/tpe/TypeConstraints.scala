@@ -15,6 +15,8 @@ package reflect
 package internal
 package tpe
 
+import scala.language.`2.13`
+
 import scala.collection.mutable.BitSet
 import scala.collection.mutable.Clearable
 import scala.reflect.internal.util.ReusableInstance

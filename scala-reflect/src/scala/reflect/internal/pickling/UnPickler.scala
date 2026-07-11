@@ -15,6 +15,8 @@ package reflect
 package internal
 package pickling
 
+import scala.language.`2.13`
+
 import java.io.IOException
 import java.lang.Float.intBitsToFloat
 import java.lang.Double.longBitsToDouble

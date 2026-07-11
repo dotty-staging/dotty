@@ -15,6 +15,8 @@ package reflect
 package internal
 package pickling
 
+import scala.language.`2.13`
+
 import scala.annotation.tailrec
 
 /** Variable length byte arrays, with methods for basic pickling and unpickling.

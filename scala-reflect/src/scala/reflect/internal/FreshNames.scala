@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import scala.reflect.internal.util.FreshNameCreator
 import scala.util.matching.Regex
 

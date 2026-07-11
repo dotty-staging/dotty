@@ -13,6 +13,8 @@
 package scala
 package reflect
 
+import scala.language.`2.13`
+
 import scala.reflect.api.{Universe => ApiUniverse}
 
 /**

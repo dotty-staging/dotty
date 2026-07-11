@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 /** Additions to the type checker that can be added at
  *  run time.  Typically these are added by
  *  compiler plugins. */

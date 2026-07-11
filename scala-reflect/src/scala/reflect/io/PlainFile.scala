@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.nio.ByteBuffer
 import java.nio.file.StandardOpenOption
 import java.util

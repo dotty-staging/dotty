@@ -13,6 +13,8 @@
 package scala.reflect
 package runtime
 
+import scala.language.`2.13`
+
 import java.lang.Thread.currentThread
 import java.util.Collections.synchronizedMap
 import java.util.{WeakHashMap => jWeakHashMap}

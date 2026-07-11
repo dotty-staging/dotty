@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 // Flags at each index of a flags Long.  Those marked with /M are used in
 // Parsers/JavaParsers and therefore definitely appear on Modifiers; but the
 // absence of /M on the other flags does not imply they aren't.

@@ -14,6 +14,8 @@ package scala
 package reflect
 package io
 
+import scala.language.`2.13`
+
 import java.net.URL
 import java.io.{BufferedInputStream, InputStream}
 import java.io.{BufferedReader, InputStreamReader, Closeable => JCloseable}

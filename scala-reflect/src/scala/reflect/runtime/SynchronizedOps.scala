@@ -14,6 +14,8 @@ package scala
 package reflect
 package runtime
 
+import scala.language.`2.13`
+
 // scala/bug#6240: test thread-safety, make trees synchronized as well
 private[reflect] trait SynchronizedOps extends internal.SymbolTable
                          with SynchronizedSymbols

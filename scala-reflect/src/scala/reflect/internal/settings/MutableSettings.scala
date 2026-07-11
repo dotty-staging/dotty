@@ -16,6 +16,8 @@ package scala
 package reflect.internal
 package settings
 
+import scala.language.`2.13`
+
 import scala.reflect.internal.util.StatisticsStatics
 
 /** A mutable Settings object.

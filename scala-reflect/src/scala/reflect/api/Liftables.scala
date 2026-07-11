@@ -14,6 +14,8 @@ package scala
 package reflect
 package api
 
+import scala.language.`2.13`
+
 trait Liftables { self: Universe =>
 
   /** A type class that defines a representation of `T` as a `Tree`.

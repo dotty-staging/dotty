@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.util
 
+import scala.language.`2.13`
+
 import java.lang.ref.{ReferenceQueue, WeakReference}
 
 import scala.annotation.tailrec

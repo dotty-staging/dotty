@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.util
 
+import scala.language.`2.13`
+
 import scala.reflect.ClassTag
 import scala.collection.AbstractIterator
 import scala.collection.{immutable, mutable}

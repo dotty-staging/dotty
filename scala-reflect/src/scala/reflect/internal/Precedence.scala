@@ -12,6 +12,8 @@
 
 package scala.reflect.internal
 
+import scala.language.`2.13`
+
 import scala.annotation.switch
 import Chars.{CodePoint, isOperatorPart, isScalaLetter}
 

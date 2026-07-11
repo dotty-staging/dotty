@@ -15,6 +15,8 @@ package reflect
 package internal
 package util
 
+import scala.language.`2.13`
+
 /** @inheritdoc */
 class Position extends macros.EmptyAttachments with api.Position with InternalPositionImpl with DeprecatedPosition {
   type Pos = Position

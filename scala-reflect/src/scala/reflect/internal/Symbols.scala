@@ -18,6 +18,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import scala.annotation.tailrec
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.reflect.io.{AbstractFile, NoAbstractFile}

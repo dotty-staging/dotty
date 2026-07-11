@@ -14,6 +14,8 @@ package scala
 package reflect
 package api
 
+import scala.language.`2.13`
+
 /**
  * <span class="badge badge-red" style="float: right;">EXPERIMENTAL</span>
  *

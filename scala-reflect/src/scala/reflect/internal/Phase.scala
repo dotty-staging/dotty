@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 abstract class Phase(val prev: Phase) extends Ordered[Phase] {
   if ((prev ne null) && (prev ne NoPhase))
     prev.nx = this

@@ -12,6 +12,8 @@
 
 package scala.reflect.internal
 
+import scala.language.`2.13`
+
 package object annotations {
   @deprecated("use scala.annotation.compileTimeOnly instead", "2.11.0")
   type compileTimeOnly = scala.annotation.compileTimeOnly

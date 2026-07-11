@@ -16,6 +16,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import java.io.{OutputStream, PrintWriter, Writer}
 
 import Flags._

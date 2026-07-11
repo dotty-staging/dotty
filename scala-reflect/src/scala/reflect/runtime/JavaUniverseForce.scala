@@ -14,6 +14,8 @@
 package scala.reflect
 package runtime
 
+import scala.language.`2.13`
+
 import scala.annotation.nowarn
 
 @nowarn("cat=deprecation&origin=scala\\.reflect\\.internal\\.Internals\\.compat")

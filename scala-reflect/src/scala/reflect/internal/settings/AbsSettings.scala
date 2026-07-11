@@ -14,6 +14,8 @@ package scala
 package reflect.internal
 package settings
 
+import scala.language.`2.13`
+
 /** Abstract settings, which is refined for `reflect` and `nsc`.
  */
 trait AbsSettings {

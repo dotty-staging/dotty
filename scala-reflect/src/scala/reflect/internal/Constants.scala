@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import scala.annotation.{nowarn, switch}
 
 trait Constants extends api.Constants {

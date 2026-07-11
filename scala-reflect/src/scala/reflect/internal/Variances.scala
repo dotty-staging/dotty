@@ -14,6 +14,8 @@ package scala
 package reflect
 package internal
 
+import scala.language.`2.13`
+
 import Variance._
 import scala.annotation.tailrec
 import scala.reflect.internal.util.ReusableInstance

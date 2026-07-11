@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.util
 
+import scala.language.`2.13`
+
 import scala.reflect.io.{AbstractFile, VirtualFile}
 import scala.collection.mutable.ArrayBuilder
 import scala.annotation.tailrec

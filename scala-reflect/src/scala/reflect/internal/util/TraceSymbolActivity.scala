@@ -14,6 +14,8 @@ package scala
 package reflect.internal
 package util
 
+import scala.language.`2.13`
+
 import scala.collection.mutable
 
 trait TraceSymbolActivity {

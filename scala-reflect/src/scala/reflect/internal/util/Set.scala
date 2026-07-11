@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.util
 
+import scala.language.`2.13`
+
 /** A common class for lightweight sets.
  */
 abstract class Set[T <: AnyRef] {

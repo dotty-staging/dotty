@@ -15,6 +15,8 @@ package reflect
 package internal
 package util
 
+import scala.language.`2.13`
+
 import java.lang.System.{lineSeparator => EOL}
 
 /** This object provides utility methods to extract elements

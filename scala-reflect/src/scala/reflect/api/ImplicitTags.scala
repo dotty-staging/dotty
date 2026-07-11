@@ -14,6 +14,8 @@ package scala
 package reflect
 package api
 
+import scala.language.`2.13`
+
 import scala.annotation.nowarn
 
 /** Tags which preserve the identity of abstract types in the face of erasure.

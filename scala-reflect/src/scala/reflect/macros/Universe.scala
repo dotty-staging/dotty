@@ -14,6 +14,8 @@ package scala
 package reflect
 package macros
 
+import scala.language.`2.13`
+
 import scala.language.implicitConversions
 
 /**

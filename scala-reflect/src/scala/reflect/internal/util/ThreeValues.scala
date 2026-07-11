@@ -13,6 +13,8 @@
 package scala
 package reflect.internal.util
 
+import scala.language.`2.13`
+
 /** A simple three value type for booleans with an unknown value */
 object ThreeValues {
 

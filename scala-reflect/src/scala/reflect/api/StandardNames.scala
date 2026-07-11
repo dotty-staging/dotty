@@ -14,6 +14,8 @@ package scala
 package reflect
 package api
 
+import scala.language.`2.13`
+
 // Q: I have a pretty name. Can I put it here?
 // A: Is it necessary to construct trees (like EMPTY or WILDCARD_STAR)? If yes, then sure.
 //    Is it necessary to perform reflection (like ERROR or LOCAL_SUFFIX_STRING)? If yes, then sure.

@@ -13,6 +13,8 @@
 package scala.reflect
 package runtime
 
+import scala.language.`2.13`
+
 private[reflect] trait Gil {
   self: SymbolTable =>
 
