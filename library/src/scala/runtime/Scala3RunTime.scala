@@ -30,4 +30,17 @@ object Scala3RunTime:
    */
   def nnFail(): Nothing =
     throw new NullPointerException("tried to cast away nullability, but value is null")
+
+  /** The last element of a non-empty range with the given parameters, i.e.
+   *  `Range#lastElement`.
+   *
+   *  Called by the compiler's `rangeForeachOpt` phase when it inlines
+   *  `Range#foreach` and the step is not statically known. Extracted to
+   *  minimize the bytecode size at call site; the body is the same
+   *  `Range.lastElementOf` that the `Range` constructor inlines.
+   *
+   *  precondition: `step != 0` and the range is non-empty.
+   */
+  def rangeLastElement(start: Int, end: Int, step: Int, isInclusive: Boolean): Int =
+    scala.collection.immutable.Range.lastElementOf(start, end, step, isInclusive)
 end Scala3RunTime

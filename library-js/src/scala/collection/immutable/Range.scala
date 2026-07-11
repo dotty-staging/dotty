@@ -576,6 +576,41 @@ object Range {
   def count(start: Int, end: Int, step: Int): Int =
     count(start, end, step, isInclusive = false)
 
+  /** The number of elements of a range with the given parameters, interpreted
+   *  in `[1, 2^32]` with modular arithmetics wrt. the unsigned interpretation.
+   *
+   *  precondition: `step != 0`; the result is only meaningful for non-empty ranges.
+   *
+   *  Kept identical to the JVM library's `Range.numRangeElementsOf`; on this
+   *  Scala.js variant of `Range` it exists for [[lastElementOf]] only — the
+   *  class computes its fields with an equivalent historical formula.
+   */
+  private[scala] inline def numRangeElementsOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+    val stepSign = step >> 31 // if (step >= 0) 0 else -1
+    val gap = ((end - start) ^ stepSign) - stepSign // if (step >= 0) (end - start) else -(end - start)
+    val absStep = (step ^ stepSign) - stepSign // if (step >= 0) step else -step
+
+    val div = Integer.divideUnsigned(gap, absStep)
+    if (isInclusive || (absStep * div != gap)) div + 1 else div
+  }
+
+  /** The last element of a non-empty range with the given parameters, i.e.
+   *  the value of this class's `lastElement` field.
+   *
+   *  precondition: `step != 0` and the range is non-empty.
+   *
+   *  Kept identical to the JVM library's `Range.lastElementOf`, which
+   *  `Scala3RunTime.rangeLastElement` — emitted by the compiler's
+   *  `rangeForeachOpt` phase — calls; it computes the same value as this
+   *  class's `lastElement` field.
+   */
+  private[scala] inline def lastElementOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+    if (((step + 1) & ~2) == 0) // step == 1 || step == -1
+      (if (isInclusive) end else end - step)
+    else
+      start + (step * (numRangeElementsOf(start, end, step, isInclusive) - 1))
+  }
+
   /** Makes a range from `start` until `end` (exclusive) with given step value.
    *  @note step != 0
    *

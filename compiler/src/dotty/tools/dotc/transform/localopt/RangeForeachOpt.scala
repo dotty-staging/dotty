@@ -33,9 +33,9 @@ import scala.collection.mutable.ListBuffer
  *  if step == 0 then                           // constructor statement, Range.scala:98
  *    throw new IllegalArgumentException("step cannot be 0.")
  *  <evaluate f>                                // the foreach argument, evaluated after the receiver
- *  if <isEmpty> then ()                        // Range#foreach, Range.scala:257-268, where
+ *  if <isEmpty> then ()                        // Range#foreach (Range.scala:221-232), where
  *  else                                        // `if (!isEmpty)` has its branches swapped
- *    val lastElement = ...                     // Range#lastElement, Range.scala:165-185
+ *    val lastElement = ...                     // Range#lastElement, i.e. Range.lastElementOf
  *    var i = start
  *    while { f(i); i != lastElement } do       // `while (true) { f(i); if (i == lastElement) return; i += step }`
  *      i = i + step                            // with the `return` expressed as a do-while condition
@@ -74,8 +74,8 @@ class RangeForeachOpt extends MiniPhase:
 
   /** A range receiver built in place from start, end, optional step and inclusiveness.
    *  Which factory produced it only matters through these four values:
-   *  `Range.apply` is `new Range.Exclusive(start, end, step | 1)` (Range.scala:645/653),
-   *  `Range.inclusive` is `new Range.Inclusive(start, end, step | 1)` (Range.scala:663/671),
+   *  `Range.apply` is `new Range.Exclusive(start, end, step | 1)` (Range.scala:671/679),
+   *  `Range.inclusive` is `new Range.Inclusive(start, end, step | 1)` (Range.scala:689/697),
    *  and `RichInt#to`/`RichInt#until` delegate to those (RichInt.scala:63-87).
    */
   private case class StaticRange(start: Tree, end: Tree, step: Option[Tree], isInclusive: Boolean)
@@ -111,7 +111,7 @@ class RangeForeachOpt extends MiniPhase:
       else if sym == defn.Range_by then
         args match
           case st :: Nil =>
-            // Range#by is `copy(start, end, step)` (Range.scala:222-231): same bounds and
+            // Range#by is `copy(start, end, step)` (Range.scala:186-195): same bounds and
             // inclusiveness, only the step replaced. It is accepted here only on step-less
             // inner ranges, whose implicit step 1 statically passes the inner constructor's
             // zero-step check (Range.scala:98); an explicit inner step would need that
@@ -136,7 +136,6 @@ class RangeForeachOpt extends MiniPhase:
         if op == defn.Int_+ then Constant(x + y)
         else if op == defn.Int_- then Constant(x - y)
         else if op == defn.Int_* then Constant(x * y)
-        else if op == defn.Int_& then Constant(x & y)
         else if op == defn.Int_^ then Constant(x ^ y)
         else if op == defn.Int_>> then Constant(x >> y)
         else if op == defn.Int_== then Constant(x == y)
@@ -194,7 +193,7 @@ class RangeForeachOpt extends MiniPhase:
     // The factory arguments, evaluated left to right, exactly as the
     // `Range.apply(start, end, step)` / `intWrapper(start).to(end).by(step)`
     // call chain would evaluate them. The step-less factories construct the
-    // range with step 1 (Range.scala:653/671, RichInt.scala:63/79).
+    // range with step 1 (Range.scala:679/697, RichInt.scala:63/79).
     val start = bindTo(stats)("start", range.start)
     val end = bindTo(stats)("end", range.end)
     val step = range.step match
@@ -227,18 +226,19 @@ class RangeForeachOpt extends MiniPhase:
       intBinop(start, if range.isInclusive then defn.Int_> else defn.Int_>=, end),
       intBinop(start, if range.isInclusive then defn.Int_< else defn.Int_<=, end))
 
-    // Constructor val `lastElement`, Range.scala:165-185. In the library it is
+    // Constructor val `lastElement` (Range.scala:149), whose implementation is
+    // `Range.lastElementOf` (Range.scala:640-666). In the library it is
     // computed eagerly, but it is pure and only meaningful for non-empty
     // ranges, so it is emitted on the non-empty path only (its `defs` join the
     // loop prelude):
     //   if (((step + 1) & ~2) == 0)  // `step == 1 || step == -1`
     //     (if (isInclusive) end else end - step)
     //   else
-    //     locationAfterN(numRangeElements - 1)
-    def stepIsPlusMinusOneLast: Tree = // Range.scala:182
+    //     start + (step * (numRangeElementsOf(start, end, step, isInclusive) - 1))
+    def stepIsPlusMinusOneLast: Tree = // the `if (isInclusive) end else end - step` arm
       if range.isInclusive then end else intBinop(end, defn.Int_-, step)
     def generalLast(defs: ListBuffer[Tree]): Tree =
-      // Constructor val `numRangeElements`, Range.scala:112-128, keeping the
+      // `Range.numRangeElementsOf` (Range.scala:612-630), keeping the
       // library's val names:
       //   val stepSign = step >> 31
       //   val gap = ((end - start) ^ stepSign) - stepSign
@@ -257,7 +257,7 @@ class RangeForeachOpt extends MiniPhase:
           intBinop(intBinop(absStep, defn.Int_*, div), defn.Int_!=, gap),
           intBinop(div, defn.Int_+, lit(1)),
           div)
-      // `locationAfterN(numRangeElements - 1)`, Range.scala:146-158:
+      // `locationAfterN(numRangeElements - 1)` (Range.scala:130-142):
       //   private def locationAfterN(n: Int): Int = start + (step * n)
       intBinop(start, defn.Int_+, intBinop(step, defn.Int_*, intBinop(numRangeElements, defn.Int_-, lit(1))))
     def lastElementExpr(defs: ListBuffer[Tree]): Tree = step match
@@ -266,15 +266,14 @@ class RangeForeachOpt extends MiniPhase:
       case _: Literal =>
         generalLast(defs)
       case _ =>
-        // runtime step: keep the library's branch, with the general arm's vals local to it
-        val genDefs = ListBuffer.empty[Tree]
-        val gen = generalLast(genDefs)
-        mkIf(
-          intBinop(intBinop(intBinop(step, defn.Int_+, lit(1)), defn.Int_&, lit(~2)), defn.Int_==, lit(0)),
-          stepIsPlusMinusOneLast,
-          Block(genDefs.toList, gen))
+        // Runtime step: emitting both branches inline would be a lot of
+        // bytecode, so call `Scala3RunTime.rangeLastElement`, whose body is
+        // the same `Range.lastElementOf` that `Range#lastElement` inlines.
+        ref(defn.Scala3RunTime_rangeLastElement)
+          .appliedTo(start, end, step, Literal(Constant(range.isInclusive)))
+          .withSpan(span)
 
-    // `Range#foreach`, Range.scala:257-268:
+    // `Range#foreach`, Range.scala:221-232:
     //   if (!isEmpty) {
     //     var i = start
     //     while (true) {

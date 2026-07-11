@@ -573,6 +573,8 @@ class Definitions {
     @tu lazy val RichInt_untilWithStep: Symbol = RichIntClass.requiredMethod("until", List(IntType, IntType))
   @tu lazy val LowPriorityImplicits_intWrapper: Symbol =
     requiredClass("scala.LowPriorityImplicits").requiredMethod("intWrapper")
+  @tu lazy val Scala3RunTimeModule: Symbol = requiredModule("scala.runtime.Scala3RunTime")
+    @tu lazy val Scala3RunTime_rangeLastElement: Symbol = Scala3RunTimeModule.requiredMethod("rangeLastElement")
 
   @tu lazy val PreciseClass: ClassSymbol = requiredClass("scala.Precise")
 
@@ -659,7 +661,6 @@ class Definitions {
     @tu lazy val Int_>  : Symbol = IntClass.requiredMethod(nme.GT, List(IntType))
     @tu lazy val Int_<  : Symbol = IntClass.requiredMethod(nme.LT, List(IntType))
     @tu lazy val Int_!= : Symbol = IntClass.requiredMethod(nme.NE, List(IntType))
-    @tu lazy val Int_&  : Symbol = IntClass.requiredMethod(nme.AND, List(IntType))
     @tu lazy val Int_^  : Symbol = IntClass.requiredMethod(nme.UPARROW, List(IntType))
     @tu lazy val Int_>> : Symbol = IntClass.requiredMethod(nme.ASR, List(IntType))
   @tu lazy val LongType: TypeRef = valueTypeRef("scala.Long", java.lang.Long.TYPE, LongEnc, nme.specializedTypeNames.Long)

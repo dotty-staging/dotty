@@ -109,23 +109,7 @@ sealed abstract class Range(
    *  This interpretation allows to represent all values with the correct
    *  modular arithmetics, which streamlines the usage sites.
    */
-  private val numRangeElements: Int = {
-    val stepSign = step >> 31 // if (step >= 0) 0 else -1
-    val gap = ((end - start) ^ stepSign) - stepSign // if (step >= 0) (end - start) else -(end - start)
-    val absStep = (step ^ stepSign) - stepSign // if (step >= 0) step else -step
-
-    /* If `absStep` is a constant 1, `div` collapses to being an alias of
-     * `gap`. Then `absStep * div` also collapses to `gap` and therefore
-     * `absStep * div != gap` constant-folds to `false`.
-     *
-     * Since most ranges are exclusive, that makes `numRangeElements` an alias
-     * of `gap`. Moreover, for exclusive ranges with step 1 and start 0 (which
-     * are the common case), it makes it an alias of `end` and the entire
-     * computation goes away.
-     */
-    val div = Integer.divideUnsigned(gap, absStep)
-    if (isInclusive || (absStep * div != gap)) div + 1 else div
-  }
+  private val numRangeElements: Int = Range.numRangeElementsOf(start, end, step, isInclusive)
 
   final def length: Int =
     if (isEmpty) 0
@@ -162,27 +146,7 @@ sealed abstract class Range(
    *
    *  For empty ranges, this value is nonsensical.
    */
-  private val lastElement: Int = {
-    /* Since we can assume the range is non-empty, `(numRangeElements - 1)`
-     * is a valid unsigned value in the full int range. The general formula is
-     * therefore `locationAfterN(numRangeElements - 1)`.
-     *
-     * We special-case 1 and -1 so that, in the happy path where `step` is a
-     * constant 1 or -1, and we only use `foreach`, `numRangeElements` is dead
-     * code.
-     *
-     * When `step` is not constant, it is probably 1 or -1 anyway, so the
-     * single branch should be predictably true.
-     *
-     * `step == 1 || step == -1`
-     *   equiv `(step + 1 == 2) || (step + 1 == 0)`
-     *   equiv `((step + 1) & ~2) == 0`
-     */
-    if (((step + 1) & ~2) == 0)
-      (if (isInclusive) end else end - step)
-    else
-      locationAfterN(numRangeElements - 1)
-  }
+  private val lastElement: Int = Range.lastElementOf(start, end, step, isInclusive)
 
   /** The last element of this range.  This method will return the correct value
    *  even if there are too many elements to iterate over.
@@ -633,6 +597,68 @@ object Range {
   }
   def count(start: Int, end: Int, step: Int): Int =
     count(start, end, step, isInclusive = false)
+
+  /** The value of `Range#numRangeElements` for a range with the given parameters.
+   *
+   *  precondition: `step != 0`.
+   *
+   *  If the range is empty, the result does not have a meaningful value; see
+   *  `Range#numRangeElements` for how it is interpreted otherwise.
+   *
+   *  This is `inline` so that the single implementation is shared by the
+   *  `Range` constructor and by [[lastElementOf]] (and, through the latter,
+   *  by the compiler's `rangeForeachOpt` phase).
+   */
+  private[scala] inline def numRangeElementsOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+    val stepSign = step >> 31 // if (step >= 0) 0 else -1
+    val gap = ((end - start) ^ stepSign) - stepSign // if (step >= 0) (end - start) else -(end - start)
+    val absStep = (step ^ stepSign) - stepSign // if (step >= 0) step else -step
+
+    /* If `absStep` is a constant 1, `div` collapses to being an alias of
+     * `gap`. Then `absStep * div` also collapses to `gap` and therefore
+     * `absStep * div != gap` constant-folds to `false`.
+     *
+     * Since most ranges are exclusive, that makes `numRangeElements` an alias
+     * of `gap`. Moreover, for exclusive ranges with step 1 and start 0 (which
+     * are the common case), it makes it an alias of `end` and the entire
+     * computation goes away.
+     */
+    val div = Integer.divideUnsigned(gap, absStep)
+    if (isInclusive || (absStep * div != gap)) div + 1 else div
+  }
+
+  /** The value of `Range#lastElement` for a range with the given parameters:
+   *  the last element of the range, assuming it is non-empty.
+   *
+   *  precondition: `step != 0` and the range is non-empty.
+   *
+   *  This is `inline` so that the single implementation is shared by the
+   *  `Range` constructor and by `Scala3RunTime.rangeLastElement`, which the
+   *  compiler's `rangeForeachOpt` phase calls when it inlines `foreach` on a
+   *  range whose step is not statically known.
+   */
+  private[scala] inline def lastElementOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+    /* Since we can assume the range is non-empty, `(numRangeElementsOf - 1)`
+     * is a valid unsigned value in the full int range. The general formula is
+     * therefore `start + (step * (numRangeElementsOf - 1))`, which is
+     * `locationAfterN(numRangeElements - 1)` in `Range`'s terms.
+     *
+     * We special-case 1 and -1 so that, in the happy path where `step` is a
+     * constant 1 or -1, and we only use `foreach`, `numRangeElementsOf` is
+     * dead code.
+     *
+     * When `step` is not constant, it is probably 1 or -1 anyway, so the
+     * single branch should be predictably true.
+     *
+     * `step == 1 || step == -1`
+     *   equiv `(step + 1 == 2) || (step + 1 == 0)`
+     *   equiv `((step + 1) & ~2) == 0`
+     */
+    if (((step + 1) & ~2) == 0)
+      (if (isInclusive) end else end - step)
+    else
+      start + (step * (numRangeElementsOf(start, end, step, isInclusive) - 1))
+  }
 
   /** Makes a range from `start` until `end` (exclusive) with given step value.
    *  @note step != 0
