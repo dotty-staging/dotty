@@ -10,6 +10,8 @@ import scala.collection.immutable.{SeqSet, VectorSet}
   // incl appends new elements, keeps the position of existing ones
   assert((s + 7).toList == List(3, 1, 4, 5, 9, 2, 6, 7))
   assert((s + 4).toList == s.toList)
+  // incl on empty set
+  assert((VectorSet.empty[Int] + 1).toList == List(1))
 
   // excl preserves the order of the remaining elements
   assert((s - 4).toList == List(3, 1, 5, 9, 2, 6))
@@ -36,6 +38,10 @@ import scala.collection.immutable.{SeqSet, VectorSet}
   assert(ss.isInstanceOf[VectorSet[?]])
   assert(SeqSet.empty[Int].isEmpty)
   assert(SeqSet.from(List(2, 1)).toList == List(2, 1))
+  // SeqSet.from with a SeqSet returns the same instance
+  val ss2: SeqSet[Int] = SeqSet(1, 2)
+  val ss3 = SeqSet.from(ss2)
+  assert(ss2 eq ss3, "SeqSet.from(SeqSet) should return the same instance")
 
   // builder deduplicates while preserving first-seen order
   val b = VectorSet.newBuilder[Int]
@@ -44,7 +50,36 @@ import scala.collection.immutable.{SeqSet, VectorSet}
 
   // empty cases
   assert(VectorSet.empty[Int].toList == Nil)
+  assert(VectorSet.empty[Int].knownSize == 0)
   assert((VectorSet(1) - 1).isEmpty)
+
+  // tail/init on empty set throw UnsupportedOperationException
+  assert {
+    var caught = false
+    try { VectorSet.empty[Int].tail; assert(false) }
+    catch case _: UnsupportedOperationException => caught = true
+    caught
+  }
+  assert {
+    var caught = false
+    try { VectorSet.empty[Int].init; assert(false) }
+    catch case _: UnsupportedOperationException => caught = true
+    caught
+  }
+
+  // from when given a VectorSet directly returns the same instance
+  val vs1 = VectorSet(1, 2, 3)
+  val vs2 = VectorSet.from(vs1)
+  assert(vs1 eq vs2, "VectorSet.from(VectorSet) should return the same instance")
+
+  // from with empty Iterable returns empty
+  val vs3 = VectorSet.from(List.empty[Int])
+  assert(vs3.isEmpty)
+
+  // builder clear and result on empty builder
+  val b2 = VectorSet.newBuilder[Int]
+  b2.clear()
+  assert(b2.result().isEmpty)
 
   // larger set exercises the underlying vector/tombstone machinery
   val big = VectorSet.from(1 to 100)
