@@ -576,6 +576,18 @@ object Range {
   def count(start: Int, end: Int, step: Int): Int =
     count(start, end, step, isInclusive = false)
 
+  /** Whether a range with the given parameters is empty.
+   *
+   *  Kept identical to the JVM library's `Range.isEmptyOf`, which the
+   *  compiler's `rangeForeachOpt` phase interprets by inlining; it computes
+   *  the same value as this class's `isEmpty` field.
+   */
+  private[scala] inline def isEmptyOf(inline start: Int, inline end: Int, inline step: Int, inline isInclusive: Boolean): Boolean =
+    if (isInclusive)
+      (if (step >= 0) start > end else start < end)
+    else
+      (if (step >= 0) start >= end else start <= end)
+
   /** The number of elements of a range with the given parameters, interpreted
    *  in `[1, 2^32]` with modular arithmetics wrt. the unsigned interpretation.
    *
@@ -585,7 +597,7 @@ object Range {
    *  Scala.js variant of `Range` it exists for [[lastElementOf]] only — the
    *  class computes its fields with an equivalent historical formula.
    */
-  private[scala] inline def numRangeElementsOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+  private[scala] inline def numRangeElementsOf(inline start: Int, inline end: Int, inline step: Int, inline isInclusive: Boolean): Int = {
     val stepSign = step >> 31 // if (step >= 0) 0 else -1
     val gap = ((end - start) ^ stepSign) - stepSign // if (step >= 0) (end - start) else -(end - start)
     val absStep = (step ^ stepSign) - stepSign // if (step >= 0) step else -step
@@ -604,7 +616,7 @@ object Range {
    *  `rangeForeachOpt` phase — calls; it computes the same value as this
    *  class's `lastElement` field.
    */
-  private[scala] inline def lastElementOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+  private[scala] inline def lastElementOf(inline start: Int, inline end: Int, inline step: Int, inline isInclusive: Boolean): Int = {
     if (((step + 1) & ~2) == 0) // step == 1 || step == -1
       (if (isInclusive) end else end - step)
     else

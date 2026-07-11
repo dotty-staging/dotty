@@ -2,22 +2,23 @@ package dotty.tools.dotc
 package transform.localopt
 
 import dotty.tools.dotc.ast.tpd
-import dotty.tools.dotc.core.Constants.{Constant, IntTag, BooleanTag}
+import dotty.tools.dotc.core.Constants.Constant
 import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Decorators.*
 import dotty.tools.dotc.core.Flags.Mutable
 import dotty.tools.dotc.core.NameKinds.UniqueName
 import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.Symbols.*
+import dotty.tools.dotc.inlines.Inlines
 import dotty.tools.dotc.transform.BetaReduce
 import dotty.tools.dotc.transform.MegaPhase.MiniPhase
 
 import scala.collection.mutable.ListBuffer
 
 /** Rewrites `foreach` calls on ranges built directly from one of the standard
- *  factories into the result of inlining the library code by hand, so that
- *  neither the `Range` nor (for function literals) the function value is
- *  allocated. The recognized receiver shapes are
+ *  factories into the result of inlining the library code, so that neither
+ *  the `Range` nor (for function literals) the function value is allocated.
+ *  The recognized receiver shapes are
  *
  *   - `Range(s, e)`, `Range(s, e, st)`, `Range.inclusive(s, e)`, `Range.inclusive(s, e, st)`
  *   - `s to e`, `s.to(e, st)`, `s until e`, `s.until(e, st)`
@@ -41,12 +42,18 @@ import scala.collection.mutable.ListBuffer
  *      i = i + step                            // with the `return` expressed as a do-while condition
  *  }}}
  *
- *  Each helper below reproduces one member of `Range`; where `Range.scala`
- *  reads a constructor parameter or `isInclusive`, the corresponding
- *  compile-time constant (literal tree or the matched factory's
- *  inclusiveness) is substituted, and the arithmetic is constant-folded when
- *  its operands are literals — e.g. `(1 to 10).foreach(f)` needs no
- *  `lastElement` computation at all, only `while { f(i); i != 10 } do i += 1`.
+ *  `<isEmpty>` and `<lastElement>` are not reproduced by hand: this phase
+ *  synthesizes calls to the `private[scala] inline` methods `Range.isEmptyOf`
+ *  and `Range.lastElementOf` — the single implementations that the `Range`
+ *  constructor itself uses — and interprets them by running the inliner on
+ *  them ([[interpreted]]). For statically known arguments the expansion
+ *  constant-folds away (`InlineTyper` reduces `if`s with constant conditions),
+ *  so e.g. `(1 to 10).foreach(f)` needs no computation at all, only
+ *  `while { f(i); i != 10 } do i += 1`, while `(a until b).foreach(f)`
+ *  reduces `lastElement` to `b - 1`. When the step is not statically known,
+ *  inlining `lastElementOf`'s unsigned arithmetic would be a lot of bytecode,
+ *  so the call goes to `Scala3RunTime.rangeLastElement` instead, whose body
+ *  is that same inline method.
  *
  *  Correctness notes:
  *   - `isEmpty`, `numRangeElements` and `lastElement` are eager constructor
@@ -123,57 +130,48 @@ class RangeForeachOpt extends MiniPhase:
       else None
     case _ => None
 
-  /** An `Int` binary primitive, constant-folded when both sides are literals
-   *  (so that the library formulas below collapse for literal ranges), with
-   *  `x + 0`, `x - 0` and `x ^ 0` simplified to `x` (arising when a literal
-   *  step makes `stepSign` fold to 0).
+  /** Interpret a call to one of the `Range` companion's `private[scala] inline`
+   *  methods, by synthesizing the call and running the actual inliner on it.
+   *  The methods take `inline` parameters, so constant arguments are
+   *  substituted into the expansion with their constant types, where the
+   *  inline typer folds the arithmetic and selects `if` branches; for fully
+   *  static arguments the library method is thereby evaluated at compile
+   *  time and a plain literal is returned. Otherwise the residue is the
+   *  library's own code, kept under its `Inlined` node (which accounts for
+   *  the expansion's foreign source positions).
    */
-  private def intBinop(l: Tree, op: Symbol, r: Tree)(using Context): Tree = (l, r) match
-    case (Literal(a), Literal(b)) if a.tag == IntTag && b.tag == IntTag =>
-      val x = a.intValue
-      val y = b.intValue
-      val folded =
-        if op == defn.Int_+ then Constant(x + y)
-        else if op == defn.Int_- then Constant(x - y)
-        else if op == defn.Int_* then Constant(x * y)
-        else if op == defn.Int_^ then Constant(x ^ y)
-        else if op == defn.Int_>> then Constant(x >> y)
-        else if op == defn.Int_== then Constant(x == y)
-        else if op == defn.Int_!= then Constant(x != y)
-        else if op == defn.Int_> then Constant(x > y)
-        else if op == defn.Int_< then Constant(x < y)
-        else if op == defn.Int_>= then Constant(x >= y)
-        else if op == defn.Int_<= then Constant(x <= y)
-        else return l.select(op).appliedTo(r)
-      Literal(folded).withSpan(l.span)
-    case (_, Literal(b)) if b.tag == IntTag && b.intValue == 0
-        && (op == defn.Int_+ || op == defn.Int_- || op == defn.Int_^) =>
-      l
-    case _ =>
-      l.select(op).appliedTo(r)
-
-  /** `java.lang.Integer.divideUnsigned`, constant-folded like [[intBinop]]. */
-  private def divideUnsigned(l: Tree, r: Tree)(using Context): Tree = (l, r) match
-    case (Literal(a), Literal(b)) if a.tag == IntTag && b.tag == IntTag =>
-      Literal(Constant(java.lang.Integer.divideUnsigned(a.intValue, b.intValue)))
-    case _ =>
-      ref(defn.Integer_divideUnsigned).appliedTo(l, r)
-
-  /** An `if`, with the branch selected at compile time for a literal condition. */
-  private def mkIf(cond: Tree, thenp: Tree, elsep: Tree)(using Context): Tree = cond match
-    case Literal(c) if c.tag == BooleanTag => if c.booleanValue then thenp else elsep
-    case _ => If(cond, thenp, elsep)
+  private def interpreted(method: Symbol, args: List[Tree], tree: Apply)(using Context): Tree =
+    // Past the typer and Inlining phases, `Inlines.needsInlining` is false, so
+    // the expansion does not automatically inline the inline calls it contains
+    // (`lastElementOf` calls `numRangeElementsOf`); expand them here instead.
+    val expandNested = new TreeMap:
+      override def transform(t: Tree)(using Context): Tree = t match
+        case t: Apply if Inlines.isInlineable(t.symbol) => transform(Inlines.inlineCall(t))
+        case _ => super.transform(t)
+    val expansion = expandNested.transform(
+      Inlines.inlineCall(ref(method).appliedToTermArgs(args).withSpan(tree.span)))
+    // A fully reduced expansion is a literal under pure wrappers (the inliner
+    // ascribes the method's declared result type, hiding the constant type):
+    // re-issue it as a plain literal belonging to this compilation unit.
+    stripped(expansion) match
+      case Literal(c) => Literal(c).withSpan(tree.span)
+      case _ => expansion
 
   private def rewrite(range: StaticRange, f: Tree, tree: Apply)(using Context): Tree =
     // A function argument that is not a `Function1` (e.g. a `null` literal) is left alone.
     if !f.tpe.widen.derivesFrom(defn.Function1) then return tree
+    // The library members this rewrite builds on may be absent when compiling
+    // against an older standard library; skip the optimization then.
+    if !defn.RangeModule_isEmptyOf.exists
+      || !defn.RangeModule_lastElementOf.exists
+      || !defn.Scala3RunTime_rangeLastElement.exists
+    then return tree
     range.step match
       case Some(Literal(st)) if st.intValue == 0 =>
         return tree // keep the original code and its constructor exception (Range.scala:98)
       case _ =>
 
     val span = tree.span
-    def lit(i: Int): Tree = Literal(Constant(i)).withSpan(span)
 
     // Evaluate a subexpression once and refer to it by name, like the
     // library's parameters and vals do. Literals and pure identifiers are
@@ -198,7 +196,8 @@ class RangeForeachOpt extends MiniPhase:
     val end = bindTo(stats)("end", range.end)
     val step = range.step match
       case Some(st) => bindTo(stats)("step", st)
-      case None => lit(1)
+      case None => Literal(Constant(1)).withSpan(span)
+    val isInclusive = Literal(Constant(range.isInclusive)).withSpan(span)
 
     // Constructor statement, Range.scala:98:
     //   if (step == 0) throw new IllegalArgumentException("step cannot be 0.")
@@ -209,69 +208,15 @@ class RangeForeachOpt extends MiniPhase:
         // TODO: we can introduce a method in `Scala3RunTime|Range` to check the step
         // and reduce bytecode size
         stats += If(
-          intBinop(step, defn.Int_==, lit(0)),
+          step.select(defn.Int_==).appliedTo(Literal(Constant(0))),
           Throw(New(defn.IllegalArgumentExceptionType, defn.IllegalArgumentExceptionClass_stringConstructor,
             Literal(Constant("step cannot be 0.")) :: Nil)),
           unitLiteral).withSpan(span)
 
-    // Constructor val `isEmpty`, Range.scala:91-96, with `isInclusive` known
-    // from the matched factory:
-    //   final override val isEmpty: Boolean = (
-    //     if (isInclusive)
-    //       (if (step >= 0) start > end else start < end)
-    //     else
-    //       (if (step >= 0) start >= end else start <= end))
-    val isEmpty = mkIf(
-      intBinop(step, defn.Int_>=, lit(0)),
-      intBinop(start, if range.isInclusive then defn.Int_> else defn.Int_>=, end),
-      intBinop(start, if range.isInclusive then defn.Int_< else defn.Int_<=, end))
-
-    // Constructor val `lastElement` (Range.scala:149), whose implementation is
-    // `Range.lastElementOf` (Range.scala:640-666). In the library it is
-    // computed eagerly, but it is pure and only meaningful for non-empty
-    // ranges, so it is emitted on the non-empty path only (its `defs` join the
-    // loop prelude):
-    //   if (((step + 1) & ~2) == 0)  // `step == 1 || step == -1`
-    //     (if (isInclusive) end else end - step)
-    //   else
-    //     start + (step * (numRangeElementsOf(start, end, step, isInclusive) - 1))
-    def stepIsPlusMinusOneLast: Tree = // the `if (isInclusive) end else end - step` arm
-      if range.isInclusive then end else intBinop(end, defn.Int_-, step)
-    def generalLast(defs: ListBuffer[Tree]): Tree =
-      // `Range.numRangeElementsOf` (Range.scala:612-630), keeping the
-      // library's val names:
-      //   val stepSign = step >> 31
-      //   val gap = ((end - start) ^ stepSign) - stepSign
-      //   val absStep = (step ^ stepSign) - stepSign
-      //   val div = Integer.divideUnsigned(gap, absStep)
-      //   if (isInclusive || (absStep * div != gap)) div + 1 else div
-      val stepSign = bindTo(defs)("stepSign", intBinop(step, defn.Int_>>, lit(31)))
-      val gap = bindTo(defs)("gap",
-        intBinop(intBinop(intBinop(end, defn.Int_-, start), defn.Int_^, stepSign), defn.Int_-, stepSign))
-      val absStep = bindTo(defs)("absStep",
-        intBinop(intBinop(step, defn.Int_^, stepSign), defn.Int_-, stepSign))
-      val div = bindTo(defs)("div", divideUnsigned(gap, absStep))
-      val numRangeElements =
-        if range.isInclusive then intBinop(div, defn.Int_+, lit(1))
-        else mkIf(
-          intBinop(intBinop(absStep, defn.Int_*, div), defn.Int_!=, gap),
-          intBinop(div, defn.Int_+, lit(1)),
-          div)
-      // `locationAfterN(numRangeElements - 1)` (Range.scala:130-142):
-      //   private def locationAfterN(n: Int): Int = start + (step * n)
-      intBinop(start, defn.Int_+, intBinop(step, defn.Int_*, intBinop(numRangeElements, defn.Int_-, lit(1))))
-    def lastElementExpr(defs: ListBuffer[Tree]): Tree = step match
-      case Literal(st) if st.intValue == 1 || st.intValue == -1 =>
-        stepIsPlusMinusOneLast // the `((step + 1) & ~2) == 0` test decided at compile time
-      case _: Literal =>
-        generalLast(defs)
-      case _ =>
-        // Runtime step: emitting both branches inline would be a lot of
-        // bytecode, so call `Scala3RunTime.rangeLastElement`, whose body is
-        // the same `Range.lastElementOf` that `Range#lastElement` inlines.
-        ref(defn.Scala3RunTime_rangeLastElement)
-          .appliedTo(start, end, step, Literal(Constant(range.isInclusive)))
-          .withSpan(span)
+    // Constructor val `isEmpty` (Range.scala:91), interpreted from its
+    // implementation `Range.isEmptyOf`: a constant for literal operands, a
+    // single comparison for a literal step, the full conditional otherwise.
+    val isEmpty = interpreted(defn.RangeModule_isEmptyOf, List(start, end, step, isInclusive), tree)
 
     // `Range#foreach`, Range.scala:221-232:
     //   if (!isEmpty) {
@@ -298,20 +243,33 @@ class RangeForeachOpt extends MiniPhase:
         if fv eq f then directCall
         else fv.select(nme.apply).appliedTo(iRef).withSpan(span)
 
+    // Constructor val `lastElement` (Range.scala:149), computed only on the
+    // non-empty path, where its value is meaningful. For a literal step its
+    // implementation `Range.lastElementOf` is interpreted like `isEmptyOf`
+    // above; for a runtime step the inlined unsigned arithmetic would be a
+    // lot of bytecode, so it is delegated to `Scala3RunTime.rangeLastElement`,
+    // whose body is that same inline method.
+    val lastElementExpr = step match
+      case _: Literal =>
+        interpreted(defn.RangeModule_lastElementOf, List(start, end, step, isInclusive), tree)
+      case _ =>
+        ref(defn.Scala3RunTime_rangeLastElement)
+          .appliedTo(start, end, step, isInclusive)
+          .withSpan(span)
+
     val loopPrelude = ListBuffer.empty[Tree]
-    val lastElement = bindTo(loopPrelude)("lastElement", lastElementExpr(loopPrelude))
+    val lastElement = bindTo(loopPrelude)("lastElement", lastElementExpr)
     loopPrelude += iDef
     val loop = WhileDo(
-      Block(call :: Nil, intBinop(iRef, defn.Int_!=, lastElement)),
-      Assign(iRef, intBinop(iRef, defn.Int_+, step)).withSpan(span)).withSpan(span)
+      Block(call :: Nil, iRef.select(defn.Int_!=).appliedTo(lastElement)),
+      Assign(iRef, iRef.select(defn.Int_+).appliedTo(step)).withSpan(span)).withSpan(span)
     val whenNonEmpty = Block(loopPrelude.toList, loop).withSpan(span)
 
-    // `if (!isEmpty) { ... }` with the branches swapped instead of negating.
+    // `if (!isEmpty) { ... }` with the branches swapped instead of negating,
+    // and decided at compile time when `isEmptyOf` reduced to a constant.
     val body = isEmpty match
-      case Literal(c) if c.tag == BooleanTag =>
-        if c.booleanValue then unitLiteral else whenNonEmpty
-      case cond =>
-        If(cond, unitLiteral, whenNonEmpty).withSpan(span)
+      case Literal(c) => if c.booleanValue then unitLiteral else whenNonEmpty
+      case cond => If(cond, unitLiteral, whenNonEmpty).withSpan(span)
 
     Block(stats.toList, body).withSpan(span)
   end rewrite

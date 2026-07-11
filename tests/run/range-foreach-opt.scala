@@ -47,6 +47,11 @@ object Test:
     check(identity(a to b by s))(f => (a to b by s).foreach(f))
     check(identity(a until b by s))(f => (a until b by s).foreach(f))
     check(identity(Range(b, a, -s)))(f => Range(b, a, -s).foreach(f))
+    // literal non-unit step with variable bounds: the general `lastElement`
+    // computation is inlined (nested inline calls expanded by the phase)
+    check(identity(0 until b by 2))(f => (0 until b by 2).foreach(f))
+    check(identity(a to b by 5))(f => (a to b by 5).foreach(f))
+    check(identity(b to a by -3))(f => (b to a by -3).foreach(f))
 
     // mutating captured operands mid-iteration must not affect the range
     locally {

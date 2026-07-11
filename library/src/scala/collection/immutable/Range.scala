@@ -88,12 +88,7 @@ sealed abstract class Range(
 
   def isInclusive: Boolean
 
-  final override val isEmpty: Boolean = (
-    if (isInclusive)
-      (if (step >= 0) start > end else start < end)
-    else
-      (if (step >= 0) start >= end else start <= end)
-  )
+  final override val isEmpty: Boolean = Range.isEmptyOf(start, end, step, isInclusive)
 
   if (step == 0) throw new IllegalArgumentException("step cannot be 0.")
 
@@ -598,6 +593,20 @@ object Range {
   def count(start: Int, end: Int, step: Int): Int =
     count(start, end, step, isInclusive = false)
 
+  /** Whether a range with the given parameters is empty.
+   *
+   *  This is `inline` so that the single implementation is shared by the
+   *  `Range` constructor and by the compiler's `rangeForeachOpt` phase, which
+   *  interprets it by inlining the call it synthesizes; the parameters are
+   *  `inline` so that statically known arguments constant-fold naturally,
+   *  reducing this to a constant or a single comparison.
+   */
+  private[scala] inline def isEmptyOf(inline start: Int, inline end: Int, inline step: Int, inline isInclusive: Boolean): Boolean =
+    if (isInclusive)
+      (if (step >= 0) start > end else start < end)
+    else
+      (if (step >= 0) start >= end else start <= end)
+
   /** The value of `Range#numRangeElements` for a range with the given parameters.
    *
    *  precondition: `step != 0`.
@@ -607,9 +616,10 @@ object Range {
    *
    *  This is `inline` so that the single implementation is shared by the
    *  `Range` constructor and by [[lastElementOf]] (and, through the latter,
-   *  by the compiler's `rangeForeachOpt` phase).
+   *  by the compiler's `rangeForeachOpt` phase); the parameters are `inline`
+   *  so that statically known arguments constant-fold naturally.
    */
-  private[scala] inline def numRangeElementsOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+  private[scala] inline def numRangeElementsOf(inline start: Int, inline end: Int, inline step: Int, inline isInclusive: Boolean): Int = {
     val stepSign = step >> 31 // if (step >= 0) 0 else -1
     val gap = ((end - start) ^ stepSign) - stepSign // if (step >= 0) (end - start) else -(end - start)
     val absStep = (step ^ stepSign) - stepSign // if (step >= 0) step else -step
@@ -635,9 +645,12 @@ object Range {
    *  This is `inline` so that the single implementation is shared by the
    *  `Range` constructor and by `Scala3RunTime.rangeLastElement`, which the
    *  compiler's `rangeForeachOpt` phase calls when it inlines `foreach` on a
-   *  range whose step is not statically known.
+   *  range whose step is not statically known; the parameters are `inline`
+   *  so that statically known arguments constant-fold naturally (in
+   *  particular, for a literal `step` the `((step + 1) & ~2) == 0` test below
+   *  is decided at compile time).
    */
-  private[scala] inline def lastElementOf(start: Int, end: Int, step: Int, isInclusive: Boolean): Int = {
+  private[scala] inline def lastElementOf(inline start: Int, inline end: Int, inline step: Int, inline isInclusive: Boolean): Int = {
     /* Since we can assume the range is non-empty, `(numRangeElementsOf - 1)`
      * is a valid unsigned value in the full int range. The general formula is
      * therefore `start + (step * (numRangeElementsOf - 1))`, which is

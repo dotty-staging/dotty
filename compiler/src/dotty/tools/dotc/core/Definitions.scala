@@ -566,6 +566,11 @@ class Definitions {
     @tu lazy val RangeModule_applyWithStep: Symbol     = RangeModule.requiredMethod(nme.apply, List(IntType, IntType, IntType))
     @tu lazy val RangeModule_inclusive: Symbol         = RangeModule.requiredMethod("inclusive", List(IntType, IntType))
     @tu lazy val RangeModule_inclusiveWithStep: Symbol = RangeModule.requiredMethod("inclusive", List(IntType, IntType, IntType))
+    // The three members below back the `rangeForeachOpt` phase; they are looked
+    // up optionally so that compiling against an older standard library that
+    // lacks them merely disables the optimization.
+    @tu lazy val RangeModule_isEmptyOf: Symbol         = RangeModule.info.decl("isEmptyOf".toTermName).symbol
+    @tu lazy val RangeModule_lastElementOf: Symbol     = RangeModule.info.decl("lastElementOf".toTermName).symbol
   @tu lazy val RichIntClass: ClassSymbol = requiredClass("scala.runtime.RichInt")
     @tu lazy val RichInt_to: Symbol            = RichIntClass.requiredMethod("to", List(IntType))
     @tu lazy val RichInt_toWithStep: Symbol    = RichIntClass.requiredMethod("to", List(IntType, IntType))
@@ -574,7 +579,7 @@ class Definitions {
   @tu lazy val LowPriorityImplicits_intWrapper: Symbol =
     requiredClass("scala.LowPriorityImplicits").requiredMethod("intWrapper")
   @tu lazy val Scala3RunTimeModule: Symbol = requiredModule("scala.runtime.Scala3RunTime")
-    @tu lazy val Scala3RunTime_rangeLastElement: Symbol = Scala3RunTimeModule.requiredMethod("rangeLastElement")
+    @tu lazy val Scala3RunTime_rangeLastElement: Symbol = Scala3RunTimeModule.info.decl("rangeLastElement".toTermName).symbol
 
   @tu lazy val PreciseClass: ClassSymbol = requiredClass("scala.Precise")
 
@@ -659,10 +664,7 @@ class Definitions {
     @tu lazy val Int_>= : Symbol = IntClass.requiredMethod(nme.GE, List(IntType))
     @tu lazy val Int_<= : Symbol = IntClass.requiredMethod(nme.LE, List(IntType))
     @tu lazy val Int_>  : Symbol = IntClass.requiredMethod(nme.GT, List(IntType))
-    @tu lazy val Int_<  : Symbol = IntClass.requiredMethod(nme.LT, List(IntType))
     @tu lazy val Int_!= : Symbol = IntClass.requiredMethod(nme.NE, List(IntType))
-    @tu lazy val Int_^  : Symbol = IntClass.requiredMethod(nme.UPARROW, List(IntType))
-    @tu lazy val Int_>> : Symbol = IntClass.requiredMethod(nme.ASR, List(IntType))
   @tu lazy val LongType: TypeRef = valueTypeRef("scala.Long", java.lang.Long.TYPE, LongEnc, nme.specializedTypeNames.Long)
   def LongClass(using Context): ClassSymbol = LongType.symbol.asClass
     @tu lazy val Long_+ : Symbol = LongClass.requiredMethod(nme.PLUS, List(LongType))
@@ -692,7 +694,6 @@ class Definitions {
   @tu lazy val BoxedShortModule  : TermSymbol = requiredModule("java.lang.Short")
   @tu lazy val BoxedCharModule   : TermSymbol = requiredModule("java.lang.Character")
   @tu lazy val BoxedIntModule    : TermSymbol = requiredModule("java.lang.Integer")
-    @tu lazy val Integer_divideUnsigned: Symbol = BoxedIntModule.requiredMethod("divideUnsigned")
   @tu lazy val BoxedLongModule   : TermSymbol = requiredModule("java.lang.Long")
   @tu lazy val BoxedFloatModule  : TermSymbol = requiredModule("java.lang.Float")
   @tu lazy val BoxedDoubleModule : TermSymbol = requiredModule("java.lang.Double")
