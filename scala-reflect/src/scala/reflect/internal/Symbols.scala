@@ -2986,7 +2986,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     def referenced: Symbol = _referenced
     def referenced_=(x: Symbol): Unit = { _referenced = x }
 
-    def existentialBound = singletonBounds(this.tpe)
+    def existentialBound: TypeBounds = singletonBounds(this.tpe)
 
     def cloneSymbolImpl(owner: Symbol, newFlags: Long): TermSymbol =
       owner.newTermSymbol(name, pos, newFlags).copyAttrsFrom(this)
@@ -3589,7 +3589,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
   class PackageClassSymbol protected[Symbols] (owner0: Symbol, pos0: Position, name0: TypeName)
   extends ModuleClassSymbol(owner0, pos0, name0) {
     override def sourceModule = companionModule
-    override def enclClassChain = Nil
+    override def enclClassChain: Nil.type = Nil
     override def isPackageClass = true
   }
 
@@ -3618,7 +3618,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     def missingMessage: String
 
     /** Fail the stub by throwing a [[scala.reflect.internal.MissingRequirementError]]. */
-    override final def failIfStub() =
+    override final def failIfStub(): Nothing =
       MissingRequirementError.signal(missingMessage)
 
     /** Fail the stub by reporting an error to the reporter, setting the IS_ERROR flag
@@ -3638,11 +3638,11 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     // This one doesn't call fail because SpecializeTypes winds up causing
     // isMonomorphicType to be called, which calls this, which would fail us
     // in all the scenarios we're trying to keep from failing.
-    override def originalInfo    = NoType
+    override def originalInfo: NoType.type = NoType
     override def associatedFile  = owner.associatedFile
-    override def info            = fail(NoType)
-    override def rawInfo         = fail(NoType)
-    override def companionSymbol = fail(NoSymbol)
+    override def info: NoType.type            = fail(NoType)
+    override def rawInfo: NoType.type         = fail(NoType)
+    override def companionSymbol: NoSymbol = fail(NoSymbol)
   }
   class StubClassSymbol(owner0: Symbol, name0: TypeName, val missingMessage: String) extends ClassSymbol(owner0, owner0.pos, name0) with StubSymbol
   class StubTermSymbol(owner0: Symbol, name0: TermName, val missingMessage: String) extends TermSymbol(owner0, owner0.pos, name0) with StubSymbol
@@ -3669,7 +3669,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     type TypeOfClonedSymbol = NoSymbol
 
     def asNameType(n: Name) = n.toTermName
-    override def name_=(n: Name) = abort("Cannot set NoSymbol's name to " + n)
+    override def name_=(n: Name): Nothing = abort("Cannot set NoSymbol's name to " + n)
 
     // Syncnote: no need to synchronize this, because NoSymbol's initialization is triggered by JavaUniverse.init
     // which is called in universe's constructor - something that's inherently single-threaded
@@ -3684,18 +3684,18 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     override def flagMask = AllFlags
     override def exists = false
     override def isHigherOrderTypeParameter = false
-    override def companionClass = NoSymbol
-    override def companionModule = NoSymbol
-    override def companionSymbol = NoSymbol
+    override def companionClass: NoSymbol = NoSymbol
+    override def companionModule: NoSymbol = NoSymbol
+    override def companionSymbol: NoSymbol = NoSymbol
     override def isSubClass(that: Symbol) = false
-    override def filter(cond: Symbol => Boolean) = this
+    override def filter(cond: Symbol => Boolean): NoSymbol = this
     override def defString: String = toString
     override def locationString: String = ""
-    override def enclClassChain = Nil
+    override def enclClassChain: Nil.type = Nil
     override def enclClass: Symbol = this
     override def enclosingPackageClass: Symbol = this
     override def enclMethod: Symbol = this
-    override def associatedFile = NoAbstractFile
+    override def associatedFile: NoAbstractFile.type = NoAbstractFile
     override def owner: Symbol = {
       devWarningDumpStack("NoSymbol.owner", 15)
       this
@@ -3708,7 +3708,7 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     override def existentialBound: Type = NoType
     override def rawInfo: Type = NoType
     override def accessBoundary(base: Symbol): Symbol = enclosingRootClass
-    def cloneSymbolImpl(owner: Symbol, newFlags: Long) = abort("NoSymbol.clone()")
+    def cloneSymbolImpl(owner: Symbol, newFlags: Long): Nothing = abort("NoSymbol.clone()")
   }
 
   protected def makeNoSymbol: NoSymbol = new NoSymbol

@@ -129,7 +129,7 @@ private[reflect] abstract class EmptyAttachments extends Attachments { self: Pos
 
 private final class SingleAttachment[P >: Null](override val pos: P, val att: Any) extends Attachments {
   type Pos = P
-  def withPos(newPos: Pos) = new SingleAttachment[Pos](newPos, att)
+  def withPos(newPos: Pos): SingleAttachment[Pos] = new SingleAttachment[Pos](newPos, att)
   override def isEmpty: Boolean = false
   override def cloneAttachments: Attachments { type Pos = P } = new SingleAttachment[P](pos, att)
   override def all = Set.empty[Any] + att
@@ -149,7 +149,7 @@ private final class SingleAttachment[P >: Null](override val pos: P, val att: An
 // IDE via $outer pointers.
 private final class NonemptyAttachments[P >: Null](override val pos: P, override val all: Set[Any]) extends Attachments {
   type Pos = P
-  def withPos(newPos: Pos) = new NonemptyAttachments(newPos, all)
+  def withPos(newPos: Pos): NonemptyAttachments[Pos] = new NonemptyAttachments(newPos, all)
   override def isEmpty: Boolean = false
   override def cloneAttachments: Attachments { type Pos = P } = new NonemptyAttachments[P](pos, all)
 }

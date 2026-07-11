@@ -60,7 +60,7 @@ private[reflect] trait SynchronizedOps extends internal.SymbolTable
 
 // Scopes
 
-  override def newScope = new Scope with SynchronizedScope
+  override def newScope: Scope with SynchronizedScope = new Scope with SynchronizedScope
 
   trait SynchronizedScope extends Scope {
     // we can keep this lock fine-grained, because methods of Scope don't do anything extraordinary, which makes deadlocks impossible

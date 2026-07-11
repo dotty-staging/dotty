@@ -38,7 +38,7 @@ class PlainFile(val givenPath: Path) extends AbstractFile {
 
   override lazy val canonicalPath = super.canonicalPath
 
-  override def underlyingSource = Some(this)
+  override def underlyingSource: Some[PlainFile] = Some(this)
 
   private val fpath = givenPath.toAbsolute
 
@@ -49,12 +49,12 @@ class PlainFile(val givenPath: Path) extends AbstractFile {
   def path = givenPath.path
 
   /** The absolute file. */
-  def absolute = new PlainFile(givenPath.toAbsolute)
+  def absolute: PlainFile = new PlainFile(givenPath.toAbsolute)
 
   override def container: AbstractFile = new PlainFile(givenPath.parent)
-  override def input = givenPath.toFile.inputStream()
-  override def output = givenPath.toFile.outputStream()
-  override def sizeOption = Some(givenPath.length.toInt)
+  override def input: java.io.FileInputStream = givenPath.toFile.inputStream()
+  override def output: java.io.FileOutputStream = givenPath.toFile.outputStream()
+  override def sizeOption: Some[Int] = Some(givenPath.length.toInt)
   override def toByteBuffer: ByteBuffer = {
     val chan = java.nio.file.Files.newByteChannel(file.toPath, util.EnumSet.of(StandardOpenOption.READ))
     try {
@@ -168,12 +168,12 @@ final class PlainNioFile(val nioPath: java.nio.file.Path) extends AbstractFile {
   def path = nioPath.toString
 
   /** The absolute file. */
-  def absolute = new PlainNioFile(nioPath.toAbsolutePath)
+  def absolute: PlainNioFile = new PlainNioFile(nioPath.toAbsolutePath)
 
   override def container: AbstractFile = new PlainNioFile(nioPath.getParent)
   override def input = Files.newInputStream(nioPath)
   override def output = Files.newOutputStream(nioPath)
-  override def sizeOption = Some(Files.size(nioPath).toInt)
+  override def sizeOption: Some[Int] = Some(Files.size(nioPath).toInt)
   override def hashCode(): Int = fpath.hashCode()
   override def equals(that: Any): Boolean = that match {
     case x: PlainNioFile => fpath == x.fpath

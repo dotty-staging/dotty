@@ -59,10 +59,10 @@ class File(jfile: JFile)(implicit constructorCodec: Codec) extends Path(jfile) w
     if (cond(this)) Iterator.single(this) else Iterator.empty
 
   /** Obtains an InputStream. */
-  def inputStream() = new FileInputStream(jfile)
+  def inputStream(): FileInputStream = new FileInputStream(jfile)
 
   /** Obtains a OutputStream. */
-  def outputStream(append: Boolean = false) = new FileOutputStream(jfile, append)
+  def outputStream(append: Boolean = false): FileOutputStream = new FileOutputStream(jfile, append)
   def bufferedOutput(append: Boolean = false) = new BufferedOutputStream(outputStream(append))
 
   /** Obtains an OutputStreamWriter wrapped around a FileOutputStream.

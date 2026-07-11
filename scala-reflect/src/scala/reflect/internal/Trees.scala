@@ -828,7 +828,7 @@ trait Trees extends api.Trees {
   // copying trees will all too easily forget to distinguish subclasses
   class ApplyImplicitView(fun: Tree, args: List[Tree]) extends Apply(fun, args)
 
-  def ApplyConstructor(tpt: Tree, args: List[Tree]) = Apply(Select(New(tpt), nme.CONSTRUCTOR), args)
+  def ApplyConstructor(tpt: Tree, args: List[Tree]): Apply = Apply(Select(New(tpt), nme.CONSTRUCTOR), args)
 
   // Creates a constructor call from the constructor symbol.  This is
   // to avoid winding up with an OverloadedType for the constructor call.
@@ -1510,7 +1510,7 @@ trait Trees extends api.Trees {
   object noSelfType extends ValDef(Modifiers(PRIVATE), nme.WILDCARD, TypeTree(NoType), EmptyTree) with CannotHaveAttrs
   object pendingSuperCall extends Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List()) with CannotHaveAttrs
 
-  @deprecated("use `noSelfType` instead", "2.11.0") lazy val emptyValDef = noSelfType
+  @deprecated("use `noSelfType` instead", "2.11.0") lazy val emptyValDef: noSelfType.type = noSelfType
 
   class InternalTransformer extends Transformer {
     override def transform(tree: Tree): Tree = tree.transform(this)

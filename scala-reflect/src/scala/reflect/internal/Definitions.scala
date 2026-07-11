@@ -296,7 +296,7 @@ trait Definitions extends api.StandardDefinitions {
 
     // top types
     lazy val AnyClass    = enterNewClass(ScalaPackageClass, tpnme.Any, Nil, ABSTRACT).markAllCompleted()
-    lazy val AnyRefClass = newAlias(ScalaPackageClass, tpnme.AnyRef, ObjectTpe).markAllCompleted()
+    lazy val AnyRefClass: AliasTypeSymbol = newAlias(ScalaPackageClass, tpnme.AnyRef, ObjectTpe).markAllCompleted()
     lazy val ObjectClass = getRequiredClass("java.lang.Object")
 
     // Cached types for core monomorphic classes

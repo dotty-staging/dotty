@@ -104,21 +104,21 @@ abstract class ZipArchive(override val file: JFile, release: Option[String]) ext
 
   override lazy val canonicalPath = super.canonicalPath
 
-  override def underlyingSource = Some(this)
+  override def underlyingSource: Some[ZipArchive] = Some(this)
   def isDirectory = true
-  def lookupName(name: String, directory: Boolean) = unsupported()
-  def lookupNameUnchecked(name: String, directory: Boolean) = unsupported()
-  def create()  = unsupported()
-  def delete()  = unsupported()
-  def output    = unsupported()
-  def container = unsupported()
-  def absolute  = unsupported()
+  def lookupName(name: String, directory: Boolean): Nothing = unsupported()
+  def lookupNameUnchecked(name: String, directory: Boolean): Nothing = unsupported()
+  def create(): Nothing  = unsupported()
+  def delete(): Nothing  = unsupported()
+  def output: Nothing    = unsupported()
+  def container: Nothing = unsupported()
+  def absolute: Nothing  = unsupported()
 
   /** ''Note:  This library is considered experimental and should not be used unless you know what you are doing.'' */
   sealed abstract class Entry(path: String) extends VirtualFile(baseName(path), path) {
     // have to keep this name for compat with sbt's compiler-interface
     def getArchive: ZipFile = null
-    override def underlyingSource = Some(self)
+    override def underlyingSource: Some[ZipArchive] = Some(self)
     override def toString = self.path + "(" + path + ")"
     override def unsafeToByteArray: Array[Byte] = toByteArray
   }
@@ -293,10 +293,10 @@ final class FileZipArchive(file: JFile, release: Option[String]) extends ZipArch
 
   def name         = file.getName
   def path         = file.getPath
-  def input        = File(file).inputStream()
+  def input: java.io.FileInputStream        = File(file).inputStream()
   def lastModified = file.lastModified
 
-  override def sizeOption = Some(file.length.toInt)
+  override def sizeOption: Some[Int] = Some(file.length.toInt)
   override def canEqual(other: Any) = other.isInstanceOf[FileZipArchive]
   override def hashCode() = file.hashCode
   override def equals(that: Any) = that match {

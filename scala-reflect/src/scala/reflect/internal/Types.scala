@@ -2104,7 +2104,7 @@ trait Types
 
     /** No unapplied type params size it has (should have) equally as many args. */
     override def isHigherKinded = false
-    override def typeParams = Nil
+    override def typeParams: Nil.type = Nil
 
     // note: does not go through typeRef. There's no need to because
     // neither `pre` nor `sym` changes.  And there's a performance
@@ -2173,7 +2173,7 @@ trait Types
       if (sym.isModuleClass) singleType(pre, sym.sourceModule)
       else super.narrow
 
-    override def typeConstructor = this
+    override def typeConstructor: NoArgsTypeRef = this
     // eta-expand, subtyping relies on eta-expansion of higher-kinded types
 
     override protected def normalizeImpl: Type =
@@ -3006,7 +3006,7 @@ trait Types
 
     override def safeToString = typeParamsString(this) + resultType
 
-    override def cloneInfo(owner: Symbol) = {
+    override def cloneInfo(owner: Symbol): PolyType = {
       val tparams = cloneSymbolsAtOwner(typeParams, owner)
       PolyType(tparams, resultType.substSym(typeParams, tparams).cloneInfo(owner))
     }
@@ -3811,7 +3811,7 @@ trait Types
 
     assert(!annotations.isEmpty, "" + underlying)
 
-    override protected def rewrap(tp: Type) = copy(underlying = tp)
+    override protected def rewrap(tp: Type): AnnotatedType = copy(underlying = tp)
 
     override def isTrivial: Boolean = underlying.isTrivial && annotations.forall(_.isTrivial)
 

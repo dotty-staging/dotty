@@ -30,9 +30,9 @@ import scala.reflect.internal.util.{CodeAction, Statistics}
  *  @contentDiagram hideNodes "*Api" "*Extractor"
  */
 class JavaUniverse extends InternalSymbolTable with JavaUniverseForce with ReflectSetup with RuntimeSymbolTable { self =>
-  def picklerPhase = SomePhase
-  def erasurePhase = SomePhase
-  lazy val settings = new Settings
+  def picklerPhase: SomePhase.type = SomePhase
+  def erasurePhase: SomePhase.type = SomePhase
+  lazy val settings: Settings = new Settings
 
   override final val statistics = new Statistics(JavaUniverse.this, settings) with ReflectStats
   private[this] val isLogging = System.getProperty("scala.debug.reflect") != null

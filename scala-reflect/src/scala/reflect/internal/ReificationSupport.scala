@@ -193,7 +193,7 @@ trait ReificationSupport { self: SymbolTable =>
 
     def mkEarlyDef(defns: List[Tree]): List[Tree] = defns.map(mkEarlyDef)
 
-    def mkRefTree(qual: Tree, sym: Symbol) = self.RefTree(qual, sym.name) setSymbol sym
+    def mkRefTree(qual: Tree, sym: Symbol): RefTree = self.RefTree(qual, sym.name) setSymbol sym
 
     def freshTermName(prefix: String = nme.FRESH_TERM_NAME_PREFIX): TermName = self.freshTermName(prefix)
 

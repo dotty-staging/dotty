@@ -34,9 +34,9 @@ trait Scopes extends api.Scopes { self: SymbolTable =>
    */
   sealed trait NameLookup { def symbol: Symbol ; def isSuccess = false }
   case class LookupSucceeded(qualifier: Tree, symbol: Symbol) extends NameLookup { override def isSuccess = true }
-  case class LookupAmbiguous(msg: String) extends NameLookup { def symbol = NoSymbol }
+  case class LookupAmbiguous(msg: String) extends NameLookup { def symbol: NoSymbol = NoSymbol }
   case class LookupInaccessible(symbol: Symbol, msg: String) extends NameLookup
-  case object LookupNotFound extends NameLookup { def symbol = NoSymbol }
+  case object LookupNotFound extends NameLookup { def symbol: NoSymbol = NoSymbol }
 
   class ScopeEntry(var sym: Symbol, val owner: Scope) {
     /** the next entry in the hash bucket

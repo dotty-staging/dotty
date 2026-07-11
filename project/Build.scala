@@ -22,6 +22,8 @@ import dotty.tools.sbtplugin.DottyJSPlugin
 
 import sbt.ScriptedPlugin.autoImport._
 import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport._
+import com.typesafe.tools.mima.core.ProblemFilters
+import com.typesafe.tools.mima.core.{FinalClassProblem, FinalMethodProblem, MissingTypesProblem, ReversedMissingMethodProblem, DirectAbstractMethodProblem, DirectMissingMethodProblem, IncompatibleMethTypeProblem, MissingClassProblem, MissingFieldProblem}
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 import org.scalajs.linker.interface.ESVersion
@@ -995,6 +997,61 @@ object Build {
       // Binary compatibility with the Scala 2-compiled scala-reflect, in both directions
       mimaPreviousArtifacts := Set("org.scala-lang" % "scala-reflect" % Versions.scala2Version),
       mimaCheckDirection := "both",
+      // The remaining differences with the Scala 2-compiled artifact are systematic encoding
+      // differences between the two compilers that do not affect linkage of Scala 2-compiled
+      // *client* code against this artifact. (Cross-compiler *inheritance* of the internal
+      // cake traits — i.e. running scalac's Global on top of this artifact — is out of scope:
+      // the two compilers use incompatible trait encodings.) Each excluded family below was
+      // audited member by member against org.scala-lang:scala-reflect:2.13.18:
+      mimaBinaryIssueFilters := Seq(
+        // Scala 3 marks module classes and module accessors final in bytecode; Scala 2 did
+        // not, but objects can never be subclassed or overridden from source in either
+        // language. (Audited: every entry in this family is an object or nullary accessor.)
+        ProblemFilters.exclude[FinalClassProblem]("scala.reflect.*"),
+        ProblemFilters.exclude[FinalMethodProblem]("scala.reflect.*"),
+        // Type-hierarchy differences: Scala 3 adds Serializable to some module classes, does
+        // not add the `Function1$mcJJ$sp` specialization *marker* interface (the specialized
+        // `apply$mcJJ$sp` method itself is emitted, and `Function1` carries a boxing default
+        // method, so dispatch is unaffected), and flattens some parents differently.
+        ProblemFilters.exclude[MissingTypesProblem]("scala.reflect.*"),
+        // Trait encoding: concrete trait members become default methods with static `foo$`
+        // dispatchers, outer accessors, `$init$` and field setters differ. Only affects
+        // scalac-compiled subclasses of the cake traits (see above).
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("scala.reflect.*"),
+        ProblemFilters.exclude[DirectAbstractMethodProblem]("scala.reflect.*"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*$init$"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*$$$outer"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*_setter_*"),
+        // Constructors of inner classes and objects encode the outer instance differently
+        // (Scala 3 inner-object constructors are nullary; their outer is passed through the
+        // accessor). Constructors of inner classes of the cake are only called from within
+        // the artifact itself or from scalac-compiled subclasses of the cake (out of scope).
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*.this"),
+        ProblemFilters.exclude[IncompatibleMethTypeProblem]("scala.reflect.*.this"),
+        // Value-class extension methods are placed differently (instance methods on the
+        // module class vs statics on the class); these value classes are compiler-internal.
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*$extension"),
+        // Scala 3 reuses constructor default getters for the synthetic case-class `apply`;
+        // affects named/default arguments on `apply` of three internal case classes only
+        // (Kinds#KindErrors, Symbols#CyclicReference, macros.UnexpectedReificationException).
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*$default$*"),
+        // JVM-internal static initializer presence and local-definition numbering.
+        ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*<clinit>"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.reflect.*worker*"),
+        ProblemFilters.exclude[MissingFieldProblem]("scala.reflect.*"),
+        // Private helper classes added by the port (named replacements for anonymous
+        // classes that mixed inner members of two cake layers, see SynchronizedOps).
+        ProblemFilters.exclude[MissingClassProblem]("scala.reflect.runtime.SynchronizedOps$SynchronizedBaseTypeSeqImpl"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.reflect.runtime.SynchronizedOps$SynchronizedMappedBaseTypeSeqImpl"),
+      ),
+      // Forward direction only (methods that exist here but not in the Scala 2 artifact):
+      // the Scala 3 trait encoding emits concrete trait members (e.g. module accessors)
+      // directly as interface default methods. The backward direction stays strict.
+      mimaForwardIssueFilters := Map(
+        Versions.scala2Version -> Seq(
+          ProblemFilters.exclude[DirectMissingMethodProblem]("scala.reflect.*"),
+        )
+      ),
     )
 
   /* Configuration of the org.scala-lang:scala-library:*.**.**-nonbootstrapped project */

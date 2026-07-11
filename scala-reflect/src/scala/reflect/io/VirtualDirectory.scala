@@ -31,16 +31,16 @@ extends AbstractFile {
       case Some(parent) => parent.path+'/'+ name
     }
 
-  def absolute = this
+  def absolute: VirtualDirectory = this
 
-  def container = maybeContainer.get
+  def container: VirtualDirectory = maybeContainer.get
   def isDirectory = true
   override def isVirtual = true
   val lastModified: Long = System.currentTimeMillis
 
-  override def file = null
-  override def input = throw new IllegalStateException("directories cannot be read")
-  override def output = throw new IllegalStateException("directories cannot be written")
+  override def file: Null = null
+  override def input: Nothing = throw new IllegalStateException("directories cannot be read")
+  override def output: Nothing = throw new IllegalStateException("directories cannot be written")
 
   /** Does this abstract file denote an existing file? */
   def create(): Unit = { unsupported() }

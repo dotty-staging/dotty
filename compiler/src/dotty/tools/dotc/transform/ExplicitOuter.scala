@@ -142,11 +142,20 @@ object ExplicitOuter {
   private def outerClass(cls: ClassSymbol)(using Context): Symbol = {
     val encl = cls.owner.enclosingClass
     if (cls.is(Scala2x))
-      encl.asClass.classInfo.selfInfo match {
-        case tp: TypeRef => tp.classSymbol
-        case self: Symbol => self
-        case _ => encl
+      // Scala 2 types the outer accessor of an inner class of a self-typed enclosing
+      // class as the erasure of `Encl with GivenSelf`, i.e. their intersection
+      // dominator (a shadowed enclosing trait loses to its self type, a class beats
+      // traits, ties go to the enclosing class).
+      val givenSelf = encl.asClass.classInfo.selfInfo match {
+        case tp: Type => tp
+        case self: Symbol => self.info
       }
+      if !givenSelf.exists then encl
+      else
+        import dotty.tools.dotc.core.unpickleScala2.Scala2Erasure
+        Scala2Erasure.intersectionDominator(
+          Scala2Erasure.flattenedParents(
+            AndType(encl.asClass.appliedRef, givenSelf))).classSymbol
     else encl
   }
 

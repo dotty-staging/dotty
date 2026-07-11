@@ -305,7 +305,7 @@ trait Mirrors extends api.Mirrors {
 
     // This is the package _root_.  The actual root cannot be referenced at
     // the source level, but _root_ is essentially a function => <root>.
-    lazy val RootPackage = new RootPackage
+    lazy val RootPackage: RootPackage = new RootPackage
 
     class RootClass extends PackageClassSymbol(rootOwner, NoPosition, tpnme.ROOT) with RootSymbol {
       this setInfo rootLoader
@@ -313,7 +313,7 @@ trait Mirrors extends api.Mirrors {
       override def isRoot            = true
       override def isEffectiveRoot   = true
       override def isNestedClass     = false
-      override def sourceModule      = RootPackage
+      override def sourceModule: RootPackage      = RootPackage
     }
 
     // This is <root>, the actual root of everything except the package _root_.
@@ -322,21 +322,21 @@ trait Mirrors extends api.Mirrors {
     // although it is probable that some symbols are created as direct children
     // of NoSymbol to ensure they will not be stumbled upon.  (We should designate
     // a better encapsulated place for that.)
-    lazy val RootClass = new RootClass
+    lazy val RootClass: RootClass = new RootClass
 
     class EmptyPackage extends ModuleSymbol(RootClass, NoPosition, nme.EMPTY_PACKAGE_NAME) with WellKnownSymbol {
       override def isEmptyPackage = true
     }
 
     // The empty package, which holds all top level types without given packages.
-    lazy val EmptyPackage = new EmptyPackage
+    lazy val EmptyPackage: EmptyPackage = new EmptyPackage
 
     class EmptyPackageClass extends PackageClassSymbol(RootClass, NoPosition, tpnme.EMPTY_PACKAGE_NAME) with WellKnownSymbol {
       override def isEffectiveRoot     = true
       override def isEmptyPackageClass = true
-      override def sourceModule        = EmptyPackage
+      override def sourceModule: EmptyPackage        = EmptyPackage
     }
 
-    lazy val EmptyPackageClass = new EmptyPackageClass
+    lazy val EmptyPackageClass: EmptyPackageClass = new EmptyPackageClass
   }
 }

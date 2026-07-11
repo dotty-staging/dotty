@@ -104,10 +104,10 @@ sealed abstract class DefinedPosition extends Position {
 sealed abstract class UndefinedPosition extends Position {
   final override def isDefined = false
   override def isRange         = false
-  override def source          = NoSourceFile
-  override def start           = fail("start")
-  override def point           = fail("point")
-  override def end             = fail("end")
+  override def source: NoSourceFile.type = NoSourceFile
+  override def start: Nothing  = fail("start")
+  override def point: Nothing  = fail("point")
+  override def end: Nothing    = fail("end")
 
   override def samePointAs(that: Position) = false
 }

@@ -89,7 +89,7 @@ abstract class SourceFile {
  */
 object NoSourceFile extends SourceFile {
   def content                     = Array()
-  def file                        = NoFile
+  def file: NoFile.type           = NoFile
   def isLineBreak(idx: Int)       = false
   def isEndOfLine(idx: Int)       = false
   def isSelfContained             = true
