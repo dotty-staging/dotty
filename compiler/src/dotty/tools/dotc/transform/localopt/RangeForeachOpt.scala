@@ -2,7 +2,7 @@ package dotty.tools.dotc
 package transform.localopt
 
 import dotty.tools.dotc.ast.tpd
-import dotty.tools.dotc.core.Constants.Constant
+import dotty.tools.dotc.core.Constants.{Constant, IntTag, BooleanTag}
 import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Decorators.*
 import dotty.tools.dotc.core.Flags.Mutable
@@ -12,36 +12,50 @@ import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.transform.BetaReduce
 import dotty.tools.dotc.transform.MegaPhase.MiniPhase
 
+import scala.collection.mutable.ListBuffer
+
 /** Rewrites `foreach` calls on ranges built directly from one of the standard
- *  factories into an equivalent counted `while` loop, so that neither the
- *  `Range` nor (for function literals) the function value is allocated. The
- *  recognized receiver shapes are
+ *  factories into the result of inlining the library code by hand, so that
+ *  neither the `Range` nor (for function literals) the function value is
+ *  allocated. The recognized receiver shapes are
  *
  *   - `Range(s, e)`, `Range(s, e, st)`, `Range.inclusive(s, e)`, `Range.inclusive(s, e, st)`
  *   - `s to e`, `s.to(e, st)`, `s until e`, `s.until(e, st)`
  *   - any of the step-less forms above followed by `.by(st)`
  *
- *  For example `(s to e).foreach(f)` becomes (schematically):
+ *  The emitted code is a faithful inlining of the code these calls would run,
+ *  from `library/src/scala/collection/immutable/Range.scala` (and
+ *  `RichInt.scala` for the `to`/`until` sugar). Schematically, for
+ *  `Range(s, e, st).foreach(f)`:
  *
  *  {{{
- *  val start = s; val end = e         // arguments that are not simple pure expressions
- *                                     // are evaluated once, in the original order
- *  var n: Long = end.toLong - start.toLong + 1
- *  var i: Int = start
- *  while n > 0 do
- *    f(i)                             // beta-reduced when `f` is a function literal
- *    i += step
- *    n -= 1
+ *  val start = s; val end = e; val step = st   // factory arguments, evaluated left to right
+ *  if step == 0 then                           // constructor statement, Range.scala:98
+ *    throw new IllegalArgumentException("step cannot be 0.")
+ *  <evaluate f>                                // the foreach argument, evaluated after the receiver
+ *  if <isEmpty> then ()                        // Range#foreach, Range.scala:257-268, where
+ *  else                                        // `if (!isEmpty)` has its branches swapped
+ *    val lastElement = ...                     // Range#lastElement, Range.scala:165-185
+ *    var i = start
+ *    while { f(i); i != lastElement } do       // `while (true) { f(i); if (i == lastElement) return; i += step }`
+ *      i = i + step                            // with the `return` expressed as a do-while condition
  *  }}}
  *
- *  Since `for x <- a to b do ...` desugars to `foreach`, `for` loops over
- *  ranges compile to allocation-free `while` loops as well.
+ *  Each helper below reproduces one member of `Range`; where `Range.scala`
+ *  reads a constructor parameter or `isInclusive`, the corresponding
+ *  compile-time constant (literal tree or the matched factory's
+ *  inclusiveness) is substituted, and the arithmetic is constant-folded when
+ *  its operands are literals — e.g. `(1 to 10).foreach(f)` needs no
+ *  `lastElement` computation at all, only `while { f(i); i != 10 } do i += 1`.
  *
- *  The element count is computed with `Long` arithmetic, so ranges spanning
- *  the whole of `Int` iterate correctly, and the wrap-around of the final
- *  `i += step` is harmless because `n` has reached 0 by then. Evaluation
- *  order and the eager `IllegalArgumentException` thrown by the `Range`
- *  constructor for a zero step are preserved.
+ *  Correctness notes:
+ *   - `isEmpty`, `numRangeElements` and `lastElement` are eager constructor
+ *     vals in the library, but they are pure, so this phase computes them
+ *     only where their value is used (`lastElement` only on the non-empty
+ *     path). The only effect of construction, the zero-step exception, is
+ *     kept (hoisted over the equally pure `isEmpty`).
+ *   - Since `for x <- a to b do ...` desugars to `foreach`, `for` loops over
+ *     ranges compile to allocation-free `while` loops as well.
  */
 class RangeForeachOpt extends MiniPhase:
   import tpd.*
@@ -58,7 +72,12 @@ class RangeForeachOpt extends MiniPhase:
         case None => tree
     case _ => tree
 
-  /** A range receiver built in place from start, end, optional step and inclusiveness. */
+  /** A range receiver built in place from start, end, optional step and inclusiveness.
+   *  Which factory produced it only matters through these four values:
+   *  `Range.apply` is `new Range.Exclusive(start, end, step | 1)` (Range.scala:645/653),
+   *  `Range.inclusive` is `new Range.Inclusive(start, end, step | 1)` (Range.scala:663/671),
+   *  and `RichInt#to`/`RichInt#until` delegate to those (RichInt.scala:63-87).
+   */
   private case class StaticRange(start: Tree, end: Tree, step: Option[Tree], isInclusive: Boolean)
 
   private def stripped(tree: Tree): Tree = tree match
@@ -92,8 +111,11 @@ class RangeForeachOpt extends MiniPhase:
       else if sym == defn.Range_by then
         args match
           case st :: Nil =>
-            // Only step-less inner ranges: an explicit inner step would need its own
-            // zero check before being discarded, which is not worth supporting.
+            // Range#by is `copy(start, end, step)` (Range.scala:222-231): same bounds and
+            // inclusiveness, only the step replaced. It is accepted here only on step-less
+            // inner ranges, whose implicit step 1 statically passes the inner constructor's
+            // zero-step check (Range.scala:98); an explicit inner step would need that
+            // check before being discarded, which is not worth supporting.
             staticRange(stripped(qual)) match
               case Some(range) if range.step.isEmpty => Some(range.copy(step = Some(st)))
               case _ => None
@@ -101,98 +123,198 @@ class RangeForeachOpt extends MiniPhase:
       else None
     case _ => None
 
+  /** An `Int` binary primitive, constant-folded when both sides are literals
+   *  (so that the library formulas below collapse for literal ranges), with
+   *  `x + 0`, `x - 0` and `x ^ 0` simplified to `x` (arising when a literal
+   *  step makes `stepSign` fold to 0).
+   */
+  private def intBinop(l: Tree, op: Symbol, r: Tree)(using Context): Tree = (l, r) match
+    case (Literal(a), Literal(b)) if a.tag == IntTag && b.tag == IntTag =>
+      val x = a.intValue
+      val y = b.intValue
+      val folded =
+        if op == defn.Int_+ then Constant(x + y)
+        else if op == defn.Int_- then Constant(x - y)
+        else if op == defn.Int_* then Constant(x * y)
+        else if op == defn.Int_& then Constant(x & y)
+        else if op == defn.Int_^ then Constant(x ^ y)
+        else if op == defn.Int_>> then Constant(x >> y)
+        else if op == defn.Int_== then Constant(x == y)
+        else if op == defn.Int_!= then Constant(x != y)
+        else if op == defn.Int_> then Constant(x > y)
+        else if op == defn.Int_< then Constant(x < y)
+        else if op == defn.Int_>= then Constant(x >= y)
+        else if op == defn.Int_<= then Constant(x <= y)
+        else return l.select(op).appliedTo(r)
+      Literal(folded).withSpan(l.span)
+    case (_, Literal(b)) if b.tag == IntTag && b.intValue == 0
+        && (op == defn.Int_+ || op == defn.Int_- || op == defn.Int_^) =>
+      l
+    case _ =>
+      l.select(op).appliedTo(r)
+
+  /** `java.lang.Integer.divideUnsigned`, constant-folded like [[intBinop]]. */
+  private def divideUnsigned(l: Tree, r: Tree)(using Context): Tree = (l, r) match
+    case (Literal(a), Literal(b)) if a.tag == IntTag && b.tag == IntTag =>
+      Literal(Constant(java.lang.Integer.divideUnsigned(a.intValue, b.intValue)))
+    case _ =>
+      ref(defn.Integer_divideUnsigned).appliedTo(l, r)
+
+  /** An `if`, with the branch selected at compile time for a literal condition. */
+  private def mkIf(cond: Tree, thenp: Tree, elsep: Tree)(using Context): Tree = cond match
+    case Literal(c) if c.tag == BooleanTag => if c.booleanValue then thenp else elsep
+    case _ => If(cond, thenp, elsep)
+
   private def rewrite(range: StaticRange, f: Tree, tree: Apply)(using Context): Tree =
     // A function argument that is not a `Function1` (e.g. a `null` literal) is left alone.
     if !f.tpe.widen.derivesFrom(defn.Function1) then return tree
     range.step match
       case Some(Literal(st)) if st.intValue == 0 =>
-        return tree // keep the original code and its constructor exception
+        return tree // keep the original code and its constructor exception (Range.scala:98)
       case _ =>
 
     val span = tree.span
-    val stats = List.newBuilder[Tree]
+    def lit(i: Int): Tree = Literal(Constant(i)).withSpan(span)
 
-    def lit(l: Long): Tree = Literal(Constant(l)).withSpan(span)
-    def toLong(t: Tree): Tree = t.select(defn.Int_toLong)
-
-    // Evaluate an operand once, in order. Everything that is not a literal or a
-    // pure identifier is bound to a local: re-reading vars or re-executing
-    // definitions inside pure blocks on every loop iteration would be wrong.
-    def bind(name: String, arg: Tree): Tree = arg match
-      case _: Literal => arg
-      case _: Ident if isPureExpr(arg) => arg
+    // Evaluate a subexpression once and refer to it by name, like the
+    // library's parameters and vals do. Literals and pure identifiers are
+    // used directly; everything else is bound to a local, since re-reading
+    // vars or re-executing definitions inside pure blocks on every use would
+    // be wrong.
+    def bindTo(defs: ListBuffer[Tree])(name: String, rhs: Tree): Tree = rhs match
+      case _: Literal => rhs
+      case _: Ident if isPureExpr(rhs) => rhs
       case _ =>
-        val vdef = SyntheticValDef(UniqueName.fresh(name.toTermName), arg).withSpan(span)
-        stats += vdef
+        val vdef = SyntheticValDef(UniqueName.fresh(name.toTermName), rhs).withSpan(span)
+        defs += vdef
         ref(vdef.symbol).withSpan(span)
 
-    val start = bind("start", range.start)
-    val end = bind("end", range.end)
-    val step = range.step match
-      case Some(st) => bind("step", st)
-      case None => Literal(Constant(1)).withSpan(span)
+    val stats = ListBuffer.empty[Tree]
 
+    // The factory arguments, evaluated left to right, exactly as the
+    // `Range.apply(start, end, step)` / `intWrapper(start).to(end).by(step)`
+    // call chain would evaluate them. The step-less factories construct the
+    // range with step 1 (Range.scala:653/671, RichInt.scala:63/79).
+    val start = bindTo(stats)("start", range.start)
+    val end = bindTo(stats)("end", range.end)
+    val step = range.step match
+      case Some(st) => bindTo(stats)("step", st)
+      case None => lit(1)
+
+    // Constructor statement, Range.scala:98:
+    //   if (step == 0) throw new IllegalArgumentException("step cannot be 0.")
+    // Omitted for a literal step: a zero literal was rejected above.
     step match
-      case _: Literal => () // a zero literal was rejected above
+      case _: Literal => ()
       case _ =>
         // TODO: we can introduce a method in `Scala3RunTime|Range` to check the step
         // and reduce bytecode size
         stats += If(
-          step.select(defn.Int_==).appliedTo(Literal(Constant(0))),
+          intBinop(step, defn.Int_==, lit(0)),
           Throw(New(defn.IllegalArgumentExceptionType, defn.IllegalArgumentExceptionClass_stringConstructor,
             Literal(Constant("step cannot be 0.")) :: Nil)),
           unitLiteral).withSpan(span)
 
-    def plusOneIfInclusive(gap: Tree): Tree =
-      if range.isInclusive then gap.select(defn.Long_+).appliedTo(lit(1L)) else gap
+    // Constructor val `isEmpty`, Range.scala:91-96, with `isInclusive` known
+    // from the matched factory:
+    //   final override val isEmpty: Boolean = (
+    //     if (isInclusive)
+    //       (if (step >= 0) start > end else start < end)
+    //     else
+    //       (if (step >= 0) start >= end else start <= end))
+    val isEmpty = mkIf(
+      intBinop(step, defn.Int_>=, lit(0)),
+      intBinop(start, if range.isInclusive then defn.Int_> else defn.Int_>=, end),
+      intBinop(start, if range.isInclusive then defn.Int_< else defn.Int_<=, end))
 
-    // The number of elements, in [0, 2^32]; non-positive means the range is empty.
-    val count: Tree = (start, end, step) match
-      case (Literal(s), Literal(e), Literal(st)) =>
-        val gap = e.intValue.toLong - s.intValue.toLong
-        val q = gap / st.intValue
-        lit(q + (if range.isInclusive || gap % st.intValue != 0 then 1L else 0L))
-      case _ => step match
-        case Literal(st) if st.intValue == 1 =>
-          plusOneIfInclusive(toLong(end).select(defn.Long_-).appliedTo(toLong(start)))
-        case Literal(st) if st.intValue == -1 =>
-          plusOneIfInclusive(toLong(start).select(defn.Long_-).appliedTo(toLong(end)))
-        case _ =>
-          // gap / step, plus one more element when inclusive or the division is inexact
-          val gapDef = SyntheticValDef(UniqueName.fresh("gap".toTermName),
-            toLong(end).select(defn.Long_-).appliedTo(toLong(start))).withSpan(span)
-          stats += gapDef
-          val gap = ref(gapDef.symbol)
-          val extra =
-            if range.isInclusive then lit(1L)
-            else If(
-              gap.select(defn.Long_%).appliedTo(toLong(step)).select(defn.Long_!=).appliedTo(lit(0L)),
-              lit(1L), lit(0L)).withSpan(span)
-          gap.select(defn.Long_/).appliedTo(toLong(step)).select(defn.Long_+).appliedTo(extra)
+    // Constructor val `lastElement`, Range.scala:165-185. In the library it is
+    // computed eagerly, but it is pure and only meaningful for non-empty
+    // ranges, so it is emitted on the non-empty path only (its `defs` join the
+    // loop prelude):
+    //   if (((step + 1) & ~2) == 0)  // `step == 1 || step == -1`
+    //     (if (isInclusive) end else end - step)
+    //   else
+    //     locationAfterN(numRangeElements - 1)
+    def stepIsPlusMinusOneLast: Tree = // Range.scala:182
+      if range.isInclusive then end else intBinop(end, defn.Int_-, step)
+    def generalLast(defs: ListBuffer[Tree]): Tree =
+      // Constructor val `numRangeElements`, Range.scala:112-128, keeping the
+      // library's val names:
+      //   val stepSign = step >> 31
+      //   val gap = ((end - start) ^ stepSign) - stepSign
+      //   val absStep = (step ^ stepSign) - stepSign
+      //   val div = Integer.divideUnsigned(gap, absStep)
+      //   if (isInclusive || (absStep * div != gap)) div + 1 else div
+      val stepSign = bindTo(defs)("stepSign", intBinop(step, defn.Int_>>, lit(31)))
+      val gap = bindTo(defs)("gap",
+        intBinop(intBinop(intBinop(end, defn.Int_-, start), defn.Int_^, stepSign), defn.Int_-, stepSign))
+      val absStep = bindTo(defs)("absStep",
+        intBinop(intBinop(step, defn.Int_^, stepSign), defn.Int_-, stepSign))
+      val div = bindTo(defs)("div", divideUnsigned(gap, absStep))
+      val numRangeElements =
+        if range.isInclusive then intBinop(div, defn.Int_+, lit(1))
+        else mkIf(
+          intBinop(intBinop(absStep, defn.Int_*, div), defn.Int_!=, gap),
+          intBinop(div, defn.Int_+, lit(1)),
+          div)
+      // `locationAfterN(numRangeElements - 1)`, Range.scala:146-158:
+      //   private def locationAfterN(n: Int): Int = start + (step * n)
+      intBinop(start, defn.Int_+, intBinop(step, defn.Int_*, intBinop(numRangeElements, defn.Int_-, lit(1))))
+    def lastElementExpr(defs: ListBuffer[Tree]): Tree = step match
+      case Literal(st) if st.intValue == 1 || st.intValue == -1 =>
+        stepIsPlusMinusOneLast // the `((step + 1) & ~2) == 0` test decided at compile time
+      case _: Literal =>
+        generalLast(defs)
+      case _ =>
+        // runtime step: keep the library's branch, with the general arm's vals local to it
+        val genDefs = ListBuffer.empty[Tree]
+        val gen = generalLast(genDefs)
+        mkIf(
+          intBinop(intBinop(intBinop(step, defn.Int_+, lit(1)), defn.Int_&, lit(~2)), defn.Int_==, lit(0)),
+          stepIsPlusMinusOneLast,
+          Block(genDefs.toList, gen))
 
-    val nDef = SyntheticValDef(UniqueName.fresh("n".toTermName), count, flags = Mutable).withSpan(span)
+    // `Range#foreach`, Range.scala:257-268:
+    //   if (!isEmpty) {
+    //     var i = start
+    //     while (true) {
+    //       f(i)
+    //       if (i == lastElement) return
+    //       i += step
+    //     }
+    //   }
+    // The `while (true) ... return` becomes a do-while: `f(i)` and the
+    // (negated) equality test form the loop condition, `i += step` the body.
     val iDef = SyntheticValDef(UniqueName.fresh("i".toTermName), start, flags = Mutable).withSpan(span)
-    val nRef = ref(nDef.symbol).withSpan(span)
     val iRef = ref(iDef.symbol).withSpan(span)
 
+    // The function argument, evaluated once, after the receiver (so after the
+    // zero-step exception); function literals are beta-reduced into the loop.
     val directCall = f.select(nme.apply).appliedTo(iRef).withSpan(span)
     val reduced = BetaReduce(directCall)
     val call =
       if reduced ne directCall then reduced
       else
-        // Not a reducible function literal: evaluate the function expression
-        // once, after the range operands, exactly like the original call.
-        val fv = bind("f", f)
+        val fv = bindTo(stats)("f", f)
         if fv eq f then directCall
         else fv.select(nme.apply).appliedTo(iRef).withSpan(span)
 
-    stats += nDef
-    stats += iDef
-    val body = Block(
-      call :: Assign(iRef, iRef.select(defn.Int_+).appliedTo(step)).withSpan(span) :: Nil,
-      Assign(nRef, nRef.select(defn.Long_-).appliedTo(lit(1L))).withSpan(span))
-    val loop = WhileDo(nRef.select(defn.Long_>).appliedTo(lit(0L)), body).withSpan(span)
-    Block(stats.result(), loop).withSpan(span)
+    val loopPrelude = ListBuffer.empty[Tree]
+    val lastElement = bindTo(loopPrelude)("lastElement", lastElementExpr(loopPrelude))
+    loopPrelude += iDef
+    val loop = WhileDo(
+      Block(call :: Nil, intBinop(iRef, defn.Int_!=, lastElement)),
+      Assign(iRef, intBinop(iRef, defn.Int_+, step)).withSpan(span)).withSpan(span)
+    val whenNonEmpty = Block(loopPrelude.toList, loop).withSpan(span)
+
+    // `if (!isEmpty) { ... }` with the branches swapped instead of negating.
+    val body = isEmpty match
+      case Literal(c) if c.tag == BooleanTag =>
+        if c.booleanValue then unitLiteral else whenNonEmpty
+      case cond =>
+        If(cond, unitLiteral, whenNonEmpty).withSpan(span)
+
+    Block(stats.toList, body).withSpan(span)
   end rewrite
 
 object RangeForeachOpt:
