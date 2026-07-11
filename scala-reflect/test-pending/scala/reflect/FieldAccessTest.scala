@@ -16,7 +16,8 @@ class FieldAccessTest {
   @Test
   def testFieldAccess(): Unit = {
     import scala.reflect.runtime.universe._
-    import scala.reflect.runtime.currentMirror
+    // Scala 3 port: `currentMirror` is a Scala 2 macro; use its expansion directly.
+    val currentMirror = scala.reflect.runtime.universe.runtimeMirror(this.getClass.getClassLoader)
     val obj = new TestClass
     val objType = currentMirror.reflect(obj).symbol.toType
     val objFields = objType.members.collect { case ms: MethodSymbol if ms.isGetter => ms }

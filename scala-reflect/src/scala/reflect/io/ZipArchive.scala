@@ -130,8 +130,9 @@ abstract class ZipArchive(override val file: JFile, release: Option[String]) ext
     override def isDirectory = true
     override def iterator: Iterator[Entry] = entries.valuesIterator
     override def lookupName(name: String, directory: Boolean): Entry = {
-      if (directory) entries.get(name + "/").orNull
-      else entries.get(name).orNull
+      // Scala 3 port: .orNull would link against a new overload absent from the 2.13 stdlib
+      if (directory) entries.get(name + "/").getOrElse(null)
+      else entries.get(name).getOrElse(null)
     }
   }
 

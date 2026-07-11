@@ -26,9 +26,18 @@ trait TraceSymbolActivity {
   val global: SymbolTable
   import global._
 
-  private[this] var enabled = traceSymbolActivity
-  if (enabled && global.isCompilerUniverse)
-    Runtime.getRuntime.addShutdownHook(new Thread(() => showAllSymbols()))
+  // Scala 3 port: `global` used to be initialized by implementers through an early
+  // initializer, so this trait's initialization statements could use it. Early
+  // initializers no longer exist, so initialize lazily on first use instead.
+  private[this] var enabledOverride: Option[Boolean] = None
+  private[this] lazy val enabledInitially = {
+    val on = traceSymbolActivity
+    if (on && global.isCompilerUniverse)
+      Runtime.getRuntime.addShutdownHook(new Thread(() => showAllSymbols()))
+    on
+  }
+  private[this] def enabled: Boolean = enabledOverride.getOrElse(enabledInitially)
+  private[this] def enabled_=(b: Boolean): Unit = enabledOverride = Some(b)
 
   val allSymbols  = mutable.Map[Int, Symbol]()
   val allChildren = mutable.Map[Int, List[Int]]() withDefaultValue Nil

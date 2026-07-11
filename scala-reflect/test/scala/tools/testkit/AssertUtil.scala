@@ -285,7 +285,7 @@ object AssertUtil {
       }
 
     val timeout = 10 * 1000L
-    val thread = new Thread(group, () => test())
+    val thread = new Thread(group, (() => test()): Runnable)
     def abort(): Try[A] = {
       group.interrupt()
       new Failure(new AssertionError("Test did not complete"))

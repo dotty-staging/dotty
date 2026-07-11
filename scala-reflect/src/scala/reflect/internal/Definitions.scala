@@ -297,7 +297,17 @@ trait Definitions extends api.StandardDefinitions {
     // top types
     lazy val AnyClass    = enterNewClass(ScalaPackageClass, tpnme.Any, Nil, ABSTRACT).markAllCompleted()
     lazy val AnyRefClass: AliasTypeSymbol = newAlias(ScalaPackageClass, tpnme.AnyRef, ObjectTpe).markAllCompleted()
-    lazy val ObjectClass = getRequiredClass("java.lang.Object")
+    // Scala 3 port: manual lazy holder instead of a lazy val. The runtime universe
+    // re-enters this while the initializer runs (initializing java.lang.Object's owner
+    // package forces ObjectTpe), which Scala 2's lazy-val encoding tolerated (recompute
+    // under a reentrant monitor) but Scala 3's thread-safe encoding turns into a deadlock.
+    private[this] var _ObjectClass: ClassSymbol = null
+    def ObjectClass: ClassSymbol = {
+      if (_ObjectClass eq null) this.synchronized {
+        if (_ObjectClass eq null) _ObjectClass = getRequiredClass("java.lang.Object")
+      }
+      _ObjectClass
+    }
 
     // Cached types for core monomorphic classes
     lazy val AnyRefTpe       = AnyRefClass.tpe

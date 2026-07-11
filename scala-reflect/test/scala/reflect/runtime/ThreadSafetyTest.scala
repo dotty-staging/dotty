@@ -18,6 +18,8 @@ import org.junit.Test
 
 class ThreadSafetyTest {
   import scala.reflect.runtime.universe._
+  // Scala 3 port: stands in for the TypeTag materializer macro of the Scala 2 compiler
+  import scala.tools.testkit.TypeTagMaterializer.given
   sealed abstract class Instance(tp: Type)
   final case class ListInstance(tp: Type, elemInstance: Instance) extends Instance(appliedType(symbolOf[List[_]], tp :: Nil))
 

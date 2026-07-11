@@ -989,10 +989,27 @@ object Build {
       // whole-run Scala 2 compatibility patches (e.g. case-class companions extending
       // AbstractFunctionN with Serializable) that cannot be toggled per file.
       Compile / scalacOptions += "-Ycompile-scala2-library",
+      // The test sources are ordinary Scala 3 code (in particular the Scala 3 macro
+      // stand-in for the TypeTag materializer), not 2.13-mode sources.
+      Test / scalacOptions --= Seq("-Xignore-scala2-macros", "-Ycompile-scala2-library"),
       target := baseDirectory.value / ".." / "out" / "bootstrap" / name.value,
       publishArtifact := false,
       bootstrappedScalaInstanceSettings,
       libraryDependencies += Dependencies.sbtJunitInterface % Test,
+      // The test suite RUNS against the Scala 2 standard library (plus the classic
+      // scala3-library_3 runtime addon for the Scala 3-compiled test classes), like any
+      // Scala 2-compiled client of scala-reflect would: runtime reflection resolves Scala
+      // members through Scala 2 pickles (ScalaSignature), which the Scala 3-compiled
+      // standard library does not carry. Compilation still uses the in-repo library.
+      Test / fullClasspath := {
+        // The suite runs with the Scala 2-compiled standard library (built in-repo by
+        // Scala 2.13) FIRST on the class path, shadowing the shared classes of the
+        // Scala 3-built one: runtime reflection resolves Scala members through Scala 2
+        // pickles (ScalaSignature), which only the Scala 2-compiled classes carry — the
+        // same view of the world any Scala 2 client of scala-reflect has. Scala 3-only
+        // runtime classes are still found in the Scala 3-built library behind it.
+        Attributed.blank((`scala2-library` / Compile / packageBin).value) +: (Test / fullClasspath).value
+      },
       bspEnabled := false,
       // Binary compatibility with the Scala 2-compiled scala-reflect, in both directions
       mimaPreviousArtifacts := Set("org.scala-lang" % "scala-reflect" % Versions.scala2Version),

@@ -60,7 +60,8 @@ extends AbstractFile {
   def iterator = files.values.toList.iterator
 
   override def lookupName(name: String, directory: Boolean): AbstractFile =
-    (files get name filter (_.isDirectory == directory)).orNull
+    // Scala 3 port: .orNull would link against a new overload absent from the 2.13 stdlib
+    (files get name filter (_.isDirectory == directory)).getOrElse(null)
 
   override def fileNamed(name: String): AbstractFile =
     Option(lookupName(name, directory = false)) getOrElse {

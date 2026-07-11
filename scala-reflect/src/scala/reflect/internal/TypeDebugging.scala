@@ -42,7 +42,8 @@ trait TypeDebugging {
       case null                    => false
       case NothingClass | AnyClass => true
       case PredefModule            => true
-      case ObjectClass             => true
+      // Scala 3 port: ObjectClass is a def (see Definitions), not usable as a stable pattern
+      case cls if cls == ObjectClass => true
       case _                       => sym.hasPackageFlag
     }
     def skipType(tpe: Type): Boolean = (tpe eq null) || skipSym(tpe.typeSymbolDirect)

@@ -526,6 +526,7 @@ class Definitions {
 
   @tu lazy val MurmurHash3Module: Symbol = requiredModule("scala.util.hashing.MurmurHash3")
     @tu lazy val MurmurHash3_productHash = MurmurHash3Module.info.member(termName("productHash")).suchThat(_.info.firstParamTypes.size == 3).symbol
+    @tu lazy val MurmurHash3_caseClassHash = MurmurHash3Module.info.member(termName("caseClassHash")).suchThat(_.info.firstParamTypes.size == 2).symbol
 
   @tu lazy val BoxesRunTimeModule: Symbol = requiredModule("scala.runtime.BoxesRunTime")
     @tu lazy val BoxesRunTimeModule_externalEquals: Symbol = BoxesRunTimeModule.info.decl(nme.equals_).suchThat(toDenot(_).info.firstParamTypes.size == 2).symbol

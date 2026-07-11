@@ -12,7 +12,8 @@ class PositionsTest {
 
   object symbolTable extends SymbolTableForUnitTesting {
     override def useOffsetPositions: Boolean = false
-    override val reporter = new StoreReporter(settings)
+    // Scala 3 port: explicit type (Scala 3 would otherwise use the inherited `Reporter`)
+    override val reporter: StoreReporter = new StoreReporter(settings)
   }
   import symbolTable._
 

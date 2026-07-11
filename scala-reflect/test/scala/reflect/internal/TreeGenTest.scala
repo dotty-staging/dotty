@@ -16,7 +16,8 @@ class TreeGenTest {
 
   @Test
   def attributedRefToTopLevelMemberNotPrefixedByThis_t9473_a(): Unit = {
-    val SomeClass = symbolOf[Some[_]]
+    // Scala 3 port: `symbolOf` needs the compiler-provided TypeTag materializer
+    val SomeClass = definitions.SomeClass
     val ref = gen.mkAttributedRef(SomeClass)
     assertEquals("scala.Some", ref.toString) // was scala.this.Some
     ref match {
@@ -30,7 +31,8 @@ class TreeGenTest {
 
   @Test
   def attributedRefToTopLevelMemberNotPrefixedByThis_t9473_b(): Unit = {
-    val ScalaRuntimeModule = symbolOf[ScalaRunTime.type].sourceModule
+    // Scala 3 port: `symbolOf` needs the compiler-provided TypeTag materializer
+    val ScalaRuntimeModule = rootMirror.getRequiredModule("scala.runtime.ScalaRunTime")
     val ref = gen.mkAttributedRef(ScalaRuntimeModule)
     assertEquals("scala.runtime.ScalaRunTime", ref.toString)
     ref match {

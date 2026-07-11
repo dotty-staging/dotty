@@ -485,10 +485,14 @@ object ExplicitOuter {
           // into instances conforming to its self type), so accept it, like Scala 2's
           // ExplicitOuter does. This is restricted to Scala2x classes: elsewhere outer
           // accessors have precise types and requiring an exact match keeps the walk from
-          // stopping at a derived enclosing class too early.
+          // stopping at a derived enclosing class too early. It is also restricted to
+          // trees that already traversed at least one outer accessor (count < -1): the
+          // starting `This` of the walk may itself derive from `toCls` while `toCls`
+          // refers to an *enclosing* instance, e.g. for a `This(T)` super constructor
+          // argument of an anonymous class extending T's inner class.
           def reachedTarget(): Boolean =
             treeCls == toCls
-            || toCls.isClass && treeCls.isClass && atPhaseNoLater(explicitOuterPhase) {
+            || count < -1 && toCls.isClass && treeCls.isClass && atPhaseNoLater(explicitOuterPhase) {
                  treeCls.is(Scala2x)
                  && (treeCls.asClass.derivesFrom(toCls)
                      || toCls.asClass.givenSelfType.classSymbol == treeCls)

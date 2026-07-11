@@ -366,6 +366,14 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
       else if (accessors.isEmpty) Literal(Constant(ownName.hashCode))
       else if (accessors.exists(_.info.finalResultType.classSymbol.isPrimitiveValueClass))
         caseHashCodeBody
+      else if (clazz.is(Scala2x))
+        // The three-argument `productHash` overload only exists in the 3.x standard
+        // library; classes compiled in `2.13` mode must link against the Scala 2 one,
+        // which exposes the equivalent entry point `caseClassHash` (scala/bug#13033).
+        ref(defn.MurmurHash3Module).select(defn.MurmurHash3_caseClassHash).appliedTo(
+          This(clazz),
+          Literal(Constant(ownName.toString))
+        )
       else
         ref(defn.MurmurHash3Module).select(defn.MurmurHash3_productHash).appliedTo(
           This(clazz),

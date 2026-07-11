@@ -88,7 +88,8 @@ trait UnCurry {
       }
   }
 
-  private[this] val uncurryType = new TypeMap {
+  // Scala 3 port: lazy (see `uncurry`) — was initialized by an early initializer
+  private[this] lazy val uncurryType = new TypeMap {
     def apply(tp0: Type): Type = {
       val tp = expandAlias(tp0)
       tp match {
