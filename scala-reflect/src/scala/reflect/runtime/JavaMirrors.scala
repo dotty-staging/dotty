@@ -720,7 +720,20 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
     private class TypeParamCompleter(jtvar: jTypeVariable[_ <: GenericDeclaration]) extends LazyType with FlagAgnosticCompleter {
       override def load(sym: Symbol) = complete(sym)
       override def complete(sym: Symbol) = {
-        sym setInfo TypeBounds.upper(glb(jtvar.getBounds.toList map typeToScala))
+        // Scala 3 port: two changes for F-bounded Java signatures, which are reached when
+        // the class path carries no Scala 2 pickles (e.g. a Scala 3-compiled standard
+        // library, scala/scala3#25896; `C <: LinearSeq[A] with LinearSeqOps[A, CC, C]`):
+        // 1. install provisional bounds first, so that converting the real bounds may
+        //    re-enter this symbol without running the completer again forever;
+        // 2. build the upper bound of multiple Java bounds with intersectionType instead
+        //    of glb: glb performs subtype checks, which demand the base type sequence of
+        //    the very class whose signature is still being completed.
+        sym setInfo TypeBounds.empty
+        val upper = jtvar.getBounds.toList map typeToScala match {
+          case bound :: Nil => bound
+          case bounds       => intersectionType(bounds)
+        }
+        sym setInfo TypeBounds.upper(upper)
         markAllCompleted(sym)
       }
     }
@@ -833,16 +846,62 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
             clazz.info.decls.enter(clazz.newClassConstructor(NoPosition))
         }
 
+        // Scala 3 port: when the classes on the class path carry no Scala 2 pickles (e.g. a
+        // standard library compiled by Scala 3), the members of a companion object are only
+        // visible through the static forwarders on the companion class — and not all of them
+        // get a forwarder (`Array.apply` does not, scala/scala3#25896). Complete the module
+        // from the members of the `Foo$` mirror class itself in that case. This only affects
+        // classes without a ScalaSignature: pickled classes never reach this completer.
+        def enterModuleClassMembersIfNecessary(): Unit = if (module != NoSymbol) {
+          val jModuleClass =
+            try {
+              val jm = java.lang.Class.forName(jclazz.getName + nme.MODULE_SUFFIX_STRING, false, jclazz.getClassLoader)
+              val isScalaModule = jm.getDeclaredFields.exists(f =>
+                f.getName == nme.MODULE_INSTANCE_FIELD.toString && f.javaFlags.isStatic)
+              if (isScalaModule) jm else null
+            } catch {
+              case _: ClassNotFoundException | _: LinkageError | _: SecurityException => null
+            }
+          if (jModuleClass != null) {
+            def sig(jmeth: jMethod): String =
+              jmeth.getName + jmeth.getParameterTypes.map(_.getName).mkString("(", ",", ")")
+            val staticForwarders = jclazz.getDeclaredMethods.filter(_.javaFlags.isStatic).map(sig).toSet
+            val scope = module.moduleClass.info.decls
+            for (jmeth <- jModuleClass.getDeclaredMethods)
+              if (!jmeth.javaFlags.isStatic && !jmeth.isBridge && !jmeth.isSynthetic && !staticForwarders(sig(jmeth)))
+                scope enter jmethodAsScala(jmeth)
+            for (jfield <- jModuleClass.getDeclaredFields)
+              if (!jfield.javaFlags.isStatic && !jfield.isSynthetic && scope.lookup(newTermName(jfield.getName)) == NoSymbol)
+                scope enter jfieldAsScala(jfield)
+          }
+        }
+
         for (jinner <- jclazz.getDeclaredClasses) {
           jclassAsScala(jinner) // inner class is entered as a side-effect
                                 // no need to call enter explicitly
         }
 
+        // Scala 3 port: the class files that a Scala 3-compiled standard library emits for
+        // the primitive value classes (scala.Int, scala.Unit, ...) are compile-time markers
+        // whose bytecode fails JVM verification when reflected upon. Their real symbols are
+        // the synthetic core classes; never scan their members.
+        val isFakePrimitiveClassfile = {
+          val name = jclazz.getName
+          name.startsWith("scala.") && {
+            val simple = name.substring(6)
+            simple == "Unit" || simple == "Boolean" || simple == "Byte" || simple == "Short" ||
+            simple == "Char" || simple == "Int" || simple == "Long" || simple == "Float" || simple == "Double"
+          }
+        }
+
         pendingLoadActions ::= { () =>
-          jclazz.getDeclaredFields  foreach (f => enter(jfieldAsScala(f),  f.javaFlags))
-          jclazz.getDeclaredMethods foreach (m => enter(jmethodAsScala(m), m.javaFlags))
-          jclazz.getConstructors    foreach (c => enter(jconstrAsScala(c), c.javaFlags))
-          enterEmptyCtorIfNecessary()
+          if (!isFakePrimitiveClassfile) {
+            jclazz.getDeclaredFields  foreach (f => enter(jfieldAsScala(f),  f.javaFlags))
+            jclazz.getDeclaredMethods foreach (m => enter(jmethodAsScala(m), m.javaFlags))
+            jclazz.getConstructors    foreach (c => enter(jconstrAsScala(c), c.javaFlags))
+            enterEmptyCtorIfNecessary()
+            enterModuleClassMembersIfNecessary()
+          }
         }
 
         if (parentsLevel == 0) {
@@ -1062,7 +1121,12 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
 
         val cls =
           if (jclazz.isMemberClass)
-            lookupClass
+            // Scala 3 port: `orElse jclassAsScala` — without Scala 2 pickles on the class
+            // path (e.g. a Scala 3-compiled standard library, scala/scala3#25896), member
+            // classes of package objects and companions are not registered in their
+            // owner's scope up front, so fall back to materializing them from the
+            // class file like top-level classes.
+            lookupClass orElse jclassAsScala(jclazz)
           else if (jclazz.isLocalClass0)
             // local classes and implementation classes not preserved by unpickling - treat as Java
             //
@@ -1133,6 +1197,15 @@ private[scala] trait JavaMirrors extends internal.SymbolTable with api.JavaUnive
               glb(jwild.getUpperBounds.toList map typeToScala)))
           tparams += tparam
           typeRef(NoPrefix, tparam, List())
+        // Scala 3 port: a raw generic class in argument position is how scalac and Scala 3
+        // encode a higher-kinded type argument in a Java generic signature (e.g. the `CC`
+        // of `LinearSeqOps[A, LinearSeq, LinearSeq[A]]`). Keep it as the unapplied type
+        // constructor — like the Scala 2 pickle does — instead of wrapping it in an
+        // existential, which would make `baseTypeSeq` of F-bounded parents cyclic when no
+        // pickles are available (scala/scala3#25896).
+        case jclazz: jClass[_] if jclazz.getTypeParameters.nonEmpty =>
+          val clazz = classToScala(jclazz)
+          typeRef(clazz.owner.thisType, clazz, Nil)
         case _ =>
           typeToScala(arg)
       }

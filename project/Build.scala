@@ -1010,6 +1010,14 @@ object Build {
         // runtime classes are still found in the Scala 3-built library behind it.
         Attributed.blank((`scala2-library` / Compile / packageBin).value) +: (Test / fullClasspath).value
       },
+      // Scala3StdlibCompatTest forks a JVM with a *pure* Scala 3 class path (no Scala 2
+      // pickles), the setup of scala/scala3#25896; it locates the pieces through these.
+      Test / fork := true,
+      Test / javaOptions ++= Seq(
+        s"-Dscalareflect.test.mainClasses=${(Compile / classDirectory).value}",
+        s"-Dscalareflect.test.testClasses=${(Test / classDirectory).value}",
+        s"-Dscalareflect.test.scala3Library=${(`scala-library-nonbootstrapped` / Compile / packageBin).value}",
+      ),
       bspEnabled := false,
       // Binary compatibility with the Scala 2-compiled scala-reflect, in both directions
       mimaPreviousArtifacts := Set("org.scala-lang" % "scala-reflect" % Versions.scala2Version),
