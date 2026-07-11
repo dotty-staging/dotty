@@ -135,6 +135,8 @@ class RangeForeachOpt extends MiniPhase:
     step match
       case _: Literal => () // a zero literal was rejected above
       case _ =>
+        // TODO: we can introduce a method in `Scala3RunTime|Range` to check the step
+        // and reduce bytecode size
         stats += If(
           step.select(defn.Int_==).appliedTo(Literal(Constant(0))),
           Throw(New(defn.IllegalArgumentExceptionType, defn.IllegalArgumentExceptionClass_stringConstructor,
