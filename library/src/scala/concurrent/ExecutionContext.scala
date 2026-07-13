@@ -118,7 +118,7 @@ trait ExecutionContextExecutorService extends ExecutionContextExecutor with Exec
 
 
 /** Contains factory methods for creating execution contexts. */
-object ExecutionContext extends caps.SharedCapability {
+object ExecutionContext {
   /** The global [[ExecutionContext]]. This default `ExecutionContext` implementation is backed by a work-stealing thread
    *  pool. It can be configured via the following system properties:
    *
