@@ -1168,8 +1168,8 @@ object Capabilities:
 
   // ---------- Maps between different kinds of root capabilities -----------------
 
-  /** Map each occurrence of `caps.any` to a different LocalCap instance
-   *  Exception: CapSet^ stays as it is.
+  /** Map each occurrence of `caps.any` to a different LocalCap instance.
+   *  References to capture set parameters and members stay as they are.
    */
   class GlobalCapToLocal(origin: Origin)(using Context) extends BiTypeMap, FollowAliasesMap:
     thisMap =>
@@ -1193,6 +1193,7 @@ object Capabilities:
 
     override def mapCapability(c: Capability): Capability = c match
       case GlobalAny => LocalCap(origin)
+      case c: SetCapability if c.derivesFromCapSet => c
       case _ => super.mapCapability(c)
 
     override def fuse(next: BiTypeMap)(using Context) = next match
@@ -1208,6 +1209,7 @@ object Capabilities:
 
       override def mapCapability(c: Capability): Capability = c match
         case _: LocalCap => GlobalAny
+        case c: SetCapability if c.derivesFromCapSet => c
         case _ => super.mapCapability(c)
 
       def inverse = thisMap
