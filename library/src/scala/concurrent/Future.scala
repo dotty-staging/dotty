@@ -617,7 +617,8 @@ object Future uses ExecutionContext {
     throw new TimeoutException(s"Future timed out after [$delay]")
 
   /** A Future which is never completed. */
-  object never extends Future[Nothing] uses ExecutionContext {
+  val never: Future[Nothing] = caps.unsafe.unsafeAssumePure(neverImpl)
+  private object neverImpl extends Future[Nothing] uses ExecutionContext {
 
     @throws[TimeoutException]
     @throws[InterruptedException]
@@ -723,7 +724,7 @@ object Future uses ExecutionContext {
    *  @param executor  the execution context on which the future is run
    *  @return          the `Future` holding the result of the computation
    */
-  final def apply[T](body: => T)(implicit executor: ExecutionContext): Future[T] =
+  final def apply[T](body: => T)(implicit executor: ExecutionContext): Future[T]^{body, executor} =
     unit.map(_ => body)
 
   /** Starts an asynchronous computation and returns a `Future` instance with the result of that computation once it completes.
@@ -744,7 +745,7 @@ object Future uses ExecutionContext {
    *  @param executor  the execution context on which the `body` is evaluated in
    *  @return          the `Future` holding the result of the computation
    */
-  final def delegate[T](body: => Future[T])(implicit executor: ExecutionContext): Future[T] =
+  final def delegate[T](body: => Future[T])(implicit executor: ExecutionContext): Future[T]^{body, executor} =
     unit.flatMap(_ => body)
 
   /** Simple version of `Future.traverse`. Asynchronously and non-blockingly transforms, in essence, a `IterableOnce[Future[A]]`
@@ -758,10 +759,16 @@ object Future uses ExecutionContext {
    *  @param executor  the `ExecutionContext` on which the sequencing will be executed
    *  @return          the `Future` of the resulting collection
    */
-  final def sequence[A, CC[X] <: IterableOnce[X], To](in: CC[Future[A]])(implicit bf: BuildFrom[CC[Future[A]], A, To], executor: ExecutionContext): Future[To] =
-    in.iterator.foldLeft(successful(bf.newBuilder(in))) {
-      (fr, fa) => fr.zipWith(fa)(Future.addToBuilderFun)
-    }.map(_.result())(using if (executor.isInstanceOf[BatchingExecutor]) executor else parasitic)
+  final def sequence[A, CC[X] <: IterableOnce[X], To](in: CC[Future[A]^]^)(implicit bf: BuildFrom[CC[Future[A]^], A, To], executor: ExecutionContext): Future[To]^{in, executor, ExecutionContext} =
+    def sequenceCorrect[A, CC[X] <: IterableOnce[X], To, In^, C^]
+      (in: CC[Future[A]^{C}]^{In})
+      (using bf: BuildFrom[CC[Future[A]^{C}]^{In}, A, To], executor: ExecutionContext): Future[To]^{In, C, executor, ExecutionContext} =
+        in.iterator.foldLeft[Future[Builder[A, To]]^{C, executor, ExecutionContext}](successful(bf.newBuilder(in))) {
+          (fr, fa) => fr.zipWith(fa)(Future.addToBuilderFun)
+        }.map(_.result())(using if (executor.isInstanceOf[BatchingExecutor]) executor else parasitic)
+
+    // SAFETY: the sequence method is supposed to be typed like above ^
+    sequenceCorrect[A, CC, To, {}, {}](in.asInstanceOf[CC[Future[A]]])(using bf.asInstanceOf[BuildFrom[CC[Future[A]^{}], A, To]], executor)
 
   /** Asynchronously and non-blockingly returns a new `Future` to the result of the first future
    *  in the list that is completed. This means no matter if it is completed as a success or as a failure.
@@ -771,35 +778,40 @@ object Future uses ExecutionContext {
    *  @param executor the `ExecutionContext` on which the futures' completion handlers will be executed
    *  @return          the `Future` holding the result of the future that is first to be completed
    */
-  final def firstCompletedOf[T](futures: IterableOnce[Future[T]])(implicit executor: ExecutionContext): Future[T] = {
-    val i = futures.iterator
-    if (!i.hasNext) Future.never
-    else {
-      val p = Promise[T]()
-      val firstCompleteHandler = new AtomicReference(List.empty[() => Unit]) with (Try[T] => Unit) {
-        final def apply(res: Try[T]): Unit =  {
-          val deregs = getAndSet(null)
-          if (deregs != null) {
-            p.tryComplete(res) // tryComplete is likely to be cheaper than complete
-            deregs.foreach(_.apply())
+  final def firstCompletedOf[T](futures: IterableOnce[Future[T]^]^)(implicit executor: ExecutionContext): Future[T]^{futures} = {
+    def impl[T, C^](futures: IterableOnce[Future[T]^{C}]^)(using executor: ExecutionContext): Future[T]^{futures, C} = {
+      val i = futures.iterator
+      if (!i.hasNext) Future.never
+      else {
+        val p = Promise[T]()
+        val firstCompleteHandler = new AtomicReference(List.empty[() -> Unit]) with (Try[T] -> Unit) {
+          final def apply(res: Try[T]): Unit =  {
+            val deregs = getAndSet(null)
+            if (deregs != null) {
+              p.tryComplete(res) // tryComplete is likely to be cheaper than complete
+              deregs.foreach(_.apply())
+            }
           }
         }
-      }
-      var completed = false
-      while (i.hasNext && !completed) {
-        val deregs = firstCompleteHandler.get
-        if (deregs == null) completed = true
-        else i.next() match {
-          case dp: DefaultPromise[T @unchecked] =>
-            val d = dp.onCompleteWithUnregister(firstCompleteHandler)
-            if (!firstCompleteHandler.compareAndSet(deregs, d :: deregs))
-              d.apply()
-          case f =>
-            f.onComplete(firstCompleteHandler)
+        var completed = false
+        while (i.hasNext && !completed) {
+          val deregs = firstCompleteHandler.get
+          if (deregs == null) completed = true
+          else i.next() match {
+            case dp: DefaultPromise[T @unchecked] =>
+              val d = dp.onCompleteWithUnregister(firstCompleteHandler)
+              if (!firstCompleteHandler.compareAndSet(deregs, d :: deregs))
+                d.apply()
+            case f =>
+              f.onComplete(firstCompleteHandler)
+          }
         }
+        p.future
       }
-      p.future
     }
+
+    // SAFETY: rely on monotonicity (?). TODO In the future: needs capture set variables
+    impl(futures.asInstanceOf[IterableOnce[Future[T]]^{futures}])(using executor)
   }
 
   /** Asynchronously and non-blockingly returns a `Future` that will hold the optional result
@@ -811,15 +823,16 @@ object Future uses ExecutionContext {
    *  @param executor the `ExecutionContext` on which the futures' completion handlers will be executed
    *  @return          the `Future` holding the optional result of the search
    */
-  final def find[T](futures: scala.collection.immutable.Iterable[Future[T]])(p: T => Boolean)(implicit executor: ExecutionContext): Future[Option[T]] = {
-    def searchNext(i: Iterator[Future[T]]): Future[Option[T]] =
+  final def find[T](futures: scala.collection.immutable.Iterable[Future[T]^]^)(p: T => Boolean)(implicit executor: ExecutionContext): Future[Option[T]]^{p, futures, executor} = {
+    def searchNext[C^](i: Iterator[Future[T]^{C}]^): Future[Option[T]]^{p, i, C, executor} =
       if (!i.hasNext) successful(None)
       else i.next().transformWith {
              case Success(r) if p(r) => successful(Some(r))
              case _ => searchNext(i)
            }
 
-    searchNext(futures.iterator)
+    // SAFETY: rely on monotonicity (?). TODO In the future: needs capture set variables
+    searchNext(futures.asInstanceOf[scala.collection.immutable.Iterable[Future[T]]^{futures}].iterator)
   }
 
   /** A non-blocking, asynchronous left fold over the specified futures,
@@ -844,10 +857,11 @@ object Future uses ExecutionContext {
    *  @param executor the `ExecutionContext` on which the fold operation will be executed
    *  @return         the `Future` holding the result of the fold
    */
-  final def foldLeft[T, R](futures: scala.collection.immutable.Iterable[Future[T]])(zero: R)(op: (R, T) => R)(implicit executor: ExecutionContext): Future[R] =
-    foldNext(futures.iterator, zero, op)
+  final def foldLeft[T, R](futures: scala.collection.immutable.Iterable[Future[T]^]^)(zero: R)(op: (R, T) => R)(implicit executor: ExecutionContext): Future[R]^{futures, op, executor} =
+    // SAFETY: rely on monotonicity (?). TODO In the future: needs capture set variables
+    foldNext(futures.asInstanceOf[scala.collection.immutable.Iterable[Future[T]]^{futures}].iterator, zero, op)
 
-  private final def foldNext[T, R](i: Iterator[Future[T]], prevValue: R, op: (R, T) => R)(implicit executor: ExecutionContext): Future[R] =
+  private final def foldNext[T, R, C^](i: Iterator[Future[T]^{C}]^, prevValue: R, op: (R, T) => R)(implicit executor: ExecutionContext): Future[R]^{i, C, op, executor} =
     if (!i.hasNext) successful(prevValue)
     else i.next().flatMap { value => foldNext(i, op(prevValue, value), op) }
 
@@ -872,9 +886,11 @@ object Future uses ExecutionContext {
    */
   @deprecated("use Future.foldLeft instead", "2.12.0")
   // not removed in 2.13, to facilitate 2.11/2.12/2.13 cross-building; remove further down the line (see scala/scala#6319)
-  def fold[T, R](futures: IterableOnce[Future[T]])(zero: R)(@deprecatedName("foldFun") op: (R, T) => R)(implicit executor: ExecutionContext): Future[R] =
-    if (futures.isEmpty) successful(zero)
-    else sequence(futures)(using ArrayBuffer, executor).map(_.foldLeft(zero)(op))
+  def fold[T, R](futures: IterableOnce[Future[T]^]^)(zero: R)(@deprecatedName("foldFun") op: (R, T) => R)(implicit executor: ExecutionContext): Future[R]^{futures, op, executor, ExecutionContext} =
+    // SAFETY: rely on monotonicity (?). TODO In the future: needs capture set variables
+    val futs = futures.asInstanceOf[IterableOnce[Future[T]]^{futures}]
+    if (futs.iterator.isEmpty) successful(zero)
+    else sequence(futs)(using ArrayBuffer, executor).map(_.foldLeft(zero)(op))
 
   /** Initiates a non-blocking, asynchronous, fold over the supplied futures
    *  where the fold-zero is the result value of the first `Future` in the collection.
@@ -893,9 +909,11 @@ object Future uses ExecutionContext {
    */
   @deprecated("use Future.reduceLeft instead", "2.12.0")
   // not removed in 2.13, to facilitate 2.11/2.12/2.13 cross-building; remove further down the line (see scala/scala#6319)
-  final def reduce[T, R >: T](futures: IterableOnce[Future[T]])(op: (R, T) => R)(implicit executor: ExecutionContext): Future[R] =
-    if (futures.isEmpty) failed(new NoSuchElementException("reduce attempted on empty collection"))
-    else sequence(futures)(using ArrayBuffer, executor).map(_ reduceLeft op)
+  final def reduce[T, R >: T](futures: IterableOnce[Future[T]^]^)(op: (R, T) => R)(implicit executor: ExecutionContext): Future[R]^{futures, op, executor, ExecutionContext} =
+    // SAFETY: rely on monotonicity (?). TODO In the future: needs capture set variables
+    val futs = futures.asInstanceOf[IterableOnce[Future[T]]^{futures}]
+    if (futs.iterator.isEmpty) failed(new NoSuchElementException("reduce attempted on empty collection"))
+    else sequence(futs)(using ArrayBuffer, executor).map(_ reduceLeft op)
 
   /** Initiates a non-blocking, asynchronous, left reduction over the supplied futures
    *  where the zero is the result value of the first `Future`.
@@ -914,8 +932,9 @@ object Future uses ExecutionContext {
    *  @param executor the `ExecutionContext` on which the reduce operation will be executed
    *  @return         the `Future` holding the result of the reduce
    */
-  final def reduceLeft[T, R >: T](futures: scala.collection.immutable.Iterable[Future[T]])(op: (R, T) => R)(implicit executor: ExecutionContext): Future[R] = {
-    val i = futures.iterator
+  final def reduceLeft[T, R >: T](futures: scala.collection.immutable.Iterable[Future[T]^]^)(op: (R, T) => R)(implicit executor: ExecutionContext): Future[R]^{futures, op, executor} = {
+    // SAFETY: rely on monotonicity (?). TODO In the future: needs capture set variables
+    val i = futures.iterator.asInstanceOf[Iterator[Future[T]]^{futures}]
     if (!i.hasNext) failed(new NoSuchElementException("reduceLeft attempted on empty collection"))
     else i.next() flatMap { v => foldNext(i, v, op) }
   }
@@ -941,10 +960,13 @@ object Future uses ExecutionContext {
    *  @param executor  the `ExecutionContext` on which `fn` and the resulting Futures will be executed
    *  @return          the `Future` of the collection of results
    */
-  final def traverse[A, B, M[X] <: IterableOnce[X]](in: M[A])(fn: A => Future[B])(implicit bf: BuildFrom[M[A], B, M[B]], executor: ExecutionContext): Future[M[B]] =
-    in.iterator.foldLeft(successful(bf.newBuilder(in))) {
-      (fr, a) => fr.zipWith(fn(a))(Future.addToBuilderFun)
-    }.map(_.result())(using if (executor.isInstanceOf[BatchingExecutor]) executor else parasitic)
+  final def traverse[A, B, M[X] <: IterableOnce[X]](in: M[A]^)(fn: A => Future[B]^)(implicit bf: BuildFrom[M[A]^{in}, B, M[B]], executor: ExecutionContext): Future[M[B]]^{in, fn, executor, ExecutionContext} =
+    def traverseCorrect[A, B, M[X] <: IterableOnce[X], C^](in: M[A]^)(fn: A => Future[B]^{C})(using bf: BuildFrom[M[A]^{in}, B, M[B]], executor: ExecutionContext): Future[M[B]]^{in, fn, C, executor, ExecutionContext} =
+      in.iterator.foldLeft[Future[Builder[B, M[B]]]^{in, fn, C, executor, ExecutionContext}](successful(bf.newBuilder(in))) {
+        (fr, a) => fr.zipWith(fn(a))(Future.addToBuilderFun)
+      }.map(_.result())(using if (executor.isInstanceOf[BatchingExecutor]) executor else parasitic)
+
+    traverseCorrect(in)(fn.asInstanceOf[A ->{fn} Future[B]])(using bf, executor)
 }
 
 @deprecated("Superseded by `scala.concurrent.Batchable`", "2.13.0")
