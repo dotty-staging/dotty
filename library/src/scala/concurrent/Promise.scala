@@ -12,6 +12,8 @@
 
 package scala.concurrent
 
+import language.experimental.captureChecking
+
 import scala.language.`2.13`
 import scala.util.{ Try, Success, Failure }
 
@@ -36,9 +38,9 @@ import scala.util.{ Try, Success, Failure }
  *
  *  @tparam T the type of the value held by this promise and its associated future
  */
-trait Promise[T] {
+trait Promise[T] uses ExecutionContext {
   /** Future containing the value of this promise. */
-  def future: Future[T]
+  def future: Future[T]^{this}
 
   /** Returns whether the promise has already been completed with
    *  a value or an exception.
@@ -56,7 +58,7 @@ trait Promise[T] {
    *
    *  $promiseCompletion
    */
-  def complete(result: Try[T]): this.type =
+  def complete(result: Try[T]^): this.type =
     if (tryComplete(result)) this else throw new IllegalStateException("Promise already completed.")
 
   /** Tries to complete the promise with either a value or the exception.
@@ -66,14 +68,14 @@ trait Promise[T] {
    *  @param result either the value or the exception to complete the promise with
    *  @return    If the promise has already been completed returns `false`, or `true` otherwise.
    */
-  def tryComplete(result: Try[T]): Boolean
+  def tryComplete(result: Try[T]^): Boolean
 
   /** Completes this promise with the specified future, once that future is completed.
    *
    *  @param other the future whose result will be used to complete this promise
    *  @return   This promise
    */
-   def completeWith(other: Future[T]): this.type = {
+   def completeWith(other: Future[T]^): this.type = {
     if (other ne this.future) // this tryCompleteWith this doesn't make much sense
       other.onComplete(this tryComplete _)(using ExecutionContext.parasitic)
 
@@ -85,7 +87,7 @@ trait Promise[T] {
    *  @return   This promise
    */
   @deprecated("Since this method is semantically equivalent to `completeWith`, use that instead.", "2.13.0")
-  final def tryCompleteWith(other: Future[T]): this.type = completeWith(other)
+  final def tryCompleteWith(other: Future[T]^): this.type = completeWith(other)
 
   /** Completes the promise with a value.
    *
@@ -156,5 +158,5 @@ object Promise {
    *  @param result the `Try` value (success or failure) to complete the promise with
    *  @return         the newly created `Promise` instance
    */
-  final def fromTry[T](result: Try[T]): Promise[T] = new impl.Promise.DefaultPromise[T](result)
+  final def fromTry[T](result: Try[T]^): Promise[T]^{result} = new impl.Promise.DefaultPromise[T](result)
 }
