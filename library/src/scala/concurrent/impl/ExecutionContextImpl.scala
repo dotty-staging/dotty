@@ -82,7 +82,7 @@ private[concurrent] object ExecutionContextImpl {
       })
   }
 
-  def createDefaultExecutorService(reporter: Throwable ->{any.only[SharedCapability]} Unit): ExecutionContextExecutorService = {
+  def createDefaultExecutorService(reporter: Throwable ->{any.only[SharedCapability]} Unit): ExecutionContextExecutorService^{reporter} = {
     def getInt(name: String, default: String) = (try System.getProperty(name, default) catch {
       case e: SecurityException => default
     }) match {
@@ -112,14 +112,14 @@ private[concurrent] object ExecutionContextImpl {
     }
   }
 
-  def fromExecutor(e: (Executor^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit = ExecutionContext.defaultReporter): ExecutionContextExecutor =
+  def fromExecutor(e: (Executor^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit = ExecutionContext.defaultReporter): ExecutionContextExecutor^{e, reporter} =
     e match {
       case null => createDefaultExecutorService(reporter)
       case some => new ExecutionContextImpl(some, reporter)
     }
 
   def fromExecutorService(es: (ExecutorService^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit = ExecutionContext.defaultReporter):
-    ExecutionContextExecutorService = es match {
+    ExecutionContextExecutorService^{es, reporter} = es match {
       case null => createDefaultExecutorService(reporter)
       case some =>
         // This is a anonymous class extending a Java class, so we left inferred flexible types in the signatures.
