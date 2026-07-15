@@ -134,7 +134,7 @@ object Promise {
    *  @tparam T       the type of the value in the promise
    *  @return         the newly created `Promise` instance
    */
-  final def apply[T](): Promise[T] = new impl.Promise.DefaultPromise[T]()
+  final def apply[T](): Promise[T] = impl.Promise.DefaultPromise[T]()
 
   /** Creates an already completed Promise with the specified exception.
    *
@@ -158,5 +158,5 @@ object Promise {
    *  @param result the `Try` value (success or failure) to complete the promise with
    *  @return         the newly created `Promise` instance
    */
-  final def fromTry[T](result: Try[T]^): Promise[T]^{result} = new impl.Promise.DefaultPromise[T](result)
+  final def fromTry[T](result: Try[T]): Promise[T] = impl.Promise.DefaultPromise[T](result)
 }
