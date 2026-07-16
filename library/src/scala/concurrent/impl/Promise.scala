@@ -95,7 +95,8 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
           if (compareAndSet(current, target)) target // Link
           else compressed(current = getPromise, target = target, owner = owner) // Retry
         case v: Link[T] =>
-          compressed(current = current, target = v.getPromise, owner = owner) // Compress
+          val v1: DefaultPromise[T]^{v} = v.getPromise
+          compressed(current = current, target = v1, owner = owner) // Compress
         case v: Try[T] =>
           owner.unlink(/* We know a Try here is safe */ caps.unsafe.unsafeAssumePure(v)) // Discard links
           owner
@@ -123,7 +124,7 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
     }
 
   // Left non-final to enable addition of extra fields by Java/Scala converters in scala-java8-compat.
-  class DefaultPromise[T] private (initial: AnyRef^) extends AtomicReference[AnyRef^{initial}](initial) with scala.concurrent.Promise[T] with scala.concurrent.Future[T] with (Try[T] => Unit) uses ExecutionContext {
+  class DefaultPromise[T] private (initial: AnyRef^{any.except[ThreadLocal]}) extends AtomicReference[AnyRef^{initial}](initial) with scala.concurrent.Promise[T] with scala.concurrent.Future[T] with (Try[T] => Unit) uses ExecutionContext { this: DefaultPromise[T]^{any.except[ThreadLocal]} =>
     /** Constructs a new, completed, Promise.
      *
      *  @param result the completed result value to initialize this promise with
@@ -144,13 +145,13 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
     /** Returns the associated `Future` with this `Promise` */
     override final def future: Future[T]^{this} = this
 
-    override final def transform[S](f: Try[T] => Try[S]^)(implicit executor: ExecutionContext^): Future[S]^{this, f, executor, ExecutionContext} =
+    override final def transform[S](f: Try[T] ->{any.except[ThreadLocal]} Try[S])(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[S]^{this, f, executor, ExecutionContext} =
       dispatchOrAddCallbacks(getRef, Transformation[T, S](Xform_transform, f, executor))
 
-    override final def transformWith[S](f: Try[T] => Future[S]^)(implicit executor: ExecutionContext^): Future[S]^{this, f, executor, ExecutionContext} =
+    override final def transformWith[S](f: Try[T] ->{any.except[ThreadLocal]} Future[S]^)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[S]^{this, f, executor, ExecutionContext} =
       dispatchOrAddCallbacks(getRef, Transformation[T, S](Xform_transformWith, f, executor))
 
-    override final def zipWith[U, R](that: Future[U]^)(f: (T, U) => R)(implicit executor: ExecutionContext^): Future[R]^{this, that, f, executor, ExecutionContext} = {
+    override final def zipWith[U, R](that: Future[U]^{any.except[ThreadLocal]})(f: (T, U) ->{any.except[ThreadLocal]} R)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[R]^{this, that, f, executor, ExecutionContext} = {
       val state = getRef
       if (state.isInstanceOf[Try[?]]) {
         if (state.asInstanceOf[Try[T]].isFailure) this.asInstanceOf[Future[R]^{this}]
@@ -162,7 +163,7 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
         val buffer = new AtomicReference[Success[Any]]()
         val zipped: DefaultPromise[R]^{this, ExecutionContext} = DefaultPromise[R]()
 
-        val thisF: Try[T] => Unit = {
+        val thisF: Try[T] ->{this, zipped, f} Unit = {
           case left: Success[?] =>
             val right = buffer.getAndSet(left).asInstanceOf[Success[U]]
             if (right ne null)
@@ -171,7 +172,7 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
             zipped.tryComplete(f.asInstanceOf[Failure[R]])
         }
 
-        val thatF: Try[U] => Unit = {
+        val thatF: Try[U] ->{this, zipped, f} Unit = {
           case right: Success[?] =>
             val left = buffer.getAndSet(right).asInstanceOf[Success[T]]
             if (left ne null)
@@ -186,42 +187,42 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
       }
     }
 
-    override final def foreach[U](f: T => U)(implicit executor: ExecutionContext^): Unit = {
+    override final def foreach[U](f: T ->{any.except[ThreadLocal]} U)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Unit = {
       val state = getRef
       if (!state.isInstanceOf[Failure[?]]) dispatchOrAddCallbacks(state, Transformation[T, Unit](Xform_foreach, f, executor))
     }
 
-    override final def flatMap[S](f: T => Future[S]^)(implicit executor: ExecutionContext^): Future[S]^{this, f, executor, ExecutionContext} = {
+    override final def flatMap[S](f: T ->{any.except[ThreadLocal]} Future[S]^)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[S]^{this, f, executor, ExecutionContext} = {
       val state = getRef
       if (!state.isInstanceOf[Failure[?]]) dispatchOrAddCallbacks(state, Transformation[T, S](Xform_flatMap, f, executor))
       else this.asInstanceOf[Future[S]]
     }
 
-    override final def map[S](f: T => S)(implicit executor: ExecutionContext^): Future[S]^{this, f, executor, ExecutionContext} = {
+    override final def map[S](f: T ->{any.except[ThreadLocal]} S)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[S]^{this, f, executor, ExecutionContext} = {
       val state = getRef
       if (!state.isInstanceOf[Failure[?]]) dispatchOrAddCallbacks(state, Transformation[T, S](Xform_map, f, executor))
       else this.asInstanceOf[Future[S]]
     }
 
-    override final def filter(p: T => Boolean)(implicit executor: ExecutionContext^): Future[T]^{this, p, executor, ExecutionContext} = {
+    override final def filter(p: T ->{any.except[ThreadLocal]} Boolean)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[T]^{this, p, executor, ExecutionContext} = {
       val state = getRef
       if (!state.isInstanceOf[Failure[?]]) dispatchOrAddCallbacks(state, Transformation[T, T](Xform_filter, p, executor)) // Short-circuit if we get a Success
       else this
     }
 
-    override final def collect[S](pf: PartialFunction[T, S]^)(implicit executor: ExecutionContext^): Future[S]^{this, pf, executor, ExecutionContext} = {
+    override final def collect[S](pf: PartialFunction[T, S]^{any.except[ThreadLocal]})(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[S]^{this, pf, executor, ExecutionContext} = {
       val state = getRef
       if (!state.isInstanceOf[Failure[?]]) dispatchOrAddCallbacks(state, Transformation[T, S](Xform_collect, pf, executor)) // Short-circuit if we get a Success
       else this.asInstanceOf[Future[S]]
     }
 
-    override final def recoverWith[U >: T](pf: PartialFunction[Throwable, Future[U]]^)(implicit executor: ExecutionContext^): Future[U]^{this, pf, executor, ExecutionContext} = {
+    override final def recoverWith[U >: T](pf: PartialFunction[Throwable, Future[U]]^{any.except[ThreadLocal]})(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[U]^{this, pf, executor, ExecutionContext} = {
       val state = getRef
       if (!state.isInstanceOf[Success[?]]) dispatchOrAddCallbacks(state, Transformation[T, U](Xform_recoverWith, pf, executor)) // Short-circuit if we get a Failure
       else this.asInstanceOf[Future[U]]
     }
 
-    override final def recover[U >: T](pf: PartialFunction[Throwable, U]^)(implicit executor: ExecutionContext^): Future[U]^{this, pf, executor, ExecutionContext} = {
+    override final def recover[U >: T](pf: PartialFunction[Throwable, U]^{any.except[ThreadLocal]})(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Future[U]^{this, pf, executor, ExecutionContext} = {
       val state = getRef
       if (!state.isInstanceOf[Success[?]]) dispatchOrAddCallbacks(state, Transformation[T, U](Xform_recover, pf, executor)) // Short-circuit if we get a Failure
       else this.asInstanceOf[Future[U]]
@@ -232,7 +233,7 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
       else this.asInstanceOf[Future[S]]
 
 
-    override final def onComplete[U](func: Try[T] => U)(implicit executor: ExecutionContext^): Unit =
+    override final def onComplete[U](func: Try[T] ->{any.except[ThreadLocal]} U)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): Unit =
       dispatchOrAddCallbacks(getRef, Transformation[T, Unit](Xform_onComplete, func, executor))
 
     /** The same as [[onComplete]], but additionally returns a function which can be
@@ -244,7 +245,7 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
      *  @param executor the `ExecutionContext` used to run the callback
      *  @return a function which, when invoked, unregisters the callback so it will not be called when this future completes
      */
-    private[concurrent] final def onCompleteWithUnregister[U](func: Try[T] => U)(implicit executor: ExecutionContext^): () ->{this, func, executor, ExecutionContext} Unit = {
+    private[concurrent] final def onCompleteWithUnregister[U](func: Try[T] ->{any.except[ThreadLocal]} U)(implicit executor: ExecutionContext^{any.except[ThreadLocal]}): () ->{this, func, executor, ExecutionContext} Unit = {
       val t = Transformation[T, Unit](Xform_onComplete, func, executor)
       dispatchOrAddCallbacks(getRef, t)
       () => unregisterCallback(t)
@@ -307,10 +308,10 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
       else /*if (state.isInstanceOf[Callbacks[T]])*/ null
     }
 
-    override final def tryComplete(value: Try[T]^): Boolean = {
+    override final def tryComplete(value: Try[T]): Boolean = {
       val state = getRef
       if (state.isInstanceOf[Try[?]]) false
-      else tryComplete0(state, resolve(caps.unsafe.unsafeAssumePure(value) /* TODO fix */))
+      else tryComplete0(state, resolve(value))
     }
 
     @tailrec // WARNING: important that the supplied Try really is resolve():d
@@ -494,12 +495,12 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
    *  @tparam T the output type (the value type produced by the transformation)
    */
   final class Transformation[-F, T] private (
-    @annotation.stableNull private final var _fun: (Any => Any) | Null,
-    @annotation.stableNull private final var _ec: (ExecutionContext^) | Null,
+    @annotation.stableNull private final var _fun: (Any ->{any.except[ThreadLocal]} Any) | Null,
+    @annotation.stableNull private final var _ec: (ExecutionContext^{any.except[ThreadLocal]}) | Null,
     @annotation.stableNull private final var _arg: Try[F @uncheckedVariance] | Null,
     private final val _xform: Int
   ) extends DefaultPromise[T]() with Callbacks[F] with Runnable with Batchable uses ExecutionContext {
-    final def this(xform: Int, f: (? => ?) | Null, ec: ExecutionContext^) =
+    final def this(xform: Int, f: (? ->{any.except[ThreadLocal]} ?) | Null, ec: ExecutionContext^{any.except[ThreadLocal]}) =
       this(f.asInstanceOf[(Any ->{f} Any) | Null], ec.prepare(): @nowarn("cat=deprecation"), null, xform)
 
     final def benefitsFromBatching: Boolean = _xform != Xform_onComplete && _xform != Xform_foreach
@@ -594,6 +595,6 @@ private[concurrent] object Promise uses ExecutionContext, ExecutionContext initi
   }
 
   object Transformation:
-    private[impl] def apply[F, T](xform: Int, f: (? => ?) | Null, ec: ExecutionContext^): Transformation[F, T]^{f, ec, ExecutionContext} =
+    private[impl] def apply[F, T](xform: Int, f: (? ->{any.except[ThreadLocal]} ?) | Null, ec: ExecutionContext^{any.except[ThreadLocal]}): Transformation[F, T]^{f, ec, ExecutionContext} =
       new Transformation[F, T](f.asInstanceOf[(Any ->{f} Any) | Null], ec.prepare(): @nowarn("cat=deprecation"), null, xform)
 }

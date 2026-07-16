@@ -20,7 +20,7 @@ import java.util.concurrent.{ Semaphore, ForkJoinPool, ForkJoinWorkerThread, Cal
 import java.util.Collection
 import scala.concurrent.{ BlockContext, ExecutionContext, CanAwait, ExecutionContextExecutor, ExecutionContextExecutorService }
 
-private[scala] class ExecutionContextImpl private[impl] (final val executor: Executor^{any.only[SharedCapability]}, final val reporter: Throwable ->{any.only[SharedCapability]} Unit) extends ExecutionContextExecutor {
+private[scala] class ExecutionContextImpl private[impl] (final val executor: Executor^{any.except[ThreadLocal]}, final val reporter: Throwable ->{any.except[ThreadLocal]} Unit) extends ExecutionContextExecutor {
   require(executor ne null, "Executor must not be null")
   override final def execute(runnable: Runnable): Unit = executor.execute(runnable)
   override final def reportFailure(t: Throwable): Unit = reporter(t)
@@ -32,7 +32,7 @@ private[concurrent] object ExecutionContextImpl {
     final val daemonic: Boolean,
     final val maxBlockers: Int,
     final val prefix: String,
-    final val uncaught: Thread.UncaughtExceptionHandler^{any.only[SharedCapability]}) extends ThreadFactory with ForkJoinPool.ForkJoinWorkerThreadFactory {
+    final val uncaught: Thread.UncaughtExceptionHandler^{any.except[ThreadLocal]}) extends ThreadFactory with ForkJoinPool.ForkJoinWorkerThreadFactory {
 
     require(prefix ne null, "DefaultThreadFactory.prefix must be non null")
     require(maxBlockers >= 0, "DefaultThreadFactory.maxBlockers must be greater-or-equal-to 0")
@@ -40,7 +40,7 @@ private[concurrent] object ExecutionContextImpl {
     private final val blockerPermits = new Semaphore(maxBlockers)
 
     @annotation.nowarn("cat=deprecation")
-    def wire[T <: Thread^](thread: T): T = {
+    def wire[C^, T <: Thread^{C}](thread: T): T = {
       thread.setDaemon(daemonic)
       thread.setUncaughtExceptionHandler(uncaught)
       thread.setName(prefix + "-" + thread.getId())
@@ -50,7 +50,7 @@ private[concurrent] object ExecutionContextImpl {
     def newThread(runnable: Runnable): Thread = wire(new Thread(runnable))
 
     def newThread(fjp: ForkJoinPool^): ForkJoinWorkerThread^{fjp} =
-      wire[ForkJoinWorkerThread^{fjp}](new ForkJoinWorkerThread(fjp) with BlockContext {
+      wire[{fjp}, ForkJoinWorkerThread^{fjp}](new ForkJoinWorkerThread(fjp) with BlockContext {
         private final var isBlocked: Boolean = false // This is only ever read & written if this thread is the current thread
         final override def blockOn[T](thunk: => T)(implicit permission: CanAwait): T =
           if ((Thread.currentThread eq this) && !isBlocked && blockerPermits.tryAcquire()) {
@@ -82,7 +82,7 @@ private[concurrent] object ExecutionContextImpl {
       })
   }
 
-  def createDefaultExecutorService(reporter: Throwable ->{any.only[SharedCapability]} Unit): ExecutionContextExecutorService^{reporter} = {
+  def createDefaultExecutorService(reporter: Throwable ->{any.except[ThreadLocal]} Unit): ExecutionContextExecutorService^{reporter} = {
     def getInt(name: String, default: String) = (try System.getProperty(name, default) catch {
       case e: SecurityException => default
     }) match {
@@ -112,13 +112,13 @@ private[concurrent] object ExecutionContextImpl {
     }
   }
 
-  def fromExecutor(e: (Executor^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit = ExecutionContext.defaultReporter): ExecutionContextExecutor^{e, reporter} =
+  def fromExecutor(e: (Executor^{any.except[ThreadLocal]}) | Null, reporter: Throwable ->{any.except[ThreadLocal]} Unit = ExecutionContext.defaultReporter): ExecutionContextExecutor^{e, reporter} =
     e match {
       case null => createDefaultExecutorService(reporter)
       case some => new ExecutionContextImpl(some, reporter)
     }
 
-  def fromExecutorService(es: (ExecutorService^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit = ExecutionContext.defaultReporter):
+  def fromExecutorService(es: (ExecutorService^{any.except[ThreadLocal]}) | Null, reporter: Throwable ->{any.except[ThreadLocal]} Unit = ExecutionContext.defaultReporter):
     ExecutionContextExecutorService^{es, reporter} = es match {
       case null => createDefaultExecutorService(reporter)
       case some =>

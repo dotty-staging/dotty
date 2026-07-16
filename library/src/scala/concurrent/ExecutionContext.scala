@@ -255,7 +255,7 @@ object ExecutionContext extends ConcurrentCapability {
    *  @param reporter  a function for error reporting
    *  @return          the `ExecutionContext` using the given `ExecutorService`
    */
-  def fromExecutorService(e: (ExecutorService^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit): ExecutionContextExecutorService^{e, reporter} =
+  def fromExecutorService(e: (ExecutorService^{any.except[ThreadLocal]}) | Null, reporter: Throwable ->{any.except[ThreadLocal]} Unit): ExecutionContextExecutorService^{e, reporter} =
     impl.ExecutionContextImpl.fromExecutorService(e, reporter)
 
   /** Creates an `ExecutionContext` from the given `ExecutorService` with the [[scala.concurrent.ExecutionContext$.defaultReporter default reporter]].
@@ -271,7 +271,7 @@ object ExecutionContext extends ConcurrentCapability {
    *  @param e the `ExecutorService` to use. If `null`, a new `ExecutorService` is created with [[scala.concurrent.ExecutionContext$.global default configuration]].
    *  @return  the `ExecutionContext` using the given `ExecutorService`
    */
-  def fromExecutorService(e: (ExecutorService^{any.only[SharedCapability]}) | Null): ExecutionContextExecutorService^{e} = fromExecutorService(e, defaultReporter)
+  def fromExecutorService(e: (ExecutorService^{any.except[ThreadLocal]}) | Null): ExecutionContextExecutorService^{e} = fromExecutorService(e, defaultReporter)
 
   /** Creates an `ExecutionContext` from the given `Executor`.
    *
@@ -279,7 +279,7 @@ object ExecutionContext extends ConcurrentCapability {
    *  @param reporter  a function for error reporting
    *  @return          the `ExecutionContext` using the given `Executor`
    */
-  def fromExecutor(e: (Executor^{any.only[SharedCapability]}) | Null, reporter: Throwable ->{any.only[SharedCapability]} Unit): ExecutionContextExecutor^{e, reporter} =
+  def fromExecutor(e: (Executor^{any.except[ThreadLocal]}) | Null, reporter: Throwable ->{any.except[ThreadLocal]} Unit): ExecutionContextExecutor^{e, reporter} =
     impl.ExecutionContextImpl.fromExecutor(e, reporter)
 
   /** Creates an `ExecutionContext` from the given `Executor` with the [[scala.concurrent.ExecutionContext$.defaultReporter default reporter]].
@@ -287,7 +287,7 @@ object ExecutionContext extends ConcurrentCapability {
    *  @param e the `Executor` to use. If `null`, a new `Executor` is created with [[scala.concurrent.ExecutionContext$.global default configuration]].
    *  @return  the `ExecutionContext` using the given `Executor`
    */
-  def fromExecutor(e: (Executor^{any.only[SharedCapability]}) | Null): ExecutionContextExecutor^{e} = fromExecutor(e, defaultReporter)
+  def fromExecutor(e: (Executor^{any.except[ThreadLocal]}) | Null): ExecutionContextExecutor^{e} = fromExecutor(e, defaultReporter)
 
   /** The default reporter simply prints the stack trace of the `Throwable` to [[java.lang.System#err System.err]].
    *

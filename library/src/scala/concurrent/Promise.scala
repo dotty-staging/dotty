@@ -59,7 +59,7 @@ trait Promise[T] uses ExecutionContext { this: Promise[T]^{any.except[ThreadLoca
    *
    *  $promiseCompletion
    */
-  def complete(result: Try[T]^): this.type =
+  def complete(result: Try[T]): this.type =
     if (tryComplete(result)) this else throw new IllegalStateException("Promise already completed.")
 
   /** Tries to complete the promise with either a value or the exception.
@@ -69,7 +69,7 @@ trait Promise[T] uses ExecutionContext { this: Promise[T]^{any.except[ThreadLoca
    *  @param result either the value or the exception to complete the promise with
    *  @return    If the promise has already been completed returns `false`, or `true` otherwise.
    */
-  def tryComplete(result: Try[T]^): Boolean
+  def tryComplete(result: Try[T]): Boolean
 
   /** Completes this promise with the specified future, once that future is completed.
    *
