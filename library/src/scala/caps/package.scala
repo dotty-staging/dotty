@@ -72,6 +72,15 @@ trait ExclusiveCapability extends Capability
 @experimental
 type Exclusive = ExclusiveCapability
 
+/** Marker trait for capabilities that are thread-local. These include control-flow capabilities
+ * (as they modify stacks), as well as mutex locks and other values that cannot be safety passed across stacks.
+ *
+ *  [[ThreadLocal]] has a formal meaning when
+ *  [[scala.language.experimental.captureChecking Capture Checking]]
+ *  is turned on.
+ */
+trait ThreadLocal extends SharedCapability, Classifier
+
 /** Marker trait for capabilities that capture some continuation or return point in
  *  the stack. Examples are exceptions, [[scala.util.boundary.Label labels]], [[scala.CanThrow CanThrow]]
  *  or Async contexts.
@@ -80,7 +89,7 @@ type Exclusive = ExclusiveCapability
  *  [[scala.language.experimental.captureChecking Capture Checking]]
  *  is turned on.
  */
-trait Control extends SharedCapability, Classifier
+trait Control extends ThreadLocal, Classifier
 
 /** Marker trait for classes that can consult and change the global program state.
  *  These  classes typically contain mutable variables and/or update methods.

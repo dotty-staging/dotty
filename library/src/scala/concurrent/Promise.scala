@@ -13,6 +13,7 @@
 package scala.concurrent
 
 import language.experimental.captureChecking
+import caps.*
 
 import scala.language.`2.13`
 import scala.util.{ Try, Success, Failure }
@@ -38,7 +39,7 @@ import scala.util.{ Try, Success, Failure }
  *
  *  @tparam T the type of the value held by this promise and its associated future
  */
-trait Promise[T] uses ExecutionContext {
+trait Promise[T] uses ExecutionContext { this: Promise[T]^{any.except[ThreadLocal]} =>
   /** Future containing the value of this promise. */
   def future: Future[T]^{this}
 

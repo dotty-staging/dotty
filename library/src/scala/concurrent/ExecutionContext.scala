@@ -19,6 +19,9 @@ import scala.annotation.implicitNotFound
 import language.experimental.captureChecking
 import scala.caps.*
 
+/** Marker classifier for all default execution contexts, which are not thread-local. */
+trait ConcurrentCapability extends SharedCapability, Classifier
+
 /** An `ExecutionContext` can execute program logic asynchronously,
  *  typically but not necessarily on a thread pool.
  *
@@ -119,7 +122,7 @@ trait ExecutionContextExecutorService extends ExecutionContextExecutor with Exec
 
 
 /** Contains factory methods for creating execution contexts. */
-object ExecutionContext extends SharedCapability {
+object ExecutionContext extends ConcurrentCapability {
   /** The global [[ExecutionContext]]. This default `ExecutionContext` implementation is backed by a work-stealing thread
    *  pool. It can be configured via the following system properties:
    *
@@ -220,14 +223,14 @@ object ExecutionContext extends SharedCapability {
    *
    *  Any `NonFatal` or `InterruptedException`s will be reported to the `defaultReporter`.
    */
-  object parasitic extends ExecutionContextExecutor with BatchingExecutor with caps.SharedCapability {
+  object parasitic extends ExecutionContextExecutor with BatchingExecutor with ConcurrentCapability {
     override final def submitForExecution(runnable: Runnable^{this}): Unit = runnable.run()
     override final def execute(runnable: Runnable): Unit = submitSyncBatched(runnable)
     override final def reportFailure(t: Throwable): Unit = defaultReporter(t)
   }
 
   /** See [[ExecutionContext.global]]. */
-  private[scala] lazy val opportunistic: ExecutionContextExecutor^{this} = new ExecutionContextExecutor with BatchingExecutor with caps.SharedCapability {
+  private[scala] lazy val opportunistic: ExecutionContextExecutor^{this} = new ExecutionContextExecutor with BatchingExecutor with ConcurrentCapability {
     final override def submitForExecution(runnable: Runnable^{this}): Unit = global.execute(runnable)
 
     final override def execute(runnable: Runnable): Unit =
