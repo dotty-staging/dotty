@@ -25,3 +25,26 @@
   val xs = List("ab", "c", "de")
   assert(xs.groupFlatMap(_.length)(_.toList) ==
     xs.groupMap(_.length)(_.toList).view.mapValues(_.flatten).toMap)
+
+  // Test: duplicates from expansion are preserved in List result
+  // (flatmap semantics: each element expands to multiple elements)
+  val dupExpanded = List(1, 2).groupFlatMap(identity)(x => List(x, x))
+  assert(dupExpanded == Map(1 -> List(1, 1), 2 -> List(2, 2)))
+
+  // Test: duplicates across different elements in same group are preserved
+  // (encounter order + flatMap semantics)
+  val crossDup = List("aa", "ab").groupFlatMap(_.head)(s => List(s.length))
+  assert(crossDup == Map('a' -> List(2, 2)))
+
+  // Test: multiple groups with mixed expansion sizes
+  val mixed = List(1, 2, 3, 4).groupFlatMap(_ % 2)(x => List(x, x * 10, x * 100))
+  assert(mixed(1) == List(1, 10, 100, 3, 30, 300))
+  assert(mixed(0) == List(2, 20, 200, 4, 40, 400))
+
+  // Test: empty expansion creates empty group (not suppressed)
+  // This is the documented behavior
+  val emptyExpansions = List(1, 2, 3).groupFlatMap(identity)(x => if x == 2 then Nil else List(x))
+  // Note: key 2 gets an empty group (with a builder that was created but never added to)
+  assert(emptyExpansions(1) == List(1))
+  assert(emptyExpansions(2) == List.empty) // Empty group should exist
+  assert(emptyExpansions(3) == List(3))
