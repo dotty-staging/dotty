@@ -986,11 +986,10 @@ transparent trait SeqOps[+A, +CC[_], +C] extends Any
   def deleted(index: Int): C^{this} = {
     if (index < 0) throw new IndexOutOfBoundsException(index.toString)
     val b = newSpecificBuilder
-    val it = iterator
+    b.sizeHint(this, -1)
     var i = 0
     var found = false
-    while (it.hasNext) {
-      val a = it.next()
+    foreach { a =>
       if (i == index) found = true else b += a
       i += 1
     }
@@ -1015,17 +1014,13 @@ transparent trait SeqOps[+A, +CC[_], +C] extends Any
   def updatedWith[B >: A](index: Int, f: A => Option[B]): CC[B]^{this} = {
     if (index < 0) throw new IndexOutOfBoundsException(index.toString)
     val b = iterableFactory.newBuilder[B]
-    val it = iterator
+    b.sizeHint(this)
     var i = 0
     var found = false
-    while (it.hasNext) {
-      val a = it.next()
+    foreach { a =>
       if (i == index) {
         found = true
-        f(a) match {
-          case Some(replacement) => b += replacement
-          case None =>
-        }
+        f(a).foreach(b += _)
       } else b += a
       i += 1
     }
@@ -1049,13 +1044,12 @@ transparent trait SeqOps[+A, +CC[_], +C] extends Any
   def splitAround[A1 >: A](separator: A1): (C^{this}, C^{this}) = {
     val before = newSpecificBuilder
     val after = newSpecificBuilder
-    val it = iterator
-    var found = false
-    while (!found && it.hasNext) {
-      val a = it.next()
-      if (a == separator) found = true else before += a
+    var switched = false
+    foreach { a =>
+      if (switched) after += a
+      else if (a == separator) switched = true
+      else before += a
     }
-    while (it.hasNext) after += it.next()
     (before.result(), after.result())
   }
 
