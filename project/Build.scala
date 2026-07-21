@@ -42,6 +42,7 @@ object Build {
   import ScaladocConfigs._
   import Versions._
 
+
   // Run tests with filter through vulpix test suite
   val testCompilation = inputKey[Unit]("runs integration test with the supplied filter")
 
@@ -68,6 +69,8 @@ object Build {
     organization := dottyOrganization,
     organizationName := "LAMP/EPFL",
     organizationHomepage := Some(url("http://lamp.epfl.ch")),
+
+    resolvers += Resolver.scalaNightlyRepository,
 
     // Note: bench/profiles/projects.yml should be updated accordingly.
     scalacOptions ++= Seq(
@@ -983,6 +986,7 @@ object Build {
       Compile / compile / scalacOptions ++= Seq(
         // Needed so that the library sources are visible when `dotty.tools.dotc.core.Definitions#init` is called
         "-sourcepath", (Compile / sourceDirectories).value.map(_.getCanonicalPath).distinct.mkString(File.pathSeparator),
+        "-explain",
       ),
       // Packaging configuration of the stdlib
       Compile / publishArtifact := true,

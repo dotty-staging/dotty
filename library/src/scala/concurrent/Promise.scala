@@ -12,6 +12,9 @@
 
 package scala.concurrent
 
+import language.experimental.captureChecking
+import caps.*
+
 import scala.language.`2.13`
 import scala.util.{ Try, Success, Failure }
 
@@ -36,9 +39,9 @@ import scala.util.{ Try, Success, Failure }
  *
  *  @tparam T the type of the value held by this promise and its associated future
  */
-trait Promise[T] {
+trait Promise[T] uses ExecutionContext { this: Promise[T]^{any.except[ThreadLocal]} =>
   /** Future containing the value of this promise. */
-  def future: Future[T]
+  def future: Future[T]^{this}
 
   /** Returns whether the promise has already been completed with
    *  a value or an exception.
@@ -73,7 +76,7 @@ trait Promise[T] {
    *  @param other the future whose result will be used to complete this promise
    *  @return   This promise
    */
-   def completeWith(other: Future[T]): this.type = {
+   def completeWith(other: Future[T]^): this.type = {
     if (other ne this.future) // this tryCompleteWith this doesn't make much sense
       other.onComplete(this tryComplete _)(using ExecutionContext.parasitic)
 
@@ -85,7 +88,7 @@ trait Promise[T] {
    *  @return   This promise
    */
   @deprecated("Since this method is semantically equivalent to `completeWith`, use that instead.", "2.13.0")
-  final def tryCompleteWith(other: Future[T]): this.type = completeWith(other)
+  final def tryCompleteWith(other: Future[T]^): this.type = completeWith(other)
 
   /** Completes the promise with a value.
    *
@@ -132,7 +135,7 @@ object Promise {
    *  @tparam T       the type of the value in the promise
    *  @return         the newly created `Promise` instance
    */
-  final def apply[T](): Promise[T] = new impl.Promise.DefaultPromise[T]()
+  final def apply[T](): Promise[T] = impl.Promise.DefaultPromise[T]()
 
   /** Creates an already completed Promise with the specified exception.
    *
@@ -156,5 +159,5 @@ object Promise {
    *  @param result the `Try` value (success or failure) to complete the promise with
    *  @return         the newly created `Promise` instance
    */
-  final def fromTry[T](result: Try[T]): Promise[T] = new impl.Promise.DefaultPromise[T](result)
+  final def fromTry[T](result: Try[T]): Promise[T] = impl.Promise.DefaultPromise[T](result)
 }

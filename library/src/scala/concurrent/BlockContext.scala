@@ -12,6 +12,8 @@
 
 package scala.concurrent
 
+import language.experimental.captureChecking
+
 import scala.language.`2.13`
 
 /** A context to be notified by [[scala.concurrent.blocking]] when
@@ -74,7 +76,7 @@ object BlockContext {
 
   private final val contextLocal = new ThreadLocal[BlockContext]()
 
-  private final def prefer(candidate: BlockContext): BlockContext =
+  private final def prefer(candidate: BlockContext^): BlockContext^{candidate} =
     if (candidate ne null) candidate
     else {
       val t = Thread.currentThread
@@ -94,7 +96,7 @@ object BlockContext {
    *  @param body the code to execute with the given `blockContext` installed
    *  @return the result of executing `body`
    */
-  final def withBlockContext[T](blockContext: BlockContext)(body: => T): T = {
+  final def withBlockContext[T](blockContext: BlockContext^)(body: => T): T = {
     val old = contextLocal.get // can be null
     if (old eq blockContext) body
     else {
@@ -111,7 +113,7 @@ object BlockContext {
    *  @param f the function to execute, receiving the previously installed `BlockContext` as its argument
    *  @return the value produced by applying `f`
    */
-  final def usingBlockContext[I, T](blockContext: BlockContext)(f: BlockContext => T): T = {
+  final def usingBlockContext[I, T](blockContext: BlockContext^)(f: BlockContext^{blockContext} => T): T = {
     val old = contextLocal.get // can be null
     if (old eq blockContext) f(prefer(old))
     else {
