@@ -227,14 +227,10 @@ transparent trait SetOps[A, +CC[_], +C <: SetOps[A, CC, C]]
     val onlyThis = newSpecificBuilder
     val both = newSpecificBuilder
     val onlyThat = iterableFactory.newBuilder[B]
-    val it = iterator
-    while (it.hasNext) {
-      val a = it.next()
+    foreach { a =>
       if (that.contains(a)) both += a else onlyThis += a
     }
-    val it2 = that.iterator
-    while (it2.hasNext) {
-      val b = it2.next()
+    that.foreach { b =>
       // the cast is erasure-safe: `contains` only uses equality, like `that.diff(this)` would
       if (!this.contains(b.asInstanceOf[A])) onlyThat += b
     }
