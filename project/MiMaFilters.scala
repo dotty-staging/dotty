@@ -17,6 +17,10 @@ object MiMaFilters {
         ProblemFilters.exclude[DirectMissingMethodProblem]("scala.collection.generic.IsSeq.iarrayIsSeq"),
         // new annotation encoding capture checking's `x.except[C]` capabilities
         ProblemFilters.exclude[MissingClassProblem]("scala.annotation.internal.exceptCapability"),
+        // runtime support for the experimental -Yunboxed-options ABI
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.UnboxedOptions"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.UnboxedOptions$"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.runtime.UnboxedOptions$Wrapped"),
     ))
 
     val BackwardsBreakingChanges: Map[String, Seq[ProblemFilter]] = Map(

@@ -541,6 +541,12 @@ class Definitions {
 
   @tu lazy val VarArgsBuilderModule: Symbol = requiredModule("scala.runtime.VarArgsBuilder")
 
+  @tu lazy val UnboxedOptionsModule: Symbol = requiredModule("scala.runtime.UnboxedOptions")
+    @tu lazy val UnboxedOptions_box: Symbol = UnboxedOptionsModule.requiredMethod("box")
+    @tu lazy val UnboxedOptions_unbox: Symbol = UnboxedOptionsModule.requiredMethod("unbox")
+    @tu lazy val UnboxedOptions_boxPrecise: Symbol = UnboxedOptionsModule.requiredMethod("boxPrecise")
+    @tu lazy val UnboxedOptions_unboxPrecise: Symbol = UnboxedOptionsModule.requiredMethod("unboxPrecise")
+
   def getWrapVarargsArrayModule: Symbol = ScalaRuntimeModule
 
   // The set of all wrap{X, Ref}Array methods, where X is a value type

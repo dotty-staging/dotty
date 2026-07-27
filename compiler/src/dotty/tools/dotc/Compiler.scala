@@ -126,6 +126,7 @@ class Compiler {
          new Memoize,                // Add private fields to getters and setters
          new NonLocalReturns,        // Expand non-local returns
          new CapturedVars) ::        // Represent vars captured by closures as heap objects
+    List(new UnboxedOptions) ::      // Generate unboxed Option entry points and boxed bridges (-Yunboxed-options)
     List(new Constructors,           // Collect initialization code in primary constructors
                                         // Note: constructors changes decls in transformTemplate, no InfoTransformers should be added after it
          new Instrumentation) ::     // Count calls and allocations under -Yinstrument

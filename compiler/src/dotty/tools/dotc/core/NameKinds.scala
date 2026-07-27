@@ -401,6 +401,7 @@ object NameKinds {
   }
   val ExplicitFieldName: SuffixNameKind = new SuffixNameKind(EXPLICITFIELD, "$field")
   val ExtMethName: SuffixNameKind = new SuffixNameKind(EXTMETH, "$extension")
+  val UnboxedMethName: SuffixNameKind = new SuffixNameKind(UNBOXED, "$unboxed")
   val ParamAccessorName: SuffixNameKind = new SuffixNameKind(PARAMACC, "$accessor")
   val ModuleClassName: SuffixNameKind = new SuffixNameKind(OBJECTCLASS, "$", optInfoString = "ModuleClass")
   val DirectMethName: SuffixNameKind = new SuffixNameKind(DIRECT, "$direct")
