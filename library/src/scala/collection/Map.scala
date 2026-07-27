@@ -423,14 +423,10 @@ transparent trait MapOps[K, +V, +CC[_, _] <: IterableOps[?, AnyConstr, ?], +C]
    */
   def invert[V1 >: V]: immutable.Map[V1, immutable.Set[K]] = {
     val m = mutable.Map.empty[V1, mutable.Builder[K, immutable.Set[K]]]
-    val it = iterator
-    while (it.hasNext) {
-      val kv = it.next()
-      m.getOrElseUpdate(kv._2, immutable.Set.newBuilder[K]) += kv._1
-    }
-    var result = immutable.Map.empty[V1, immutable.Set[K]]
-    m.foreachEntry((v, bldr) => result = result.updated(v, bldr.result()))
-    result
+    foreachEntry((k, v) => m.getOrElseUpdate(v, immutable.Set.newBuilder[K]) += k)
+    val b = immutable.Map.newBuilder[V1, immutable.Set[K]]
+    m.foreachEntry((v, bldr) => b += ((v, bldr.result())))
+    b.result()
   }
 
   override def addString(sb: StringBuilder, start: String, sep: String, end: String): sb.type =
