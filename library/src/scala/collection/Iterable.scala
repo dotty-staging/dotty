@@ -792,10 +792,10 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
    */
   def mapAccumulate[B, S](z: S)(f: (A, S) => (B, S)): (CC[B], S) = {
     val b = iterableFactory.newBuilder[B]
+    b.sizeHint(this)
     var state = z
-    val it = iterator
-    while (it.hasNext) {
-      val (mapped, next) = f(it.next(), state)
+    foreach { a =>
+      val (mapped, next) = f(a, state)
       b += mapped
       state = next
     }
