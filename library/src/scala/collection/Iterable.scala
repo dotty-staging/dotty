@@ -788,8 +788,23 @@ transparent trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] w
    *  @return   a new $coll containing `f(a, i)` for each element `a` at index `i`
    *            of this $coll, in encounter order
    */
-  def mapWithIndex[B](f: (A, Int) => B): CC[B]^{this, f} =
-    iterableFactory.from(new View.Map(new View.ZipWithIndex(this), (pair: (A, Int)) => f(pair._1, pair._2)))
+  def mapWithIndex[B](f: (A, Int) => B): CC[B]^{this, f} = {
+    val self = this
+    iterableFactory.from(new AbstractView[B] {
+      def iterator: Iterator[B]^{self, f} = new AbstractIterator[B] {
+        private[this] val it = self.iterator
+        private[this] var i = 0
+        def hasNext = it.hasNext
+        def next(): B = {
+          val res = f(it.next(), i)
+          i += 1
+          res
+        }
+      }
+      override def knownSize: Int = self.knownSize
+      override def isEmpty: Boolean = self.isEmpty
+    })
+  }
 
   /** Returns a $coll formed from this $coll and another iterable collection
    *  by combining corresponding elements in pairs.
