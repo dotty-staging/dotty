@@ -153,9 +153,54 @@ class SyntheticMembers(thisPhase: DenotTransformer) {
           assert(candidate.isDefined, i"could not find child for $vdef in ${parentEnum.children}%, % of $parentEnum")
           Literal(Constant(candidate.get))
 
+      /** Is the last parameter in the first (product-defining) parameter list
+       *  of the primary constructor a repeated parameter?
+       */
+      def hasVarargsParam: Boolean =
+        accessors.nonEmpty && clazz.primaryConstructor.info.isVarArgsMethod
+
+      /** For a case class with a repeated last parameter, e.g.
+       *
+       *  ```
+       *  case class C(x: T, ys: U*)
+       *  ```
+       *
+       *  the body of `toString` prints the individual varargs elements instead
+       *  of the sequence that wraps them:
+       *
+       *  ```
+       *  this.ys.+:[Any]("" + this.x).mkString("C(", ",", ")")
+       *  ```
+       *
+       *  or, if the repeated parameter is the only one,
+       *
+       *  ```
+       *  this.ys.mkString("C(", ",", ")")
+       *  ```
+       *
+       *  so that `C(1, 2, 3).toString` is `"C(1,2,3)"` rather than
+       *  `"C(1,ArraySeq(2, 3))"` (issue #26680).
+       */
+      def varargsToStringBody: Tree =
+        val repeated = This(clazz).select(accessors.last)
+        val elems = accessors.init match
+          case Nil => repeated
+          case first :: rest =>
+            def sel(accessor: Symbol) = This(clazz).select(accessor)
+            val fixedStr = rest.foldLeft(
+                Literal(Constant("")).select(defn.String_+).appliedTo(sel(first))):
+              (acc, accessor) => acc
+                .select(defn.String_+).appliedTo(Literal(Constant(",")))
+                .select(defn.String_+).appliedTo(sel(accessor))
+            applyOverloaded(repeated, termName("+:"), fixedStr :: Nil, defn.AnyType :: Nil, WildcardType)
+        applyOverloaded(elems, termName("mkString"),
+          List(Literal(Constant(ownName + "(")), Literal(Constant(",")), Literal(Constant(")"))),
+          Nil, defn.StringType)
+
       def toStringBody(vrefss: List[List[Tree]]): Tree =
         if (clazz.is(ModuleClass)) ownNameLit
         else if (isNonJavaEnumValue) identifierRef
+        else if (hasVarargsParam && !Feature.shouldBehaveAsScala2) varargsToStringBody
         else forwardToRuntime(vrefss.head)
 
       def syntheticRHS(vrefss: List[List[Tree]])(using Context): Tree = synthetic.name match {

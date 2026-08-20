@@ -1,0 +1,14 @@
+C()
+C(1)
+C(1,2,3)
+C(4,5)
+M(1,a)
+M(1,a,2,3)
+G(a,b)
+G()
+P(1)
+N(null,1)
+NoVarargs(1,2)
+Custom with 2 elems
+Varargs(1,2)
+Plain
