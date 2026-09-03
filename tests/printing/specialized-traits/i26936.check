@@ -1,0 +1,5 @@
+[[syntax trees at end of MegaPhase{desugarSpecializedTraits, specializeInlineTraits}]] // tests/printing/specialized-traits/i26936.scala
+package empty_class {
+  class EmptyClass() extends Object() {}
+}
+

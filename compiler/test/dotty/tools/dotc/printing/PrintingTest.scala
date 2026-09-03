@@ -73,6 +73,9 @@ class PrintingTest {
   def transformedPrinting: Unit = testIn("tests/printing/transformed", "repeatableAnnotations")
 
   @Test
+  def specializedTraitsPrinting: Unit = testIn("tests/printing/specialized-traits", "specializeInlineTraits")
+
+  @Test
   def getters: Unit = testIn("tests/printing/getters", "getters")
 
   @Test

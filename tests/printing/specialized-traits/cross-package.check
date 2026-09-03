@@ -1,0 +1,35 @@
+[[syntax trees at end of MegaPhase{desugarSpecializedTraits, specializeInlineTraits}]] // tests/printing/specialized-traits/cross-package.scala
+package <empty> {
+  package a {
+    inline trait A$$sp$scala$Int() extends Object, a.A[Int] {
+      this: a.A[Int] & a.A$$sp$scala$Int =>
+      private[this] given erased val a$A$$evidence$1: Specialized[Int]
+    }
+    inline trait A$$sp$java$lang$String() extends Object, a.A[String] {
+      this: a.A[String] & a.A$$sp$java$lang$String =>
+      private[this] given erased val a$A$$evidence$1: Specialized[String]
+    }
+    @experimental(
+      "Added by -language:experimental.experimental.specializedTraits") inline
+      trait A[T >: Nothing <: Any](using erased evidence$1: Specialized[T])
+       extends Object {
+      T
+      private[this] given erased val evidence$1: Specialized[T]
+    }
+  }
+  package b {
+    @experimental(
+      "Added by -language:experimental.experimental.specializedTraits") class B
+      () extends Object(), a.A[Int](using Specialized.apply[Int])() {
+      private[this] given erased val a$A$$evidence$1: Specialized[Int] =
+        Specialized.apply[Int]
+    }
+  }
+  @experimental("Added by -language:experimental.experimental.specializedTraits"
+    ) class C() extends Object(), a.A[String](using Specialized.apply[String])()
+     {
+    private[this] given erased val a$A$$evidence$1: Specialized[String] =
+      Specialized.apply[String]
+  }
+}
+

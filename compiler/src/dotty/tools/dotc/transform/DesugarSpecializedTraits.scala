@@ -286,8 +286,8 @@ class DesugarSpecializedTraits extends MiniPhase, IdentityDenotTransformer:
     ).withSpan(specialization.span)
   }
 
-  // Returns (new stmts including original, new symbols including original)
-  private def transformStatements(stats1: List[Tree], cache: SpecializationCache)(using Context): (List[Tree], SpecializationCache) = {
+  // Returns (generated stmts, transformed original stmts, new symbols including original)
+  private def transformStatements(stats1: List[Tree], cache: SpecializationCache)(using Context): (List[Tree], List[Tree], SpecializationCache) = {
 
     val inlineSpecializedMethods = new TreeMapWithPreciseStatContexts {
       override def transform(tree: Tree)(using Context): Tree = tree match {
@@ -340,10 +340,10 @@ class DesugarSpecializedTraits extends MiniPhase, IdentityDenotTransformer:
       if (generatedTraitStats1.isEmpty && generatedClassStats1.isEmpty)
         (generatedTraitStats1, generatedClassStats1, specializations2)
       else 
-        val (generatedTraitStats2, specializations3) = transformStatements(generatedTraitStats1, specializations2)
-        val (generatedClassStats2, specializations4) = transformStatements(generatedClassStats1, specializations3)
+        val (generatedTraitStats2, generatedTraitStats3, specializations3) = transformStatements(generatedTraitStats1, specializations2)
+        val (generatedClassStats2, generatedClassStats3, specializations4) = transformStatements(generatedClassStats1, specializations3)
         
-        (generatedTraitStats2, generatedClassStats2, specializations4)
+        (generatedTraitStats2 ++ generatedTraitStats3, generatedClassStats2 ++ generatedClassStats3, specializations4)
 
     // Since the only change we make to stats1 => stats is inlining we could arguably "undo" 
     // the inlining and then redo it at the "correct" point later -  so we don't actually modify 
@@ -351,7 +351,7 @@ class DesugarSpecializedTraits extends MiniPhase, IdentityDenotTransformer:
     // we wouldn't need a transform statements method at all
     // (just a "generateInlineTraitsInterfaceAndImplementation" or something), 
     // but not sure if that's worth doing (it would be throwing away work).
-    (generatedTraitStatsFinal ++ generatedClassStatsFinal ++ stats, specializationsFinal) 
+    (generatedTraitStatsFinal ++ generatedClassStatsFinal, stats, specializationsFinal) 
   }
   
   private def checkSpecializedTraitRules(tree: Tree)(using Context) =
@@ -443,24 +443,53 @@ class DesugarSpecializedTraits extends MiniPhase, IdentityDenotTransformer:
       case pkg@PackageDef(pid, stats) =>
         checkSpecializedTraitRules(tree)
 
-        val (stats1, specializedTraitCache2) = transformStatements(stats, specializedTraitCache)
+        val (generated, stats1, specializedTraitCache2) = transformStatements(stats, specializedTraitCache)
         
         specializedTraitCache = specializedTraitCache2 
-          
-        val grouped = stats1.groupBy(tree => tree.symbol.enclosingPackageClass)
-          
-        // We need to copy the existing package so we don't lose any attachments 
-        // e.g. attachments used to calculate Wunused
-        cpy.PackageDef(pkg)(Ident(defn.EmptyPackageVal.namedType),
-          grouped.getOrElse(defn.RootClass, List()) :::
-          grouped.getOrElse(defn.EmptyPackageClass, List()) :::
-          grouped
-            .toList
-            .filter((pk, stmts) => pk != defn.RootClass && pk != defn.EmptyPackageClass)
-            .map((pkg, stmts) => tpd.PackageDef(Ident(pkg.sourceModule.namedType), stmts))
-        ).withType(defn.EmptyPackageVal.namedType)
+
+        // We copy the existing package defs rather than creating new ones so we don't lose 
+        // any attachments, e.g. attachments used to calculate Wunused. This also keeps the
+        // tree unchanged (`eq`) when nothing was generated or inlined.
+        val (pkg1, unplaced) = placeInPackages(cpy.PackageDef(pkg)(pid, stats1), generated)
+
+        if unplaced.isEmpty then pkg1
+        else
+          // The generated classes live in the package of the specialized trait they are derived from
+          // (see newInterfaceTrait/newImplementationClass), which may be a package that is not
+          // mentioned in this compilation unit. Emit them in package defs of their own, in the
+          // same shape the parser produces for a source file with several package clauses:
+          //   package <empty> { package a { ... }; package b { ... } }
+          val foreignPkgs = unplaced.map(_.symbol.enclosingPackageClass).distinct.map { pkgClass =>
+            tpd.PackageDef(packageRef(pkgClass), unplaced.filter(_.symbol.enclosingPackageClass == pkgClass))
+          }
+          if pkg1.symbol.moduleClass.isEmptyPackage then
+            cpy.PackageDef(pkg1)(pkg1.pid, pkg1.stats ::: foreignPkgs)
+          else
+            tpd.PackageDef(Ident(defn.EmptyPackageVal.namedType), pkg1 :: foreignPkgs).withSpan(pkg.span)
       case t => t
     }
+
+  /** Place the `generated` definitions into the innermost package def in `tree` whose package
+   *  they belong to. Returns the resulting tree and the definitions that could not be placed
+   *  because their package has no package def in `tree`.
+   */
+  private def placeInPackages(tree: PackageDef, generated: List[Tree])(using Context): (PackageDef, List[Tree]) =
+    val (here, elsewhere) = generated.partition(_.symbol.enclosingPackageClass == tree.symbol.moduleClass)
+    var remaining = elsewhere
+    val stats1 = tree.stats.mapConserve {
+      case nested: PackageDef if remaining.nonEmpty =>
+        val (nested1, remaining1) = placeInPackages(nested, remaining)
+        remaining = remaining1
+        nested1
+      case stat => stat
+    }
+    (cpy.PackageDef(tree)(tree.pid, here ::: stats1), remaining)
+
+  /** A fully qualified reference to the package class `pkgClass`, as used in a package clause. */
+  private def packageRef(pkgClass: Symbol)(using Context): RefTree =
+    val pkgRef = pkgClass.sourceModule.namedType
+    if pkgClass.owner.isEffectiveRoot then Ident(pkgRef)
+    else Select(packageRef(pkgClass.owner), pkgRef)
 
   private def collectReferencedSpecializations(stats: List[Tree], specializations: SpecializationCache)(using Context): SpecializationCache =
     stats.foldLeft(specializations) {
