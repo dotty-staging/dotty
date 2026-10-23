@@ -82,13 +82,21 @@ class JavaPlatform(precomputedSourcePackages: Option[LogicalPackage] = None) ext
 
   def rootLoader(root: TermSymbol)(using Context): SymbolLoader = new SymbolLoaders.PackageLoader(root, classPath)
 
-  /** Is the SAMType `cls` also a SAM under the rules of the JVM? */
+  /** Is the SAMType `cls` also a SAM under the rules of the JVM? This requires that `cls`
+   *  and all traits it inherits have no initialization code, no outer reference and no
+   *  fields. We look for fields among their declarations, since private fields of inherited
+   *  traits are not members of `cls`, and `NoInits` does not rule out fields: lazy vals and
+   *  objects do not reset it in traits loaded from TASTy, and neither do synthetic companion
+   *  objects.
+   */
   def isSam(cls: ClassSymbol)(using Context): Boolean =
-    cls.isAllOf(NoInitsTrait) &&
+    def isLambdaCompatible(trt: ClassSymbol) =
+      trt.is(NoInits) &&
+      !ExplicitOuter.needsOuterIfReferenced(trt) &&
+      !trt.info.decls.exists(sym => sym.isTerm && !sym.is(Method))
+    cls.is(Trait) &&
     cls.superClass == defn.ObjectClass &&
-    cls.directlyInheritedTraits.forall(_.is(NoInits)) &&
-    !ExplicitOuter.needsOuterIfReferenced(cls) &&
-    cls.typeRef.fields.isEmpty &&
+    (cls :: cls.directlyInheritedTraits).forall(isLambdaCompatible) &&
     // Super accessors do not count as SAM methods, but a lambda would leave them unimplemented
     !cls.typeRef.abstractTermMembers.exists(_.symbol.isSuperAccessor) &&
     // Check if the SAM can be implemented via LambdaMetaFactory
