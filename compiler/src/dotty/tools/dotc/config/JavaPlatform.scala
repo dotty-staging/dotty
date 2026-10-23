@@ -88,8 +88,9 @@ class JavaPlatform(precomputedSourcePackages: Option[LogicalPackage] = None) ext
     cls.superClass == defn.ObjectClass &&
     cls.directlyInheritedTraits.forall(_.is(NoInits)) &&
     !ExplicitOuter.needsOuterIfReferenced(cls) &&
-    // Superaccessors already show up as abstract methods here, so no test necessary
     cls.typeRef.fields.isEmpty &&
+    // Super accessors do not count as SAM methods, but a lambda would leave them unimplemented
+    !cls.typeRef.abstractTermMembers.exists(_.symbol.isSuperAccessor) &&
     // Check if the SAM can be implemented via LambdaMetaFactory
     TypeErasure.samExpansionNotNeeded(cls)
 
