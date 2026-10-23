@@ -744,6 +744,8 @@ object TypeErasure:
             val (paramNeeded, resultNeeded) =
               additionalAdaptationNeeded(erasedSamParamTypes, erasedSamResultType, mt.paramInfos, mt.resultType)
             !(paramNeeded || resultNeeded)
+            // LMF checks bridges strictly: a non-Unit result cannot implement a Unit one
+            && (erasedSamResultType.isRef(defn.UnitClass) || !mt.resultType.isRef(defn.UnitClass))
           case _ => true
       }
     case _ => false
