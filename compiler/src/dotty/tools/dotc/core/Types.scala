@@ -4267,6 +4267,10 @@ object Types extends TypeUtils {
     def adaptParamInfo(param: Symbol, pinfo: Type)(using Context): Type =
       def addAnnotation(tp: Type, cls: ClassSymbol, param: Symbol): Type = tp match
         case ExprType(resType) => ExprType(addAnnotation(resType, cls, param))
+        case tp @ AnnotatedType(parent, ann) if ann.symbol == defn.RetainsByNameAnnot =>
+          // Keep the capture set of a by-name parameter outermost, so that
+          // ElimByName moves it to the function type
+          tp.derivedAnnotatedType(addAnnotation(parent, cls, param), ann)
         case _ => AnnotatedType(tp, Annotation(cls, param.span))
       var paramType = TypeOps.revealInto(pinfo).annotatedToRepeated
       if param.is(Inline) then
