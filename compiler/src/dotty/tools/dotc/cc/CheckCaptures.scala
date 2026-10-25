@@ -121,11 +121,17 @@ object CheckCaptures:
         em"""Postfix `^` is not allowed on the capture-set variable ${parent.tpe};
             |it adds the root capability `caps.any`. Write `${parent.tpe}` or `{${parent.tpe}}` to refer to its capture set.""",
         parent.srcPos)
+    // `this` of a refinement becomes a `RecThis`, which is not a capability
+    def startsInRefinement(ref: CoreCapability) = ref.pathRoot match
+      case root: ThisType => root.cls.isRefinementClass
+      case _ => false
     def check(elem: Type): Unit = elem match
       case ref: TypeRef =>
         val refSym = ref.symbol
         if refSym.isType && !refSym.info.derivesFromCapSet then
           report.error(em"$elem is not a legal element of a capture set", ann.srcPos)
+      case ref: CoreCapability if startsInRefinement(ref) =>
+        report.error(em"A capture set in a refinement cannot refer to `this` or other members of that refinement", ann.srcPos)
       case ref: CoreCapability =>
         if !ref.isTrackableRef && !ref.isLocalMutable then
           report.error(em"$elem cannot be tracked since it is not a parameter or local value", ann.srcPos)
