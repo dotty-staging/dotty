@@ -354,7 +354,7 @@ object Trees {
       self.removeAttachment(HasEndMarker)
       this
 
-    protected def hasEndMarker: Boolean = self.hasAttachment(HasEndMarker)
+    final def hasEndMarker: Boolean = self.hasAttachment(HasEndMarker)
 
   object WithEndMarker:
     /** Property key that signals the tree was terminated

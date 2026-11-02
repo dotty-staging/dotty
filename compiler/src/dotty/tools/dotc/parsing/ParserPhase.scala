@@ -1,4 +1,5 @@
-package dotty.tools.dotc.parsing
+package dotty.tools.dotc
+package parsing
 
 import dotty.tools.dotc.config.Config
 import dotty.tools.dotc.core.Contexts.{ Context, ctx }
@@ -26,6 +27,12 @@ class Parser extends Phase {
     val unit = ctx.compilationUnit
     unit.untpdTree =
       if (unit.isJava) new JavaParsers.JavaParser(unit.source).parse()
+      else if unit.isMagic then
+        println(s"Magic PARSE ${unit.source}")
+        val p = new magic.Parsers.Parser(unit.source)
+        val tree = p.parse()
+        ctx.compilationUnit.comments = p.in.comments
+        tree
       else {
         val p = new Parsers.Parser(unit.source)
         //  p.in.debugTokenStream = true
@@ -38,7 +45,6 @@ class Parser extends Phase {
     if (Config.checkPositions)
       unit.untpdTree.checkPos(nonOverlapping = !unit.isJava && !ctx.reporter.hasErrors)
   }
-
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] = {
     val unitContexts =

@@ -28,9 +28,13 @@ class CompilationUnit protected (val source: SourceFile, val info: CompilationUn
   var tpdTree: tpd.Tree = tpd.EmptyTree
 
   private val myIsJava: Boolean = source.ext.isJava // `source` and `ext` are immutable, so cache the answer
+  private val myIsMagic: Boolean = source.ext.isMagic
 
   /** Is this the compilation unit of a Java file */
   def isJava: Boolean = myIsJava
+
+  /** Is this the compilation unit of a Java file */
+  def isMagic: Boolean = myIsMagic
 
   /** Is this the compilation unit of a Java file, or TASTy derived from a Java file */
   def typedAsJava: Boolean =
@@ -146,6 +150,7 @@ class CompilationUnit protected (val source: SourceFile, val info: CompilationUn
 @sharable object NoCompilationUnit extends CompilationUnit(NoSource, info = null) {
 
   override def isJava: Boolean = false
+  override def isMagic: Boolean = false
 
   override def suspend(hint: => String)(using Context): Nothing =
     throw CompilationUnit.SuspendException()

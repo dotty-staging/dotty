@@ -41,7 +41,7 @@ object Comments {
   }
 
   /**
-   * A `Comment` contains the unformatted docstring, it's position and potentially more
+   * A `Comment` contains the unformatted docstring, its position and potentially more
    * information that is populated when the comment is "cooked".
    *
    * @param span     The position span of this `Comment`.

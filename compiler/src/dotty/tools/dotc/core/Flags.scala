@@ -235,6 +235,10 @@ object Flags {
   /** Labeled with `implicit` modifier (implicit value) */
   val (Implicit @ _, ImplicitVal @ _, _) = newFlags(9, "implicit")
 
+  // In the Magic parser, we re-use the Implicit flag to indicate a consume modifier.
+  // In the Scala parser, consume is represented as an annotation.
+  val MagicConsume = Implicit
+
   /** Labeled with `lazy` (a lazy val) / a trait */
   val (LazyOrTrait @ _, Lazy @ _, Trait @ _) = newFlags(10, "lazy", "<trait>")
 
@@ -466,6 +470,14 @@ object Flags {
     TypeSourceModifierFlags.toCommonFlags |
     TermSourceModifierFlags.toCommonFlags |
     commonFlags(Module, Param, Synthetic, Package, Local, Mutable, Trait)
+
+  /** Flag sets needed in the Magic parser */
+  val MagicClsParamModifierFlags: FlagSet = MagicDefParamModifierFlags | Private
+  val MagicDefParamModifierFlags: FlagSet = commonFlags(Inline, Erased, MagicConsume)
+  val MagicLocalModifierFlags: FlagSet =
+    commonFlags(Sealed, Open, Given, Inline, Transparent, Into, Erased, Mutable, MagicConsume)
+  val MagicModifierFlags: FlagSet = MagicLocalModifierFlags |
+    commonFlags(Private, Lazy, Opaque, Override)
 
   /** Flags that are not (re)set when completing the denotation
    *  TODO: Should check that FromStartFlags do not change in completion

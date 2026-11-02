@@ -9,6 +9,7 @@ enum FileExtension(val toLowerCase: String):
   case Scala extends FileExtension("scala")
   case ScalaScript extends FileExtension("sc")
   case Java extends FileExtension("java")
+  case Magic extends FileExtension("mc")
   case Zip extends FileExtension("zip")
   case Inc extends FileExtension("inc")
   case Empty extends FileExtension("")
@@ -43,6 +44,8 @@ enum FileExtension(val toLowerCase: String):
   def isScalaScript = this eq ScalaScript
   /** represents `".java"` */
   def isJava = this eq Java
+  /** represents `".mc"` */
+  def isMagic = this eq Magic
   /** represents `".jar"` */
   def isJar: Boolean = this eq Jar
   /** represents `".zip"` */
@@ -66,6 +69,7 @@ object FileExtension:
     case "scala" => Scala
     case "sc" => ScalaScript
     case "java" => Java
+    case "mc" => Magic
     case "zip" => Zip
     case "inc" => Inc
     case "betasty" => Betasty

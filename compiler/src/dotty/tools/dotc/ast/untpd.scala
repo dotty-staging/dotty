@@ -12,7 +12,7 @@ import annotation.constructorOnly
 import annotation.internal.sharable
 import Decorators.*
 
-object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
+object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo with magic.Untpd {
 
   // ----- Tree cases that exist in untyped form only ------------------
 
@@ -243,6 +243,13 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
 
     /** Used under pureFunctions to mark impure function types `A => B` in `FunctionWithMods` */
     case class Impure()(implicit @constructorOnly src: SourceFile) extends Mod(Flags.Impure)
+
+// Modifiers only used in the Magic parser:
+
+    case class MagicCase()(implicit @constructorOnly src: SourceFile) extends Mod(Flags.Case)
+
+    case class MagicConsume()(implicit @constructorOnly src: SourceFile) extends Mod(Flags.MagicConsume)
+
   }
 
   /** Modifiers and annotations for definitions
@@ -289,7 +296,7 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
       || flags1.isTermFlags && flags2.isTermFlags
       || flags1.isTypeFlags && flags2.isTypeFlags
 
-    /** Add `flags` to thos modifier set, checking that there are no type/term conflicts.
+    /** Add `flags` to this modifier set, checking that there are no type/term conflicts.
      *  If there are conflicts, issue an error and return the modifiers consisting of
      *  the added flags only. The reason to do it this way is that the added flags usually
      *  describe the core of a construct whereas the existing set are the modifiers
@@ -770,7 +777,7 @@ object untpd extends Trees.Instance[Untyped] with UntypedTreeInfo {
     }
   }
 
-  abstract class UntypedTreeMap(cpy: UntypedTreeCopier = untpd.cpy) extends TreeMap(cpy) {
+  abstract class UntypedTreeMap(cpy: UntypedTreeCopier = untpd.cpy) extends TreeMap(cpy), MagicUntypedTreeMap {
     override def transformMoreCases(tree: Tree)(using Context): Tree = tree match {
       case ModuleDef(name, impl) =>
         cpy.ModuleDef(tree)(name, transformSub(impl))

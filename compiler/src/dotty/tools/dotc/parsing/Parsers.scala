@@ -4048,9 +4048,7 @@ object Parsers {
           Nil
         else
           val clause = {
-            if paramOwner == ParamOwner.ExtensionPrefix
-                && !isIdent(nme.using) && !isIdent(nme.erased)
-            then
+            if paramOwner == ParamOwner.ExtensionPrefix && !isIdent(nme.using) then
               param() :: Nil
             else
               paramMods()
