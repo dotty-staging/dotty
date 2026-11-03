@@ -28,7 +28,7 @@ class Parser extends Phase {
     unit.untpdTree =
       if (unit.isJava) new JavaParsers.JavaParser(unit.source).parse()
       else if unit.isMagic then
-        println(s"Magic PARSE ${unit.source}")
+        //println(s"Magic PARSE ${unit.source}")
         val p = new magic.Parsers.Parser(unit.source)
         val tree = p.parse()
         ctx.compilationUnit.comments = p.in.comments

@@ -84,9 +84,6 @@ object Scanners {
     def isIdent = token == IDENTIFIER || token == BACKQUOTED_IDENT
     def isIdent(name: Name) = token == IDENTIFIER && (this.name eq name)
 
-    def isNestedStart = token == LBRACE || token == INDENT
-    def isNestedEnd = token == RBRACE || token == DEDENT
-
     /** Is current token first one after a newline? */
     def isAfterLineEnd: Boolean = lineOffset >= 0
 
@@ -95,7 +92,6 @@ object Scanners {
       || token == IDENTIFIER && isOperatorPart(name.nn(name.nn.length - 1))
 
     def isArrow = arrowTokens.contains(token)
-    def isSimpleArrow = token == ARROW || token == THINARROW
     def isFatArrow = token == ARROW || token == CTXARROW
   }
 
@@ -151,8 +147,6 @@ object Scanners {
       litBuf.setLength(0)
       name = idname
       token = if idtoken == IDENTIFIER then kwMap.getOrElse(idname, IDENTIFIER) else idtoken
-      if token == CASE && (lookahead.token == CLASS || lookahead.token == OBJECT) then
-        token = IDENTIFIER
 
     /** Clear buffer and set string */
     def setStrVal(): Unit =
@@ -313,7 +307,19 @@ object Scanners {
       adjustRegions(lastToken)
       getNextToken(lastToken)
       if isAfterLineEnd then handleNewLine(lastToken)
+      postProcessToken()
       printState()
+
+    private def postProcessToken(): Unit = token match
+      case CASE =>
+        if lookahead.token == CLASS || lookahead.token == OBJECT then token = IDENTIFIER
+      case COMMA =>
+        skipTrailingComma()
+      case RBRACE | RPAREN | RBRACKET =>
+        closeIndented()
+      case EOF =>
+        if !source.maybeIncomplete then closeIndented()
+      case _ =>
 
     final def printState() =
       if debugTokenStream && (showLookAheadOnDebug || !isInstanceOf[LookaheadScanner]) then
@@ -668,29 +674,24 @@ object Scanners {
           nextChar(); token = SEMI
         case ',' =>
           nextChar(); token = COMMA
-          skipTrailingComma()
         case '(' =>
           nextChar(); token = LPAREN
         case '{' =>
           nextChar(); token = LBRACE
         case ')' =>
           nextChar(); token = RPAREN
-          closeIndented()
         case '}' =>
           currentRegion match
             case InBraces(InString(_, count, _)) if count >= 3 => nextRawChar()
             case _ => nextChar()
           token = RBRACE
-          closeIndented()
         case '[' =>
           nextChar(); token = LBRACKET
         case ']' =>
           nextChar(); token = RBRACKET
-          closeIndented()
         case SU =>
           if isAtEnd then
             token = EOF
-            if !source.maybeIncomplete then closeIndented()
           else
             error(em"illegal character")
             nextChar()

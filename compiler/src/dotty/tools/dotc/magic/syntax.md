@@ -44,7 +44,7 @@ op               ::=  symid
                    |  ‘`’ { charNoBackQuoteOrNewline | escapeSeq } ‘`’
 plainid          ::=  alphaid | symid
 id               ::=  alphaid | op
-assignop         ::=  symid '='                      # but not '==', '!='
+assignop         ::=  symid '='                      # but not '==', '!=', '<=', '>='
 
 integerLiteral   ::=  (decimalNumeral | hexNumeral | binaryNumeral)
 decimalNumeral   ::=  digit [{digit | ‘_’} digit]
@@ -89,8 +89,7 @@ The lexical analyzer inserts `indent` that represent regions of indented code af
 <<< X >>>   ::=   ':' INDENT X DEDENT
 ```
 
-type Pos = { x: Foo with x.A <: X }
-1## Keywords
+## Keywords
 
 ### Regular keywords
 
@@ -100,7 +99,7 @@ end  enum  except  export  extends  extension  False  finally
 for  from  if  in  is  import  match  new  not  None  object  or
 private  raise  return  self  super  trait  True  try  type
 uses  using  val  var  while  with
-->  =>  ?->  ?=>  <:  >:  :=  '@'
+:  =  ->  =>  ?->  ?=>  <:  >:  :=  '@'
 ```
 
 ### Soft keywords
@@ -143,7 +142,7 @@ Singleton         ::=  (SimpleRef | Self) {'.' id}
 Type              ::=  FunType
                     |  MatchType
                     |  InfixType
-FunType           ::=  ParamOfFunType (Arrow | ContextArrow) Type
+FunType           ::=  ParamsOfFunType (Arrow | ContextArrow) Type
                     |  TypeParams '->' Type
 MatchType         ::=  'match' InfixType ':' TypeCaseClause { TypeCaseClause }
 TypeCaseClause    ::=  ‘case’ (InfixType | ‘_’) ':' Type
@@ -231,7 +230,7 @@ SimpleExpr        ::=  SimpleRef
                     |  SimpleExpr ‘.’ id
                     |  SimpleExpr '?'
                     |  SimpleExpr TypeArgs
-                    |  SimpleExpr SuiteIfOutermost
+                    |  SimpleExpr SuiteIfOuter
                     |  SimpleExpr Arguments
                     |  INDENT Block DEDENT
 
@@ -240,7 +239,7 @@ ExprInParens      ::=  Expr [‘:’ (Type  |  Annotation)]
 NamedExprsInParens ::= NamedExprInParens {‘,’ NamedExprInParens}
 NamedExprInParens ::=  plainid '=' ExprInParens
 Arguments         ::=  ‘(’ ([{Argument}_','] | ‘using’ {Argument}_',') ‘)’
-Argument          ::=  [plainid '=']('*' SimpleExpr | ExprInParens Generator)
+Argument          ::=  [plainid '=']('*' SimpleExpr | ExprInParens [Generator])
 ConstrApp         ::=  SimpleType {Arguments} {Annotations}
 ListExpr          ::=  Expr ({',' Expr}  |  Generator)
 DictExpr          ::=  DictItem ({',' DictItem}  |  Generator)
@@ -248,7 +247,7 @@ DictItem          ::=  Expr ':' Expr
 Generator         ::=  ForPrefix [GeneratorRest]
 ForPrefix         ::=  for' ['case'] SinglePattern 'in' OrExpr
 GeneratorRest     ::=  Generator
-                    |  'if' SuiteExpr [GeneratorRest]
+                    |  'if' OrExpr [GeneratorRest]
 ```
 ### Patterns
 
@@ -406,9 +405,9 @@ ImportSelectors   ::=  {id Renaming ','} (id Renaming | '*')
 Renaming          ::=  ['as' BoundName]
 
 Check             ::=  SuiteExpr ['else' SuiteExpr]
-Extension         ::=  ‘extension’ [TypeParamClause] {UsingParamClause}
-                       ‘(’ DefParam ‘)’ {UsingParamClause} ExtMethods
-ExtMethods        ::=  ExtMethod | ':" INDENT {ExtMethod}_semi DEDENT
+Extension         ::=  ‘extension’ [TypeParams] {UsingParams}
+                       ‘(’ DefParam ‘)’ {UsingParams} ExtMethods
+ExtMethods        ::=  ExtMethod | ':' INDENT {ExtMethod}_semi DEDENT
 ExtMethod         ::=  {Annotation [nl]} {Modifier} ‘def’ DefDef
                     |  Export
 EndMarker         ::=  ‘end’ plainid
@@ -423,7 +422,7 @@ EnumCase          ::=  ‘case’ plainid ClassConstr [‘extends’ {ConstrApp_
 ### Scopes
 
 ```ebnf
-Block             ::=  BlockStats {BlockStat}_{semi}
+Block             ::=  {BlockStat}_{semi}
                     |  CaseClauses
 TemplateBody      ::=  ':' INDENT {TemplateStat}_semi DEDENT
 EnumBody          ::=  ':' INDENT {EnumStat}_semi DEDENT

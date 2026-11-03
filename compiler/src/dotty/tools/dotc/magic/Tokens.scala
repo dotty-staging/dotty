@@ -40,12 +40,10 @@ object Tokens:
 
   /** special symbols */
   inline val COMMA = 13;            enter(COMMA, "','")
-  inline val COLON = 14;            enter(COLON, ":")
-  inline val SEMI = 15;             enter(SEMI, "';'")
-  inline val DOT = 16;              enter(DOT, "'.'")
-  inline val NEWLINE = 17;          enter(NEWLINE, "end of statement", "new line")
-  inline val EQUALS = 18;           enter(EQUALS, "=")
-  inline val ENDsuite = 19;        enter(ENDsuite, "end of single-line lambda")
+  inline val SEMI = 14;             enter(SEMI, "';'")
+  inline val DOT = 15;              enter(DOT, "'.'")
+  inline val NEWLINE = 16;          enter(NEWLINE, "end of statement", "new line")
+  inline val ENDsuite = 17;        enter(ENDsuite, "end of single-line lambda")
 
   /** alphabetic keywords */
   inline val firstAlphaKW = AND
@@ -97,7 +95,9 @@ object Tokens:
   inline val lastAlphaKW = WITH
 
   /** symbolic keywords */
-  inline val firstSymbolKW = THINARROW
+  inline val firstSymbolKW = COLON
+  inline val COLON = 68;            enter(COLON, ":")
+  inline val EQUALS = 69;           enter(EQUALS, "=")
   inline val THINARROW = 70;        enter(THINARROW, "->")
   inline val ARROW = 71;            enter(ARROW, "=>")
   inline val THINCTXARROW = 72;     enter(THINCTXARROW, "?->")
@@ -192,6 +192,9 @@ object Tokens:
   /** Is token only legal as start of statement (eof also included)? */
   final val mustStartStatTokens: TokenSet = defIntroTokens | modifierTokens | BitSet(IMPORT, EXPORT, END)
 
+  final val canEndStatSeqTokens =
+    BitSet(DEDENT, EOF, RPAREN, RBRACE, RBRACKET, ELIF, ELSE, EXCEPT, FINALLY)
+
   final val canStartStatTokens: TokenSet =
     canStartExprTokens | defIntroTokens | modifierTokens
     | BitSet(AT, CASE, IMPORT, EXPORT, END, BREAK, CONTINUE, EXTENSION)
@@ -224,11 +227,14 @@ object Tokens:
     nme.inline, nme.LAZYkw, nme.opaque, nme.open, nme.OVERRIDEkw,
     nme.SEALEDkw, nme.tracked, nme.transparent, nme.update)
 
-  final val symbolicCompareOperaterNames = Set(
+  final val symbolicCompareOperatorNames = Set(
     nme.LT, nme.LE, nme.EQ, nme.NE, nme.GT, nme.GE)
 
   final val paramModifierNames = Set(
     nme.consume, nme.erased, nme.inline)
+
+  final val prefixOpNames = Set(
+    nme.raw.MINUS, nme.raw.PLUS, nme.raw.TILDE)
 
   def showTokenDetailed(token: Int): String = debugString(token).nn
 

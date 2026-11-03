@@ -36,6 +36,9 @@ abstract class StringReader { self =>
     if ch == CR && charOffset < endIdx && buf.charAt(charOffset) == LF then
       charOffset += 1
       ch = LF
+    if ch == LF || ch == FF then
+      lineStartOffset = charOffset
+
 
   /** Advance one character, no CR;LF reduction */
   def nextRawChar(): Unit =
@@ -45,11 +48,6 @@ abstract class StringReader { self =>
     ch = if idx >= endIdx then SU else buf.charAt(idx)
 
   def getc(): Char = { nextChar() ; ch }
-
-
-  /** Handle line ends */
-  private def potentialLineEnd(): Unit =
-    if (ch == LF || ch == FF) lineStartOffset = charOffset
 
   def isAtEnd: Boolean = charOffset >= endIdx
 
