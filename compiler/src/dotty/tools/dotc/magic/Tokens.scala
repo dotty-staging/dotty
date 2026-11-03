@@ -175,8 +175,6 @@ object Tokens:
   final val canStartPatternTokens =
     literalTokens | identifierTokens | openParensTokens
 
-  final val templateIntroTokens: TokenSet = BitSet(CLASS, TRAIT, OBJECT, ENUM)
-
   final val dclIntroTokens: TokenSet = BitSet(DEF, VAL, VAR, TYPE)
 
   final val defIntroTokens: TokenSet = templateIntroTokens | dclIntroTokens | BitSet(PRIVATE, AT)
@@ -226,7 +224,7 @@ object Tokens:
     nme.inline, nme.LAZYkw, nme.opaque, nme.open, nme.OVERRIDEkw,
     nme.SEALEDkw, nme.tracked, nme.transparent, nme.update)
 
-  final val symbolicCompareOperatoerNames = Set(
+  final val symbolicCompareOperaterNames = Set(
     nme.LT, nme.LE, nme.EQ, nme.NE, nme.GT, nme.GE)
 
   final val paramModifierNames = Set(

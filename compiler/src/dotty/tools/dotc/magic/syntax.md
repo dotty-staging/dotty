@@ -299,7 +299,7 @@ DefParamModifier  ::=  'inline'
 ClsParamModifier  ::=  AccessModifier
                     |  DefParamModifier
 
-Annotation        ::=  ‘@’ SimpleTypeConstr [TypeArgs] {Arguments}
+Annotation        ::=  ‘@’ PathRef [TypeArgs] {Arguments}
 ```
 
 ### Type and Value Parameters
