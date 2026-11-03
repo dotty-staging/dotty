@@ -95,7 +95,7 @@ The lexical analyzer inserts `indent` that represent regions of indented code af
 
 ```
 and  as  break  case  class  continue  def  derives  elif  else
-end  enum  except  export  extends  extension  False  finally
+enum  except  export  extends  extension  False  finally
 for  from  if  in  is  import  match  new  not  None  object  or
 private  raise  return  self  super  trait  True  try  type
 uses  using  val  var  while  with
@@ -105,7 +105,7 @@ uses  using  val  var  while  with
 ### Soft keywords
 
 ```
-consume  erased  exclude  initially  inline  into  lazy  only
+consume  end  erased  exclude  initially  inline  into  lazy  only
 opaque  open  override  rd  sealed  tracked  transparent  update  witness
 *  +  -  ==  !=  <  >  <=  >=  ?  ^
 ```

@@ -840,6 +840,10 @@ object Scanners {
     def isSoftModifierInParamModifierPosition: Boolean =
       isSoftModifier && lookahead.token != COLON
 
+    /** Is current token the soft keyword `end` followed by a plainid? */
+    def isEndMarker: Boolean =
+      isIdent(nme.end) && lookahead.token == IDENTIFIER
+
 // String Parsing -----------------------------------------------------------------
 
     def isRaw = token == INTERPOLATIONID && name.nn == nme.r

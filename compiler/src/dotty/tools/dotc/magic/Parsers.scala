@@ -2612,7 +2612,7 @@ object Parsers {
           stats += importOrExportClause(allowed)
         case EXTENSION =>
           stats += extensionDef(local)
-        case END =>
+        case IDENTIFIER if in.isEndMarker =>
           endMarker(stats)
         case BREAK =>
           stats += atSpan(in.skipToken())(Break())
@@ -2791,7 +2791,7 @@ object Parsers {
       val start = in.skipToken()
       stats.lastOption match
         case Some(last: MemberDef) =>
-          if isIdent(last.name) then
+          if isIdent(last.name.toTermName) then
             if last.hasEndMarker then syntaxError(em"duplicate end marker")
             else last.withEndMarker()
             last.span = last.span.withEnd(in.lastCharOffset)
