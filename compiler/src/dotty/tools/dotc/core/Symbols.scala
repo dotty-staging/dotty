@@ -88,7 +88,8 @@ object Symbols extends SymUtils {
       denot.owner.isTerm ||                // no risk of leaking memory after a run for these
       denot.isOneOf(InlineOrProxy) ||      // need to keep inline info
       ctx.settings.Whas.safeInit ||        // initialization check
-      ctx.settings.YsafeInitGlobal.value
+      ctx.settings.YsafeInitGlobal.value ||
+      ctx.settings.optInlineEnabled        // the optimizer needs trees
 
     /** The last denotation of this symbol */
     private var lastDenot: SymDenotation = uninitialized

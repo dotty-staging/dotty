@@ -91,6 +91,15 @@ final class InlineInfoLoaderImpl(byteCodeRepository: BCodeRepository, primitives
     }
 
     // if we have a symbol, we're compiling the class, so we assume it's accessible
+    if classSym.toString.endsWith("class ArrayOps$") then {
+      // PROBLEM: here `methods` doesn't contain 'f$2' and friends
+      val x = classSym.defTree.asInstanceOf[dotty.tools.dotc.ast.tpd.TypeDef].rhs.asInstanceOf[dotty.tools.dotc.ast.tpd.Template].body
+      val y = classSym.companionClass.defTree.asInstanceOf[dotty.tools.dotc.ast.tpd.TypeDef].rhs.asInstanceOf[dotty.tools.dotc.ast.tpd.Template].body
+      val found = y.find(_.toString.contains("foldLeft")).get.asInstanceOf[dotty.tools.dotc.ast.tpd.DefDef].rhs
+      val foldLeft = found.asInstanceOf[dotty.tools.dotc.ast.tpd.Block].stats.head.asInstanceOf[dotty.tools.dotc.ast.tpd.DefDef].symbol
+      val s1 = foldLeft.javaBinaryName
+      println("x")
+    }
     InlineInfo(classSym.is(Final), sam, methodInlineInfos, None, isAccessible = true)
   }
 

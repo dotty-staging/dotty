@@ -12,10 +12,10 @@ class GlobalOptimizationBytecodeTests extends OptimizationBytecodeTest {
     // Probably don't:
     //ctx.setSetting(ctx.settings.YoptInlineHeuristics, "everything")
     // For debugging purposes:
-    //ctx.setSetting(ctx.settings.Ydebug, true)
-    //ctx.setSetting(ctx.settings.silentWarnings, false)
-    //ctx.setSetting(ctx.settings.Wopt, List(dotty.tools.dotc.config.Settings.Setting.ChoiceWithHelp("all", "")))
-    //ctx.setSetting(ctx.settings.YoptLogInline, "_")
+    ctx.setSetting(ctx.settings.Ydebug, true)
+    ctx.setSetting(ctx.settings.silentWarnings, false)
+    ctx.setSetting(ctx.settings.Wopt, List(dotty.tools.dotc.config.Settings.Setting.ChoiceWithHelp("all", "")))
+    ctx.setSetting(ctx.settings.YoptLogInline, "_")
     //ctx.setSetting(ctx.settings.YoptTrace, "_")
   }
 
