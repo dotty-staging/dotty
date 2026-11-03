@@ -26,7 +26,6 @@ class OptimizerSettings(using @constructorOnly ctx: Context):
   val optInlineHeuristics: String = ctx.settings.YoptInlineHeuristics.value
   val optWarningNoInlineMixed: Boolean = ctx.settings.optWarningNoInlineMixed
   val optWarningNoInlineMissingBytecode: Boolean = ctx.settings.optWarningNoInlineMissingBytecode
-  val optWarningNoInlineMissingScalaInlineInfoAttr: Boolean = ctx.settings.optWarningNoInlineMissingScalaInlineInfoAttr
   val optWarningEmitAtInlineFailed: Boolean = ctx.settings.optWarningEmitAtInlineFailed
   val optWarningEmitAnyInlineFailed: Boolean = ctx.settings.optWarningEmitAnyInlineFailed
   val optLogInline: Option[String] = ctx.settings.YoptLogInline.valueSetByUser

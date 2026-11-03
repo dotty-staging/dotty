@@ -458,8 +458,6 @@ trait BCodeSkelBuilder(val bTypes: KnownBTypes) extends BCodeHelpers {
 
       }
 
-      cnode.visitAttribute(bTypeLoader.classBTypeFromSymbol(claszSymbol).inlineInfoAttribute)
-
       // the invoker is responsible for adding a class-static constructor.
 
     } // end of method initJClass

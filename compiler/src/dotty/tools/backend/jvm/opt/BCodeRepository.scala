@@ -282,12 +282,9 @@ class BCodeRepository(classPath: ClassPath) {
         case Some(classFile) =>
           val classNode = new ClassNode1
           val classReader = new ClassReader(classFile.toByteArray)
-          // Passing the InlineInfoAttributePrototype makes the ClassReader invoke the specific `read`
-          // method of the InlineInfoAttribute class, instead of putting the byte array into a generic
-          // Attribute.
           // We don't need frames when inlining, but we want to keep the local variable table, so we
           // don't use SKIP_DEBUG.
-          classReader.accept(classNode, Array[Attribute](InlineInfoAttributePrototype), ClassReader.SKIP_FRAMES)
+          classReader.accept(classNode, ClassReader.SKIP_FRAMES)
           // SKIP_FRAMES leaves line number nodes. Remove them because they are not correct after
           // inlining.
           // TODO: we need to remove them also for classes that are not parsed from classfiles, why not simplify and do it once when inlining?

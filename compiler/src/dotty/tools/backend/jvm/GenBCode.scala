@@ -35,8 +35,8 @@ final class GenBCode extends Phase:
       val gen =
         if ctx.settings.optInlineEnabled || ctx.settings.optAnyEnabled then
           val byteCodeRepository = new BCodeRepository(ctx.platform.classPath)
-          val bTypesFromClassfile = new BTypesFromClassfile(byteCodeRepository, classBTypeCache)
-          val bTypeLoader = new BTypeLoader(primitives, classBTypeCache, Some(bTypesFromClassfile))
+          val bTypesFromClassfile = new BTypesFromClassfile(byteCodeRepository, classBTypeCache, ???)
+          val bTypeLoader = new BTypeLoader(primitives, classBTypeCache, Some(???))
           val knownBTypes = new KnownBTypes(bTypeLoader)
           val optimizerKnownBTypes = new OptimizerKnownBTypes(bTypeLoader)
           val callGraph = new OptimizerCallGraph(byteCodeRepository, bTypesFromClassfile)

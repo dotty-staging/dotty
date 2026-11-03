@@ -441,8 +441,8 @@ class OptimizerCallGraph(byteCodeRepository: BCodeRepository, bTypesFromClassfil
                 receiverType.info.inlineInfo.isEffectivelyFinal // (2)
             }
 
-            val warning = calleeDeclarationClassBType.info.inlineInfo.warning.map(
-              MethodInlineInfoIncomplete(calleeDeclarationClassBType.internalName, calleeMethodNode.name, calleeMethodNode.desc, _))
+            val warning = calleeDeclarationClassBType.info.inlineInfo.missingClassForWarning.map(n =>
+              MethodInlineInfoIncomplete(calleeDeclarationClassBType.internalName, calleeMethodNode.name, calleeMethodNode.desc, ClassNotFound(n)))
 
             samParamTypes(calleeMethodNode, paramTps, receiverType) match
               case Left(w) => CallsiteInfo(warning = Some(MethodInlineInfoError(call.owner, calleeMethodNode.name, calleeMethodNode.desc, w)))
@@ -460,7 +460,7 @@ class OptimizerCallGraph(byteCodeRepository: BCodeRepository, bTypesFromClassfil
           CallsiteInfo(warning = None)
         else
           val warning = MethodInlineInfoMissing(calleeDeclarationClassBType.internalName, calleeMethodNode.name, calleeMethodNode.desc,
-                                                calleeDeclarationClassBType.info.inlineInfo.warning)
+                                                calleeDeclarationClassBType.info.inlineInfo.missingClassForWarning.map(ClassNotFound(_)))
           CallsiteInfo(warning = Some(warning))
     }
   }

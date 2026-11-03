@@ -201,30 +201,9 @@ final case class RewriteClosureAccessCheckFailed(pos: SourcePosition, cause: Opt
 
 final case class RewriteClosureIllegalAccess(pos: SourcePosition, callsiteClass: InternalName) extends RewriteClosureApplyToClosureBodyFailed
 
-/**
+/*
  * Used in the InlineInfo of a ClassBType, when some issue occurred obtaining the inline information.
- */
-sealed trait ClassInlineInfoWarning extends OptimizerWarning {
-  override def toString: String = this match {
-    case NoInlineInfoAttribute(internalName) =>
-      s"The Scala classfile $internalName does not have a ${InlineInfoAttribute.attributeName} attribute."
-
-    case ClassNotFoundWhenBuildingInlineInfoFromSymbol(missingClass) =>
-      s"Failed to build the inline information: $missingClass"
-
-    case UnknownScalaInlineInfoVersion(internalName, version) =>
-      s"Cannot read ${InlineInfoAttribute.attributeName} version $version in classfile $internalName. Use a more recent compiler."
-  }
-
-  def emitWarning(settings: OptimizerSettings): Boolean = this match {
-    case NoInlineInfoAttribute(_) => settings.optWarningNoInlineMissingScalaInlineInfoAttr
-    case ClassNotFoundWhenBuildingInlineInfoFromSymbol(cause) => cause.emitWarning(settings)
-    case UnknownScalaInlineInfoVersion(_, _) => settings.optWarningNoInlineMissingScalaInlineInfoAttr
-  }
-}
-
-final case class NoInlineInfoAttribute(internalName: InternalName) extends ClassInlineInfoWarning
-
-final case class ClassNotFoundWhenBuildingInlineInfoFromSymbol(missingClass: ClassNotFound) extends ClassInlineInfoWarning
-
-final case class UnknownScalaInlineInfoVersion(internalName: InternalName, version: Int) extends ClassInlineInfoWarning
+final case class ClassNotFoundWhenBuildingInlineInfoFromSymbol(missingClass: ClassNotFound) extends OptimizerWarning {
+  override def toString: String = s"Failed to build the inline information: $missingClass"
+  def emitWarning(settings: OptimizerSettings): Boolean = missingClass.emitWarning(settings)
+}*/

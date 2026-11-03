@@ -13,7 +13,7 @@ import dotty.tools.dotc.core.Flags.{Final, JavaDefined, Method, ModuleClass, Mod
 import dotty.tools.dotc.core.Phases.{Phase, flattenPhase, lambdaLiftPhase, picklerPhase}
 import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.{StdNames, Types}
-import dotty.tools.dotc.core.Types.{JavaArrayType, Type, TypeRef, abstractTermNameFilter}
+import dotty.tools.dotc.core.Types.{JavaArrayType, Type, TypeRef}
 import dotty.tools.dotc.util.EqHashMap
 
 import scala.annotation.tailrec
@@ -202,7 +202,7 @@ final class BTypeLoader(primitives: ScalaPrimitives, val cache: ClassBType.Cache
     val nestedInfo = buildNestedInfo(classSym)
 
     val inlineInfo = inlineInfoLoader match {
-      case Some(loader) => buildInlineInfo(loader, classSym.asClass, classBType.internalName)
+      case Some(loader) => loader.loadFromSymbol(classSym.asClass, classBType.internalName)
       case None => InlineInfo.empty
     }
 
@@ -274,90 +274,6 @@ final class BTypeLoader(primitives: ScalaPrimitives, val cache: ClassBType.Cache
 
       Some(NestedInfo(enclosingClass, outerName, innerName, isStaticNestedClass))
     }
-  }
-
-  /*
-   * Note that the InlineInfo is only built from the symbolic information for classes that are being
-   * compiled. For all other classes we delegate to inlineInfoFromClassfile. The reason is that
-   * mixed-in methods are only added to class symbols being compiled, but not to other classes
-   * extending traits. Creating the InlineInfo from the symbol would prevent these mixins from being
-   * inlined.
-   *
-   * So for classes being compiled, the InlineInfo is created here and stored in the inline info
-   * classfile attribute.
-   */
-  private def buildInlineInfo(inlineInfoLoader: InlineInfoLoader, classSym: ClassSymbol, internalName: InternalName)(using Context): InlineInfo = {
-    // phase travel required (or at least it was in Scala 2). for nested classes, it checks if the
-    // enclosingTopLevelClass is being compiled. after flatten, all classes are considered top-level,
-    // so it would return `false`.
-    if atPhase(picklerPhase.next) {
-      classSym.isDefinedInCurrentRun
-    } then buildInlineInfoFromClassSymbol(classSym) // // InlineInfo required for classes being compiled, we have to create the classfile attribute
-    // For classes not being compiled, the InlineInfo is read from the classfile attribute. This
-    // fixes an issue with mixed-in methods: the mixin phase enters mixin methods only to class
-    // symbols being compiled. For non-compiled classes, we could not build MethodInlineInfos
-    // for those mixin members, which prevents inlining.
-    else inlineInfoLoader.loadInlineInfoFor(internalName)
-  }
-
-  /**
-   * Build the [[InlineInfo]] for a class symbol.
-   */
-  private def buildInlineInfoFromClassSymbol(classSym: ClassSymbol)(using Context): InlineInfo = {
-    // We only want an approximation of SAMs for inlining heuristics, no need to check FunctionalInterface annotations or such
-    val abstractMembers = classSym.memberNames(abstractTermNameFilter).iterator.map(classSym.classInfo.member).map(_.symbol).filter(_.is(Method)).toList
-    val sam = abstractMembers match
-      case List(single) =>
-        val btype = methodBTypeFromSymbol(single)
-        Some(single.javaSimpleName + btype.descriptor)
-      case _ => None
-
-    // Phantom symbols (e.g. constructor proxy `apply`s) have `NoType` info after erasure and are normally
-    // dropped from the decls when their owner's unit is erased. A class from a unit that was suspended
-    // in this run (e.g. on a macro defined in the same run) hasn't been through erasure, so skip them here.
-    def keepMember(sym: Symbol) = sym.is(Method) && !sym.is(PhantomSymbol) && !primitives.isPrimitive(sym)
-
-    val classMethods = classSym.info.decls.iterator.filter(keepMember)
-    val methods = if classSym.is(JavaDefined) then
-      // Phase travel important for nested classes (scala-dev#402). When a java class symbol A$B
-      // is compiled from source, this ensures that `companionModule` doesn't return the `A$B`
-      // symbol created for the `A$B.class` file on the classpath, which might be different.
-      val companion = atPhase(picklerPhase.next) {
-        classSym.companionModule
-      }
-      val staticMethods = companion.info.decls.iterator.filter(m => !m.isConstructor && keepMember(m))
-      staticMethods ++ classMethods
-    else
-      val staticForwarders = if classSym.is(Trait) then
-        // !!! This logic duplicates PlainSkelBuilder::makeStaticForwarder, copy changes there !!!
-        classSym.info.decls.filter(s => s.isTerm && !s.is(Private) && !s.isStaticMember && s.name != nme.TRAIT_CONSTRUCTOR).map(s => {
-          SymbolUtils.makeStatifiedDefSymbol(s.asTerm, SymbolUtils.traitSuperAccessorName(s).toTermName)
-        })
-      else Nil
-      classMethods ++ staticForwarders
-
-    // Primitive methods cannot be inlined, so there's no point in building a MethodInlineInfo. Also, some
-    // primitive methods (e.g., `isInstanceOf`) have non-erased types, which confuses [[typeToBType]].
-    val methodInlineInfos = new collection.mutable.TreeMap[(String, String), MethodInlineInfo]()
-    methods.foreach {
-      methodSym =>
-        val name = methodSym.javaSimpleName // same as in genDefDef
-        val signature = (name, methodBTypeFromSymbol(methodSym).descriptor)
-
-        // In a trait, accesses to "modules" like enums are translated by the frontend as final methods,
-        // even though they are logically not final since classes implementing the trait will also have that method,
-        // so we must explicitly consider them to be non-final.
-        // TODO: This feels like something fundamentally weird in trees that should not exist.
-        val info = MethodInlineInfo(
-          effectivelyFinal = methodSym.isEffectivelyFinal && !methodSym.is(ModuleVal),
-          annotatedInline = methodSym.hasAnnotation(defn.InlineAnnot),
-          annotatedNoInline = methodSym.hasAnnotation(defn.NoInlineAnnot))
-
-        methodInlineInfos(signature) = info
-    }
-
-    // if we have a symbol, we're compiling the class, so we assume it's accessible
-    InlineInfo(classSym.is(Final), sam, methodInlineInfos, None, isAccessible = true)
   }
 
   /**
