@@ -643,30 +643,38 @@ object Parsers {
       if (in.token == DOT) { in.nextToken(); dotSelectors(selector(t)) }
       else t
 
-    private val id: Tree => Tree = x => x
-
-    /** SimpleRef  ::= id
-     *              |  'self' [ClassQualifier '.' id]
-     *              |  'super' '.' id
-     */
-    def simpleRef(): Tree =
-      val start = in.offset
-      if in.token == SELF then
-        in.nextToken()
-        val qual = classQualifierOpt()
-        atSpan(start) { This(qual) }
-      else if in.token == SUPER then
-        in.nextToken()
-        atSpan(start) { Super(This(EmptyTypeIdent), EmptyTypeIdent) }
-      else termIdent()
-
     /** ClassQualifier ::= `[' id `]' */
     def classQualifierOpt(): Ident =
       if in.token == LBRACKET then inBrackets(atSpan(in.offset) { typeIdent() })
       else EmptyTypeIdent
 
-    /** Singleton    ::=  SimpleRef  |  Singleton ‘.’ id */
-    def singleton(): Tree = dotSelectors(simpleRef())
+    /** SimpleRef  ::= ['super' [ClassQualifier] '.'] id
+     */
+    def simpleRef(): Tree =
+      if in.token == SUPER then
+        val sup = atSpan(in.skipToken()):
+          Super(This(EmptyTypeIdent), classQualifierOpt())
+        accept(DOT)
+        selector(sup)
+      else termIdent()
+
+    /** SimpleRefOrSelf  ::=  SimpleRef  |  Self
+     *  Self             ::=  'self' [ClassQualifier]
+     */
+    def simpleRefOrSelf(): Tree =
+      if in.token == SELF then
+        atSpan(in.skipToken()):
+          This(classQualifierOpt())
+      else
+        simpleRef()
+
+    /** PathRef         ::=  SimpleRef {'.' id}
+     */
+    def pathRef(): Tree = dotSelectors(simpleRef())
+
+    /** Singleton    ::=  (SimpleRef | Self) {'.' id}
+     */
+    def singleton(): Tree = dotSelectors(simpleRefOrSelf())
 
     /** QualId ::= id {`.' id}
      */
@@ -1051,7 +1059,7 @@ object Parsers {
             Annotated(t, annot())
       else t
 
-    /**  SimpleType       ::=  SimpleTypeConstr [TypeArgs]
+    /**  SimpleType       ::=  PathRef [TypeArgs]
      *                      |  ‘(’ [Types] ‘)’
      *                      |  ‘(’ NameAndType {‘,’ NameAndType} ‘)’
      *                      |  '{' Singleton | Literal | Refined '}'
@@ -1062,7 +1070,7 @@ object Parsers {
       val t = in.token match
         case IDENTIFIER | BACKQUOTED_IDENT | SELF | SUPER =>
           withMode(currentMode | Mode.Type):
-             typeArgsOpt(simpleTypeConstr())
+             typeArgsOpt(convertToTypeId(pathRef()))
         case LPAREN =>
           atSpan(in.offset):
             makeTupleOrParens:
@@ -1190,7 +1198,7 @@ object Parsers {
       inBraces:
         if in.token == RBRACE then Nil else commaSeparated(capRef)
 
-    /** CapRef        ::=  SimpleRef [OnlyFilter] {ExcludeFilter} ['.' 'rd']
+    /** CapRef        ::=  (SimpleRef | Self) [OnlyFilter] {ExcludeFilter} ['.' 'rd']
      *                  |  'rd'
      *  OnlyFilter    ::=  `.` `only` `[` QualId `]`
      *  ExcludeFilter ::=  `.` `excclude` `[` QualId `]`
@@ -1228,7 +1236,7 @@ object Parsers {
           recur(selector(ref))
         else ref1
 
-      recur(simpleRef())
+      recur(simpleRefOrSelf())
     end capRef
 
     def capturesAndResult(core: () => Tree): Tree =
@@ -1609,6 +1617,7 @@ object Parsers {
       else simpleExpr()
 
     /** SimpleExpr    ::= SimpleRef
+     *                 |  Self
      *                 |  Literal
      *                 |  interpolatedString(Expr)
      *                 |  '_'
@@ -1627,7 +1636,7 @@ object Parsers {
       val t = in.token match
         case IDENTIFIER | BACKQUOTED_IDENT | SELF | SUPER =>
           if isNegatedNumber then literal()
-          else simpleRef()
+          else simpleRefOrSelf()
         case INTERPOLATIONID =>
           interpolatedString(inPattern = false)
         case USCORE =>
@@ -1872,9 +1881,7 @@ object Parsers {
      *                    |   interpolatedString(Pattern)
      *                    |   `(' [Patterns | NamedPatterns] `)'
      *                    |   '[' SplicePatterns ']'
-     *                    |   ConstrPattern [TypeArgs] [PatternArguments]
-     *  ConstrPattern    ::=  SimpleRef
-     *                    |   ConstrPattern `.' id
+     *                    |   PathRef [TypeArgs] [PatternArguments]
      *  Patterns         ::=  {PatternInParens}_','
      *  PatternArguments ::=  '(' [SplicePatterns | NamedPatterns] ')'
      *  NamedPatterns    ::=  {NamedPattern}_','
@@ -1884,7 +1891,7 @@ object Parsers {
       in.token match
       case IDENTIFIER | BACKQUOTED_IDENT | SELF | SUPER =>
         if isNegatedNumber then literal()
-        else constrPatternRest(simpleRef())
+        else constrPatternRest(pathRef())
       case USCORE =>
         wildcardIdent()
       case INTERPOLATIONID =>
@@ -2654,12 +2661,12 @@ object Parsers {
 
     type ImportConstr = (Tree, List[ImportSelector]) => ImportOrExport
 
-    /** Import      ::=  ‘from’ Source 'import' Selectors
-     *                |  'import' Source Renaming
-     *  Export      ::=  ‘from’ Source 'export' Selectors
-     *                |  'export' Source Renaming
-     *  Source      ::=  Singleton  |  '.' id {'.' id}
-     */
+    /** Import       ::=  ‘from’ ImportSource 'import' ImportSelectors
+     *                 |  'import' ImportSource Renaming
+     *  Export       ::=  ‘from’ ImportSource 'export' ImportSelectors
+     *                 |  'export' ImportSource Renaming
+     *  ImportSource ::=  PathRef  |  '.' QualId
+ s    */
     def importOrExportClause(allowed: TokenSet): Tree =
       atSpan(in.offset):
         var leadToken = in.token
@@ -2672,7 +2679,7 @@ object Parsers {
         in.nextToken()
         val source =
           if in.token == DOT then dotSelectors(EmptyTree)
-          else singleton()
+          else pathRef()
         if leadToken == FROM then
           if in.token == IMPORT || in.token == EXPORT then
             leadToken = in.token
