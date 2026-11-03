@@ -416,14 +416,14 @@ trait BCodeHelpers(val bTypeLoader: BTypeLoader) extends BCodeIdiomatic {
   class JMirrorBuilder {
     private val EMPTY_STRING_ARRAY = Array.empty[String]
 
-    def genMirrorClassIfNeeded(moduleClass: Symbol)(using Context): asm.tree.ClassNode | Null = {
+    def genMirrorClassIfNeeded(moduleClass: Symbol)(using Context): Option[(asm.tree.ClassNode, ClassBType)] = {
       if !moduleClass.isTopLevelModuleClass then
-        null
+        None
       else if moduleClass.companionClass == NoSymbol then
-        genMirrorClass(moduleClass)
+        Some(genMirrorClass(moduleClass))
       else
         report.log(s"No mirror class for module with linked class: ${moduleClass.fullName}", NoSourcePosition)
-        null
+        None
     }
     
     /* Generate a mirror class for a top-level module. A mirror class is a class
@@ -434,7 +434,7 @@ trait BCodeHelpers(val bTypeLoader: BTypeLoader) extends BCodeIdiomatic {
      *
      *  must-single-thread
      */
-    private def genMirrorClass(moduleClass: Symbol)(using Context): asm.tree.ClassNode = {
+    private def genMirrorClass(moduleClass: Symbol)(using Context): (asm.tree.ClassNode, ClassBType) = {
       assert(moduleClass.is(ModuleClass))
       assert(moduleClass.companionClass == NoSymbol, moduleClass)
       val bType      = bTypeLoader.mirrorClassBTypeFromSymbol(moduleClass)
@@ -443,7 +443,7 @@ trait BCodeHelpers(val bTypeLoader: BTypeLoader) extends BCodeIdiomatic {
       val mirrorClass = new asm.tree.ClassNode
       if !BCodeUtils.checkConstantStringLength(mirrorName) then
         report.error("Mirror class name is too long for the JVM", moduleClass.srcPos)
-        return mirrorClass // not filled, but we cannot create it, and we just reported an error
+        return (mirrorClass, bType) // not filled, but we cannot create it, and we just reported an error
       mirrorClass.visit(
         classfileVersion,
         bType.info.flags,
@@ -465,7 +465,7 @@ trait BCodeHelpers(val bTypeLoader: BTypeLoader) extends BCodeIdiomatic {
 
       moduleClass.name // this side effect is necessary, really.
 
-      mirrorClass
+      (mirrorClass, bType)
     }
 
   } // end of class JMirrorBuilder

@@ -121,9 +121,8 @@ class OptimizerCallGraph(byteCodeRepository: BCodeRepository, bTypesFromClassfil
     else closureInstantiations(methodNode) = newClosureInits
   }
 
-  def addClass(classNode: ClassNode): Unit = {
-    val classType = bTypesFromClassfile.classBTypeFromClassNode(classNode, None)
-    classType.foreach(ct => classNode.methods.asScala.foreach(addMethod(_, ct)))
+  def addClass(classNode: ClassNode, classBType: ClassBType): Unit = {
+    classNode.methods.asScala.foreach(addMethod(_, classBType))
   }
 
   def refresh(methodNode: MethodNode, definingClass: ClassBType): Unit = {

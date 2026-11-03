@@ -16,12 +16,12 @@ final class BCode(knownBTypes: KnownBTypes, bTypeLoader: BTypeLoader, primitives
   private val mirrorBuilder = new impl.JMirrorBuilder()
 
   /** Generates a ClassNode for the given type definition. */
-  def genClassNode(typeDef: TypeDef)(using Context): ClassNode =
+  def genClassNode(typeDef: TypeDef)(using Context): (ClassNode, ClassBType) =
     new impl.SyncAndTryBuilder().genPlainClass(typeDef)
 
   /** Generates a mirror ClassNode for the given type definition, if necessary. */
-  def genMirrorClassNode(typeDef: TypeDef)(using Context): Option[ClassNode] =
-    Option(mirrorBuilder.genMirrorClassIfNeeded(typeDef.symbol))
+  def genMirrorClassNode(typeDef: TypeDef)(using Context): Option[(ClassNode, ClassBType)] =
+    mirrorBuilder.genMirrorClassIfNeeded(typeDef.symbol)
 
   /** Gets the cache for ClassBTypes used by the bytecode generator. */
   def classBTypeCache(): ClassBType.Cache =

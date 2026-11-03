@@ -34,11 +34,11 @@ abstract class Inliner {
 final class GlobalOptimizer(callGraph: OptimizerCallGraph, classBTypeCache: ClassBType.Cache, bTypesFromClassfile: BTypesFromClassfile, byteCodeRepository: BCodeRepository,
                             heuristics: InlinerHeuristics, closureOptimizer: ClosureOptimizer,
                             settings: OptimizerSettings) extends Inliner {
-  def run(classNodesAndSourcePaths: Iterable[(ClassNode, String)], issueSink: OptimizerIssue => Unit): Unit = {
+  def run(classNodesAndSourcePaths: Iterable[(ClassNode, ClassBType, String)], issueSink: OptimizerIssue => Unit): Unit = {
     // add classes to the bytecode repo before building the call graph: the latter needs to
     // look up classes and methods in the code repo.
-    for (c, p) <- classNodesAndSourcePaths do byteCodeRepository.add(c, p)
-    for (c, _) <- classNodesAndSourcePaths do callGraph.addClass(c)
+    for (c, _, p) <- classNodesAndSourcePaths do byteCodeRepository.add(c, p)
+    for (c, t, _) <- classNodesAndSourcePaths do callGraph.addClass(c, t)
 
     var round = 0
     var changedByInliner = Iterable.empty[MethodNode]

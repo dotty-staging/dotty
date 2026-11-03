@@ -161,12 +161,13 @@ trait BCodeSkelBuilder(val bTypes: KnownBTypes) extends BCodeHelpers {
 
     /* ---------------- helper utils for generating classes and fields ---------------- */
 
-    def genPlainClass(cd0: TypeDef)(using Context): ClassNode1 = (cd0: @unchecked) match {
+    def genPlainClass(cd0: TypeDef)(using Context): (ClassNode, ClassBType) = (cd0: @unchecked) match {
       case TypeDef(_, impl: Template) =>
 
       claszSymbol       = cd0.symbol
       isCZStaticModule  = claszSymbol.isStaticModuleClass
-      thisName          = bTypeLoader.classBTypeFromSymbol(claszSymbol).internalName
+      val bType         = bTypeLoader.classBTypeFromSymbol(claszSymbol)
+      thisName          = bType.internalName
       serializableLambdas = Nil
 
       cnode = new ClassNode1()
@@ -291,7 +292,7 @@ trait BCodeSkelBuilder(val bTypes: KnownBTypes) extends BCodeHelpers {
       TraceUtils.traceClassIfRequested(cnode)
 
       assert(cd.symbol == claszSymbol, "Someone messed up BCodePhase.claszSymbol during genPlainClass().")
-      cnode
+      (cnode, bType)
     } // end of method genPlainClass()
 
 

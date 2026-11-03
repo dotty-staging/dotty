@@ -23,7 +23,7 @@ import org.objectweb.asm.tree.ClassNode
 
 import java.io.IOException
 import java.nio.channels.ClosedByInterruptException
-import java.util.concurrent.{ExecutionException, Executor, ExecutorService, Future, FutureTask}
+import java.util.concurrent.{ExecutionException, Executor, ExecutorService, FutureTask}
 import scala.annotation.constructorOnly
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -90,7 +90,7 @@ final class CodeGen(ownerPhase: Phase, gen: BCode, localOpt: Option[LocalOptimiz
     globalOpt match
       case Some(opt) =>
         opt.run(
-          pendingClassNodes.map((n, m) => (n, m.position.source.path)),
+          pendingClassNodes.map((n, m) => (n, m.bType, m.position.source.path)),
           i => report.optimizerWarning(i.msg, i.site, i.pos)
         )
         schedule(pendingClassNodes)
@@ -144,7 +144,7 @@ final class CodeGen(ownerPhase: Phase, gen: BCode, localOpt: Option[LocalOptimiz
     val typeSym = typeDef.symbol
     try
       // First, generate the class nodes; the mirror is only generated if needed.
-      val mainClassNode = gen.genClassNode(typeDef)
+      val (mainClassNode, mainBType) = gen.genClassNode(typeDef)
       val mirrorClassNode = gen.genMirrorClassNode(typeDef)
       // If the type def represents a class, and we have TASTY available, we must emit a TASTY attribute.
       // We must also store the TASTY for later emitting.
@@ -153,7 +153,7 @@ final class CodeGen(ownerPhase: Phase, gen: BCode, localOpt: Option[LocalOptimiz
           ctx.compilationUnit.pickled.get(classSymbol) match
             case Some(func) =>
               val forced = func()
-              val nodeWithTastyAttribute = mirrorClassNode.getOrElse(mainClassNode)
+              val (nodeWithTastyAttribute, _) = mirrorClassNode.getOrElse((mainClassNode, mainBType))
               addTastyUuidToClassNode(nodeWithTastyAttribute, forced)
               Some(forced)
             case None => None
@@ -164,12 +164,12 @@ final class CodeGen(ownerPhase: Phase, gen: BCode, localOpt: Option[LocalOptimiz
       }
       // and return the nodes decorated with this info.
       mirrorClassNode match {
-        case Some(mirror) => List(
-          (mainClassNode, ClassNodeMetadata(fullName, isLocal, typeSym.sourcePos, None)),
-          (mirror, ClassNodeMetadata(fullName, isLocal, typeSym.sourcePos, serializedTasty))
+        case Some((mirror, mirrorBType)) => List(
+          (mainClassNode, ClassNodeMetadata(fullName, mainBType, isLocal, typeSym.sourcePos, None)),
+          (mirror, ClassNodeMetadata(fullName, mirrorBType, isLocal, typeSym.sourcePos, serializedTasty))
         )
         case None => List(
-          (mainClassNode, ClassNodeMetadata(fullName, isLocal, typeSym.sourcePos, serializedTasty))
+          (mainClassNode, ClassNodeMetadata(fullName, mainBType, isLocal, typeSym.sourcePos, serializedTasty))
         )
       }
     catch
@@ -277,7 +277,7 @@ final class CodeGen(ownerPhase: Phase, gen: BCode, localOpt: Option[LocalOptimiz
     name.replace('/', '.')
 
 /** Metadata required for callbacks */
-private final class ClassNodeMetadata(val fullName: String, val isLocal: Boolean, val position: SourcePosition, val serializedTasty: Option[Array[Byte]])
+private final class ClassNodeMetadata(val fullName: String, val bType: ClassBType, val isLocal: Boolean, val position: SourcePosition, val serializedTasty: Option[Array[Byte]])
 
 /**
  * An `asm.ClassWriter` that uses `jvmWiseLUB()`
