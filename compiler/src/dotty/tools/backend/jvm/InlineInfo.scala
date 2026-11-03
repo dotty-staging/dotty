@@ -46,7 +46,6 @@ final case class MethodInlineInfo(effectivelyFinal: Boolean = false,
                                   annotatedNoInline: Boolean = false)
 
 trait InlineInfoLoader {
-  def loadFromName(name: InternalName): InlineInfo
   def loadFromSymbol(classSym: ClassSymbol, internalName: InternalName, bTypeLoader: BTypeLoader)(using Context): InlineInfo
   def loadFromClassfile(classNode: ClassNode, moduleNode: Option[ModuleNode]): InlineInfo
 }

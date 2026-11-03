@@ -21,7 +21,13 @@ import scala.jdk.CollectionConverters.ListHasAsScala
 
 final class InlineInfoLoaderImpl(byteCodeRepository: BCodeRepository, primitives: ScalaPrimitives) extends InlineInfoLoader {
 
-  def loadFromName(name: InternalName): InlineInfo =
+  def loadFromSymbol(classSym: ClassSymbol, internalName: InternalName, bTypeLoader: BTypeLoader)(using Context): InlineInfo = {
+    if classSym.is(JavaDefined)
+    then loadFromName(internalName)
+    else buildInlineInfoFromClassSymbol(classSym, bTypeLoader)
+  }
+
+  private def loadFromName(name: InternalName): InlineInfo =
     if OptimizerUtils.isSCoverage(name) then InlineInfo.empty
     else byteCodeRepository.classNode(name) match {
       case Right(classNode, moduleNode) =>
@@ -30,15 +36,6 @@ final class InlineInfoLoaderImpl(byteCodeRepository: BCodeRepository, primitives
         InlineInfo.empty.copy(missingClassForWarning = Some(missingClass.internalName))
     }
 
-
-  def loadFromSymbol(classSym: ClassSymbol, internalName: InternalName, bTypeLoader: BTypeLoader)(using Context): InlineInfo = {
-    // phase travel required (or at least it was in Scala 2). for nested classes, it checks if the
-    // enclosingTopLevelClass is being compiled. after flatten, all classes are considered top-level,
-    // so it would return `false`.
-    if atPhase(picklerPhase.next) (classSym.isDefinedInCurrentRun)
-    then buildInlineInfoFromClassSymbol(classSym, bTypeLoader)
-    else loadFromName(internalName)
-  }
 
   private def buildInlineInfoFromClassSymbol(classSym: ClassSymbol, bTypeLoader: BTypeLoader)(using Context): InlineInfo = {
     // We only want an approximation of SAMs for inlining heuristics, no need to check FunctionalInterface annotations or such

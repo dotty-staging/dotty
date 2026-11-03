@@ -2,23 +2,18 @@ package dotty.tools
 package backend
 package jvm
 
-import java.util.concurrent.ConcurrentHashMap
-import BTypes.InternalName
 import dotty.tools.backend.jvm.BCodeUtils.isAnonymousOrLocalClass
 import dotty.tools.backend.jvm.SymbolUtils.symExtensions
 import dotty.tools.dotc.core.Symbols.{ClassSymbol, NoSymbol, Symbol, defn}
 import dotty.tools.dotc.core.Contexts.*
-import dotty.tools.dotc.core.Decorators.toTermName
-import dotty.tools.dotc.core.Flags.{Final, JavaDefined, Method, ModuleClass, ModuleVal, PackageClass, PhantomSymbol, Private, Trait}
-import dotty.tools.dotc.core.Phases.{Phase, flattenPhase, lambdaLiftPhase, picklerPhase}
-import dotty.tools.dotc.core.StdNames.nme
+import dotty.tools.dotc.core.Flags.{JavaDefined, Method, ModuleClass, PackageClass, Trait}
+import dotty.tools.dotc.core.Phases.{Phase, flattenPhase, lambdaLiftPhase}
 import dotty.tools.dotc.core.{StdNames, Types}
 import dotty.tools.dotc.core.Types.{JavaArrayType, Type, TypeRef}
 import dotty.tools.dotc.util.EqHashMap
 
 import scala.annotation.tailrec
 import org.objectweb.asm
-import org.objectweb.asm.tree.ClassNode
 
 final class BTypeLoader(primitives: ScalaPrimitives, val cache: ClassBType.Cache, inlineInfoLoader: Option[InlineInfoLoader]) {
 
