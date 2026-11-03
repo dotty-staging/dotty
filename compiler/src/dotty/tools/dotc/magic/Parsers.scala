@@ -309,17 +309,17 @@ object Parsers {
 
     /** Convert tree to formal parameter list
     */
-    def convertToParams(tree: Tree): List[ValDef] =
-      val mods =
-        if in.token == CTXARROW || in.token == THINCTXARROW
+    def convertToParams(tree: Tree): ParamClause =
+      val mods = if in.token == CTXARROW
         then Modifiers(Given)
         else EmptyModifiers
       tree match
         case Parens(t) => convertToParam(t, mods) :: Nil
         case Tuple(ts) => ts.map(convertToParam(_, mods))
+        case SeqLiteral(ts, _) => ts.map(convertToTypeParam)
         case t => convertToParam(t, mods) :: Nil
 
-    /** Convert tree to formal parameter
+    /** Convert tree to formal value parameter
     */
     def convertToParam(tree: Tree, mods: Modifiers): ValDef =
       def fail() =
@@ -338,6 +338,7 @@ object Parsers {
         case _ =>
           fail()
 
+    /** Convert tree to type parameter */
     def convertToTypeParam(tree: Tree): TypeDef =
       def makeTypeParameter(name: TypeName) =
         cpy.TypeDef(tree)(name, TypeBoundsTree(EmptyTree, EmptyTree)).withFlags(Param)
@@ -424,7 +425,7 @@ object Parsers {
     /** Same as enclosed, but if closing token is missing, add `,` to the expected tokens
      *  in the error message, provided the next token could have followed a `,`.
      */
-    def enclosedWithCommas[T](tok: Token, body: => T): T =
+    def enclosedWithCommas[T](tok: Token)(body: => T): T =
       accept(tok)
       val closing = tok + 1
       val isEmpty = in.token == closing
@@ -442,9 +443,9 @@ object Parsers {
     def inBrackets[T](body: => T): T = enclosed(LBRACKET, body)
     def indented[T](body: => T): T = enclosed(INDENT, body)
 
-    def inParensWithCommas[T](body: => T): T = enclosedWithCommas(LPAREN, body)
-    def inBracketsWithCommas[T](body: => T): T = enclosedWithCommas(LBRACKET, body)
-    def inBracesWithCommas[T](body: => T): T = enclosedWithCommas(LBRACE, body)
+    def inParensWithCommas[T](body: => T): T = enclosedWithCommas(LPAREN)(body)
+    def inBracketsWithCommas[T](body: => T): T = enclosedWithCommas(LBRACKET)(body)
+    def inBracesWithCommas[T](body: => T): T = enclosedWithCommas(LBRACE)(body)
 
     def inBracesOrIndented[T](body: => T): T =
       if in.token == INDENT then indented(body)
@@ -1248,68 +1249,57 @@ object Parsers {
      */
     def expr(): Tree =
       val start = in.offset
-      in.token match
-        case LBRACKET =>
-          val start = in.offset
-          val lst @ SeqLiteral(elems, elemtpt) =
-            inBracketsWithCommas:
-              listExprOpt(RBRACKET, SeqLiteral(_, EmptyTree), orTypeParams = true)
-            .runtimeChecked
-          if in.token == ARROW then
-            val tparams = elems.map(convertToTypeParam)
-            val arrowOffset = in.skipToken()
+      val saved = placeholderParams
+      placeholderParams = Nil
+
+      def wrapPlaceholders(t: Tree) =
+        try
+          if placeholderParams.isEmpty then t
+          else
+            val (erasedParams, otherParams) = placeholderParams.partition(_.mods.is(Erased))
+              // erased placeholders come from named definitions created in exprsInParensOrBindings.
+              // They must be followed by a function arrow, so any such placeholders shoing
+              // up here are errors.
+            for p <- erasedParams do syntaxError(BadErased(), p.span)
+            if otherParams.isEmpty then t
+            else new WildcardFunction(otherParams.reverse, t)
+        finally placeholderParams = saved
+
+      val t = expr1()
+      if in.isFatArrow then
+        placeholderParams = Nil // don't interpret `_' to the left of `=>` as placeholder
+        val params = convertToParams(t)
+        if in.token == CTXARROW && params.isEmpty then // TODO: Move to desugar
+          syntaxError(em"context function literals require at least one formal parameter", Span(start, in.lastOffset))
+        val isTypeParams = params match
+          case (_: TypeDef) :: _ => true
+          case _ => false
+        val arrowOffset = in.skipToken()
+        wrapPlaceholders:
+          atSpan(start, arrowOffset):
             val body = expr()
-            def checkFunction(tree: Tree): Unit = tree match
-              case Parens(tree1) => checkFunction(tree1)
-              case Block(Nil, tree1) => checkFunction(tree1)
-              case t: Function =>
-              case _ =>
-                syntaxError(em"Implementation restriction: polymorphic function literals must have a value parameter", arrowOffset)
-            checkFunction(body)
-            atSpan(start, arrowOffset):
-              PolyFunction(tparams, body)
-          else
-            val (tparams, exprs) = elems.partition(_.isInstanceOf[TypeDef])
-            atSpan(start):
-              if tparams.isEmpty then lst
-              else
-                syntaxError(ExpectedTokenButFound(ARROW, in.token))
-                cpy.SeqLiteral(lst)(exprs, elemtpt)
-        case _ =>
-          val saved = placeholderParams
-          placeholderParams = Nil
-
-          def wrapPlaceholders(t: Tree) =
-            try
-              val (erasedParams, otherParams) = placeholderParams.partition(_.mods.is(Erased))
-                // erased placeholders come from named definitions created in exprsInParensOrBindings.
-                // They must be followed by a function arrow, so any such placeholders shoing
-                // up here are errors.
-              for p <- erasedParams do syntaxError(BadErased(), p.span)
-              if otherParams.isEmpty then t
-              else new WildcardFunction(otherParams.reverse, t)
-            finally placeholderParams = saved
-
-          val t = expr1()
-          if in.isFatArrow then
-            placeholderParams = Nil // don't interpret `_' to the left of `=>` as placeholder
-            val params = convertToParams(t)
-            if in.token == CTXARROW && params.isEmpty then // TODO: Move to desugar
-              syntaxError(em"context function literals require at least one formal parameter", Span(start, in.lastOffset))
-            in.nextToken()
-            wrapPlaceholders(Function(params, expr()))
-          else if isLastPlaceholder(t) then
-            placeholderParams = placeholderParams ::: saved
-            t
-          else
-            wrapPlaceholders(t)
+            if isTypeParams then
+              def checkFunction(tree: Tree): Unit = tree match
+                case Parens(tree1) => checkFunction(tree1)
+                case Block(Nil, tree1) => checkFunction(tree1)
+                case t: Function =>
+                case _ =>
+                  syntaxError(em"Implementation restriction: polymorphic function literals must have a value parameter", arrowOffset)
+              checkFunction(body)
+              PolyFunction(params, body)
+            else
+              Function(params, body)
+      else if isLastPlaceholder(t) then
+        placeholderParams = placeholderParams ::: saved
+        t
+      else
+        wrapPlaceholders(t)
     end expr
 
     /** Expr1     ::=  [‘inline’] ‘if’ Conditional
      *              |  ‘while’ SuiteExpr ':' Expr
      *              |  ‘try’ SuiteExpr
      *                  ( Except { Except} [‘finally’ SuiteExpr]
-     *              | ‘finally’ SuiteExpr )
      *              |  'raise' SuiteExpr ['from' SuiteExpr]
      *              |  'return' [SuiteExpr]
      *              |  'for' Pattern1 'in' SuiteExpr ':' Expr
@@ -1629,13 +1619,10 @@ object Parsers {
             makeTupleOrParens(inParensWithCommas(exprsInParensOrBindings()))
         case LBRACKET =>
           atSpan(in.offset):
-            inBracketsWithCommas:
-              listExprOpt(RBRACKET, SeqLiteral(_, EmptyTree))
+            SeqLiteral(listExprOrTypeParams(LBRACKET), EmptyTree)
         case LBRACE =>
           atSpan(in.offset):
-            inBracesWithCommas:
-              inRegion(BeforeColon):
-                listExprOpt(RBRACE, SetOrDictLiteral(_))
+            SetOrDictLiteral(listExprOrTypeParams(LBRACE))
         case INDENT =>
           indented(block())
         case _ =>
@@ -1769,24 +1756,36 @@ object Parsers {
     /** ListExpr  ::=  Expr ({',' Expr}  |  Generator)
      *  DictExpr  ::=  DictItem ({',' DictItem}  |  Generator)
      *  DictItem  ::=  Expr1 ':' Expr1
+     *
+     *  Parse a list, set, or dict expression. If start token `lead` is `[`
+     *  also accept type parameters, but then require that the expression
+     *  is followed by a `=>`.
      */
-    def listExprOpt(tok: Token, mkList: List[Tree] => Tree, orTypeParams: Boolean = false): Tree =
-      if in.token == tok + 1 then mkList(Nil)
-      else if orTypeParams && followingIsTypeParam() then
-        typeParam(ParamOwner.PolyFun)
-      else
-        var t = expr()
-        var parseOther: () => Tree = expr
-        if in.token == COLON then
-          in.nextToken()
-          t = Thicket(t, expr())
-          parseOther = () =>
-            val t1 = expr()
-            accept(COLON)
-            Thicket(t1, expr())
-        if in.token == COMMA then mkList(commaSeparatedRest(t, parseOther))
-        else if in.token == FOR then mkList(generator(t) :: Nil)
-        else mkList(t :: Nil)
+    def listExprOrTypeParams(lead: Token): List[Tree] =
+      var typeParamSeen = false
+      val elems = enclosedWithCommas(lead):
+        if in.token == lead + 1 then Nil
+        else
+          var parseElem: () => Tree = () =>
+            if lead == LBRACKET && followingIsTypeParam() then
+              typeParamSeen = true
+              typeParam(ParamOwner.PolyFun)
+            else
+              inRegion(BeforeColon)(expr())
+          var elem = parseElem()
+          if in.token == COLON && !typeParamSeen then
+            in.nextToken()
+            elem = Thicket(elem, expr())
+            parseElem = () =>
+              val key = inRegion(BeforeColon)(expr())
+              accept(COLON)
+              Thicket(key, expr())
+          if in.token == COMMA then elem :: commaSeparatedRest(elem, parseElem)
+          else if in.token == FOR && !typeParamSeen then generator(elem) :: Nil
+          else elem :: Nil
+      if typeParamSeen && in.token != ARROW then
+        syntaxError(ExpectedTokenButFound(ARROW, in.token))
+      elems
 
     /** Generator         ::=  ForPrefix [GeneratorRest]
      *  GeneratorRest     ::=  Generator

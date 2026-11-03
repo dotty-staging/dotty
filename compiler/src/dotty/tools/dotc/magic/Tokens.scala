@@ -177,7 +177,7 @@ object Tokens:
 
   final val dclIntroTokens: TokenSet = BitSet(DEF, VAL, VAR, TYPE)
 
-  final val defIntroTokens: TokenSet = templateIntroTokens | dclIntroTokens | BitSet(PRIVATE, AT)
+  final val defIntroTokens: TokenSet = dclIntroTokens | BitSet(PRIVATE, AT, CLASS, TRAIT, OBJECT, ENUM)
 
   final val arrowTokens: TokenSet = BitSet(ARROW, CTXARROW, THINARROW, THINCTXARROW)
 
