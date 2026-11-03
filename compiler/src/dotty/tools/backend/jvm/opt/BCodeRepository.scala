@@ -15,7 +15,7 @@ package dotty.tools.backend.jvm.opt
 import dotty.tools.backend.jvm.BCodeUtils.*
 import dotty.tools.backend.jvm.BTypes.InternalName
 import dotty.tools.backend.jvm.opt.*
-import dotty.tools.backend.jvm.ClassNode1
+import dotty.tools.backend.jvm.{ClassBType, ClassNode1}
 import dotty.tools.backend.jvm.analysis.AnalysisUtils.LambdaMetaFactoryCall
 import dotty.tools.dotc.classpath.ClassPath
 import dotty.tools.io
@@ -38,7 +38,7 @@ class BCodeRepository(classPath: ClassPath) {
    * Contains ClassNodes and the canonical path of the source file path of classes being compiled in
    * the current compilation run.
    */
-  val compilingClasses: concurrent.Map[InternalName, (ClassNode, String)] = concurrent.TrieMap.empty
+  val compilingClasses: concurrent.Map[InternalName, (ClassNode, ClassBType, String)] = concurrent.TrieMap.empty
 
   /**
   * Prevent the code repository from growing too large. Profiling reveals that the average size
@@ -56,22 +56,11 @@ class BCodeRepository(classPath: ClassPath) {
   private val parsedClasses: mutable.Map[InternalName, Either[ClassNotFound, ClassAndModuleNodes]] =
     FifoCache[InternalName, Either[ClassNotFound, ClassAndModuleNodes]](maxCacheSize, threadsafe = true)
 
-  def add(classNode: ClassNode, sourceFilePath: String): Unit =
-    compilingClasses(classNode.name) = (classNode, sourceFilePath)
+  def add(classNode: ClassNode, classBType: ClassBType, sourceFilePath: String): Unit =
+    compilingClasses(classNode.name) = (classNode, classBType, sourceFilePath)
 
   private def parsedClassNode(internalName: InternalName): Either[ClassNotFound, ClassAndModuleNodes] = {
     parsedClasses.getOrElseUpdate(internalName, parseClass(internalName))
-  }
-
-  /**
-   * The class node and source file path (if the class is being compiled) for an internal name. If
-   * the class node is not yet available, it is parsed from the classfile on the compile classpath.
-   */
-  def classNodeAndSourceFilePath(internalName: InternalName): Either[ClassNotFound, (ClassAndModuleNodes, Option[String])] = {
-    compilingClasses.get(internalName) match {
-      case Some((c, p)) => Right(((c, None), Some(p)))
-      case _            => parsedClassNode(internalName).map((_, None))
-    }
   }
 
   /**
@@ -80,8 +69,8 @@ class BCodeRepository(classPath: ClassPath) {
    */
   def classNode(internalName: InternalName): Either[ClassNotFound, ClassAndModuleNodes] = {
     compilingClasses.get(internalName) match {
-      case Some((c, _)) => Right((c, None))
-      case None         => parsedClassNode(internalName)
+      case Some((c, _, _)) => Right((c, None))
+      case None            => parsedClassNode(internalName)
     }
   }
 

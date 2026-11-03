@@ -24,6 +24,7 @@ import dotty.tools.backend.jvm.analysis.TypeFlowInterpreter.{LMFValue, ParamValu
 import dotty.tools.backend.jvm.analysis.{AnalysisUtils, *}
 import AnalysisUtils.LambdaMetaFactoryCall
 import BCodeUtils.*
+import dotty.tools.backend.jvm.BTypes.InternalName
 import dotty.tools.dotc.util.{NoSourcePosition, SourcePosition}
 
 class OptimizerCallGraph(byteCodeRepository: BCodeRepository, bTypesFromClassfile: BTypesFromClassfile) extends CallGraph {
@@ -175,11 +176,17 @@ class OptimizerCallGraph(byteCodeRepository: BCodeRepository, bTypesFromClassfil
               else peekedType.getInternalName
             }
 
+          def classBTypeAndSourceFilePath(internalName: InternalName): Either[OptimizerWarning, (ClassBType, Option[String])] = {
+            byteCodeRepository.compilingClasses.get(internalName) match {
+              case Some((_, t, p)) => Right((t, Some(p)))
+              case _ => bTypesFromClassfile.bTypeForDescriptorOrInternalNameFromClassfile(internalName).map(t => (t.asClassBType, None))
+            }
+          }
+
           val callee: Either[OptimizerWarning, Callee] = {
             for {
               (method, declarationClass) <- byteCodeRepository.methodNode(preciseOwner, call.name, call.desc)
-              ((declarationClassNode, declarationModuleNode), calleeSourceFilePath) <- byteCodeRepository.classNodeAndSourceFilePath(declarationClass)
-              declarationClassBType <- bTypesFromClassfile.classBTypeFromClassNode(declarationClassNode, declarationModuleNode)
+              (declarationClassBType, calleeSourceFilePath) <- classBTypeAndSourceFilePath(declarationClass)
             } yield {
               val info = analyzeCallsite(method, declarationClassBType, call, paramTps, calleeSourceFilePath, definingClass)
               Callee(

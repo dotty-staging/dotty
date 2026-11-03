@@ -37,7 +37,7 @@ final class GlobalOptimizer(callGraph: OptimizerCallGraph, classBTypeCache: Clas
   def run(classNodesAndSourcePaths: Iterable[(ClassNode, ClassBType, String)], issueSink: OptimizerIssue => Unit): Unit = {
     // add classes to the bytecode repo before building the call graph: the latter needs to
     // look up classes and methods in the code repo.
-    for (c, _, p) <- classNodesAndSourcePaths do byteCodeRepository.add(c, p)
+    for (c, t, p) <- classNodesAndSourcePaths do byteCodeRepository.add(c, t, p)
     for (c, t, _) <- classNodesAndSourcePaths do callGraph.addClass(c, t)
 
     var round = 0
@@ -402,7 +402,7 @@ final class GlobalOptimizer(callGraph: OptimizerCallGraph, classBTypeCache: Clas
     val labelsMap = cloneLabels(callee)
     val sameSourceFile = sourceFilePath match {
       case Some(calleeSource) => byteCodeRepository.compilingClasses.get(callsite.callsiteClass.internalName) match {
-        case Some((_, `calleeSource`)) => true
+        case Some((_, _, `calleeSource`)) => true
         case _ => false
       }
       case _ => false

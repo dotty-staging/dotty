@@ -70,15 +70,6 @@ class BTypesFromClassfile(byteCodeRepository: BCodeRepository, cache: ClassBType
     }
   }
 
-  /**
-   * Construct the BTypes.ClassBType for a parsed classfile.
-   */
-  def classBTypeFromClassNode(classNode: ClassNode, moduleNode: Option[ModuleNode]): Either[OptimizerWarning, ClassBType] = {
-    cache(classNode.name) { _ =>
-      computeClassInfoFromClassNode(classNode, moduleNode)
-    }
-  }
-
   private def computeClassInfoFromClassNode(classNode: ClassNode, moduleNode: Option[ModuleNode]): Either[OptimizerWarning, ClassInfo] = {
     val superClass = classNode.superName match {
       case null =>
