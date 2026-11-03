@@ -19,7 +19,7 @@ import org.objectweb.asm.tree.{ClassNode, ModuleNode}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.ListHasAsScala
 
-final class InlineInfoLoaderImpl(byteCodeRepository: BCodeRepository, bTypeLoader: BTypeLoader, primitives: ScalaPrimitives) extends InlineInfoLoader {
+final class InlineInfoLoaderImpl(byteCodeRepository: BCodeRepository, primitives: ScalaPrimitives) extends InlineInfoLoader {
 
   def loadFromName(name: InternalName): InlineInfo =
     if OptimizerUtils.isSCoverage(name) then InlineInfo.empty
@@ -31,16 +31,16 @@ final class InlineInfoLoaderImpl(byteCodeRepository: BCodeRepository, bTypeLoade
     }
 
 
-  def loadFromSymbol(classSym: ClassSymbol, internalName: InternalName)(using Context): InlineInfo = {
+  def loadFromSymbol(classSym: ClassSymbol, internalName: InternalName, bTypeLoader: BTypeLoader)(using Context): InlineInfo = {
     // phase travel required (or at least it was in Scala 2). for nested classes, it checks if the
     // enclosingTopLevelClass is being compiled. after flatten, all classes are considered top-level,
     // so it would return `false`.
     if atPhase(picklerPhase.next) (classSym.isDefinedInCurrentRun)
-    then buildInlineInfoFromClassSymbol(classSym)
+    then buildInlineInfoFromClassSymbol(classSym, bTypeLoader)
     else loadFromName(internalName)
   }
 
-  private def buildInlineInfoFromClassSymbol(classSym: ClassSymbol)(using Context): InlineInfo = {
+  private def buildInlineInfoFromClassSymbol(classSym: ClassSymbol, bTypeLoader: BTypeLoader)(using Context): InlineInfo = {
     // We only want an approximation of SAMs for inlining heuristics, no need to check FunctionalInterface annotations or such
     val abstractMembers = classSym.memberNames(abstractTermNameFilter).iterator.map(classSym.classInfo.member).map(_.symbol).filter(_.is(Method)).toList
     val sam = abstractMembers match

@@ -1,8 +1,7 @@
 package dotty.tools.backend.jvm
 
-import dotty.{AsmConverters, DottyBytecodeTest}
+import dotty.AsmConverters
 import dotty.AsmConverters.instructionsFromMethod
-import dotty.tools.dotc.config.Settings.Setting.ChoiceWithHelp
 import org.junit.Test
 
 class GlobalOptimizationBytecodeTests extends OptimizationBytecodeTest {
@@ -15,7 +14,7 @@ class GlobalOptimizationBytecodeTests extends OptimizationBytecodeTest {
     // For debugging purposes:
     //ctx.setSetting(ctx.settings.Ydebug, true)
     //ctx.setSetting(ctx.settings.silentWarnings, false)
-    //ctx.setSetting(ctx.settings.Wopt, List(ChoiceWithHelp("all", "")))
+    //ctx.setSetting(ctx.settings.Wopt, List(dotty.tools.dotc.config.Settings.Setting.ChoiceWithHelp("all", "")))
     //ctx.setSetting(ctx.settings.YoptLogInline, "_")
     //ctx.setSetting(ctx.settings.YoptTrace, "_")
   }

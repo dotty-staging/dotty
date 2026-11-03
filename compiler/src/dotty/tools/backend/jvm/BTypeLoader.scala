@@ -202,7 +202,7 @@ final class BTypeLoader(primitives: ScalaPrimitives, val cache: ClassBType.Cache
     val nestedInfo = buildNestedInfo(classSym)
 
     val inlineInfo = inlineInfoLoader match {
-      case Some(loader) => loader.loadFromSymbol(classSym.asClass, classBType.internalName)
+      case Some(loader) => loader.loadFromSymbol(classSym.asClass, classBType.internalName, this)
       case None => InlineInfo.empty
     }
 
