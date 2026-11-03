@@ -186,7 +186,7 @@ trait ParallelTesting extends RunnerOrchestration with CoverageSupport:
 
     lazy val compilationGroups: List[(Group, Array[JFile])] = {
       def groupFor(file: JFile): Group =
-        val groupSuffix = file.getName.dropWhile(_ != '_').stripSuffix(".scala").stripSuffix(".java")
+        val groupSuffix = file.getName.dropWhile(_ != '_').stripSuffix(".scala").stripSuffix(".java").stripSuffix(".mc")
         val groupSuffixParts = groupSuffix.split("_")
         val ordinal = groupSuffixParts.collectFirst { case GroupOrdinal(n) => n.nn.toInt }.getOrElse(Int.MinValue)
         val compiler = groupSuffixParts.collectFirst { case CompilerVersion(c) => c.nn }.getOrElse("")
@@ -873,7 +873,6 @@ trait ParallelTesting extends RunnerOrchestration with CoverageSupport:
     end maybeFailureMessage
 
     def getWarnMapAndExpectedCount(files: Seq[JFile]): (HashMap[String, Integer], Int) =
-      val comment = raw"//(?: *)(nopos-)?warn".r
       val map = HashMap[String, Integer]()
       var count = 0
       def bump(key: String): Unit =
@@ -882,6 +881,7 @@ trait ParallelTesting extends RunnerOrchestration with CoverageSupport:
           case n    => map.put(key, n+1)
         count += 1
       for file <- files if isSourceFile(file) do
+        val comment = raw"${commentStart(file)}(?: *)(nopos-)?warn".r
         Using.resource(Source.fromFile(file, StandardCharsets.UTF_8.name)) { source =>
           source.getLines().zipWithIndex.foreach: (line, lineNbr) =>
             comment.findAllMatchIn(line).foreach:
@@ -1019,7 +1019,6 @@ trait ParallelTesting extends RunnerOrchestration with CoverageSupport:
     // We collect these in a map `"file:row" -> numberOfErrors`, for
     // nopos and anypos errors we save them in `"file" -> numberOfNoPosErrors`
     def getErrorMapAndExpectedCount(files: Seq[JFile]): (HashMap[String, Integer], Int) =
-      val comment = raw"//( *)(nopos-|anypos-)?error".r
       val errorMap = new HashMap[String, Integer]()
       var expectedErrors = 0
       def bump(key: String): Unit =
@@ -1028,13 +1027,15 @@ trait ParallelTesting extends RunnerOrchestration with CoverageSupport:
           case n => errorMap.put(key, n+1)
         expectedErrors += 1
       for file <- files if isSourceFile(file) do
+        val start = commentStart(file)
+        val comment = raw"$start( *)(nopos-|anypos-)?error".r
         Using.resource(Source.fromFile(file, StandardCharsets.UTF_8.name)): source =>
           source.getLines().zipWithIndex.foreach: (line, lineNbr) =>
             comment.findAllMatchIn(line).foreach: m =>
               m.group(2) match
               case prefix if m.group(1).nn.isEmpty =>
                 val what = Option(prefix).getOrElse("")
-                echo(s"Warning: ${file.getCanonicalPath}:${lineNbr}: found `//${what}error` but expected `// ${what}error`, skipping comment")
+                echo(s"Warning: ${file.getCanonicalPath}:${lineNbr}: found `$start${what}error` but expected `$start ${what}error`, skipping comment")
               case "nopos-" => bump("nopos")
               case "anypos-" => bump("anypos")
               case _ => bump(s"${file.getPath}:${lineNbr+1}")
@@ -1795,8 +1796,12 @@ object ParallelTesting:
 
   def isSourceFile(f: JFile): Boolean = {
     val name = f.getName
-    name.endsWith(".scala") || name.endsWith(".java")
+    name.endsWith(".scala") || name.endsWith(".java") || name.endsWith(".mc")
   }
+
+  /** The start of a line comment in `f`: `#` for magic sources, `//` otherwise */
+  def commentStart(f: JFile): String =
+    if f.getName.endsWith(".mc") then "#" else "//"
 
   def isTastyFile(f: JFile): Boolean =
     f.getName.endsWith(".tasty")
