@@ -472,10 +472,10 @@ object Flags {
     commonFlags(Module, Param, Synthetic, Package, Local, Mutable, Trait)
 
   /** Flag sets needed in the Magic parser */
-  val MagicClsParamModifierFlags: FlagSet = MagicDefParamModifierFlags | Private
+  val MagicClsParamModifierFlags: FlagSet = MagicDefParamModifierFlags | Private | Override
   val MagicDefParamModifierFlags: FlagSet = commonFlags(Inline, Erased, MagicConsume)
   val MagicLocalModifierFlags: FlagSet =
-    commonFlags(Sealed, Open, Given, Inline, Transparent, Into, Erased, Mutable, MagicConsume)
+    commonFlags(Case, Sealed, Open, Given, Inline, Transparent, Into, Erased, Mutable, MagicConsume)
   val MagicModifierFlags: FlagSet = MagicLocalModifierFlags |
     commonFlags(Private, Lazy, Opaque, Override)
 

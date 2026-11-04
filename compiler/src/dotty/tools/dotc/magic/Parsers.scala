@@ -148,7 +148,6 @@ object Parsers {
 
     def isIdent = in.isIdent
     def isIdent(name: Name) = in.isIdent(name)
-    def isBoundName = in.token == IDENTIFIER || in.token == USCORE
     def isNegatedNumber = isIdent(nme.raw.MINUS) && numericLitTokens.contains(in.lookahead.token)
     def isSimpleLiteral = simpleLiteralTokens.contains(in.token) || isNegatedNumber
     def isLiteral = isSimpleLiteral || in.token == INTERPOLATIONID
@@ -231,6 +230,13 @@ object Parsers {
       else
         syntaxError(msg, span)
         skip()
+
+    /** Test whether input matchses token matches and advance if true. */
+    def skip(token: Int): Boolean =
+      if in.token == token then
+        in.nextToken()
+        true
+      else false
 
     /** Consume one token of the specified type, or
       * signal an error if it is not there.
@@ -447,8 +453,7 @@ object Parsers {
     def commaSeparatedRest[T](leading: T, part: () => T): List[T] =
       if in.token == COMMA then
         val ts = new ListBuffer[T] += leading
-        while in.token == COMMA do
-          in.nextToken()
+        while skip(COMMA) do
           ts += part()
         ts.toList
       else leading :: Nil
@@ -615,7 +620,7 @@ object Parsers {
 
     /** DotSelectors ::= { `.' id } */
     def dotSelectors(t: Tree): Tree =
-      if (in.token == DOT) { in.nextToken(); dotSelectors(selector(t)) }
+      if skip(DOT) then dotSelectors(selector(t))
       else t
 
     /** ClassQualifier ::= `[' id `]' */
@@ -658,9 +663,7 @@ object Parsers {
     /** BoundName        ::=  plainid | '_'
      */
     def boundName(): TermName =
-      if in.token == USCORE then
-        in.nextToken()
-        WildcardParamName.fresh()
+      if skip(USCORE) then WildcardParamName.fresh()
       else plainid()
 
     /** Literal     ::=  [‘-’] numericLiteral
@@ -706,7 +709,12 @@ object Parsers {
       try in.token match
         case INTLIT              => lit(intFromDigits(digits, in.base))
         case DECILIT | EXPOLIT   => lit(doubleFromDigits(digits))
-        case STRINGLIT           => lit(trim(in.strVal.nn, start + in.delimCount))
+        case STRINGLIT           =>
+          val str = in.strVal.nn
+          val strOffset = start + in.delimCount
+          if in.multiline && trim.needsTrim(str, strOffset)
+          then lit(trim(str, strOffset))
+          else lit(str)
         case TRUE                => lit(true)
         case FALSE               => lit(false)
         case NONE                => lit(null)
@@ -734,7 +742,8 @@ object Parsers {
         val start = in.offset + offsetCorrection
         val value = in.strVal.nn
         if offsetCorrection != 0 then // we see the first segment
-          needsTrim = trim.needsTrim(value, start)
+          needsTrim = in.multiline && trim.needsTrim(value, start)
+        in.nextToken()
         atSpan(start, start, start + value.length):
           Literal(Constant(value))
 
@@ -835,21 +844,19 @@ object Parsers {
         val endCuts = if isLast then trimEnd(cs, strOffset) else Nil
         shorten(cs, startCuts ++ leftCuts ++ endCuts)
 
-      /** A string needs trimming it it has only whitespace between the starting
+      /** A multi-line string needs trimming it it has only whitespace between the starting
        *  quote and the next line.
        */
       def needsTrim(str: String, strOffset: Int): Boolean =
         trimStart(str, strOffset).nonEmpty
 
-      /** Trim a non-interpolated string `str` if necessary.
+      /** Trim a non-interpolated multiline string `str` if necessary.
        *  The string without leading quotes starts at `strOffset`.
        */
       def apply(str: String, strOffset: Int): String =
-        if needsTrim(str, strOffset)
-        then trimAll(str, lastIndent(str), strOffset, isFirst = true, isLast = true)
-        else str
+        trimAll(str, lastIndent(str), strOffset, isFirst = true, isLast = true)
 
-      /** Trim part of an interpolated string literal */
+      /** Trim part of an interpolated multiline string literal */
       def apply(tree: Tree, width: IndentWidth, isFirst: Boolean, isLast: Boolean): Tree = tree match
         case Thicket(lit :: rest) =>
           Thicket(apply(lit, width, isFirst, isLast) :: rest)
@@ -859,9 +866,6 @@ object Parsers {
     end trim
 
 /* ------------- NEW LINES ------------------------------------------------- */
-
-    def newLineOpt(): Unit =
-      if in.token == NEWLINE then in.nextToken()
 
     def newLineOptWhenFollowedBy(token: Int): Unit =
       // note: next is defined here because current == NEWLINE
@@ -913,10 +917,8 @@ object Parsers {
           NamedArg(name, convertToElem(tpt)).withSpan(t.span)
         case _ => t
 
-      if in.token == LPAREN then
-        in.nextToken()
-        if in.token == RPAREN then
-          in.nextToken()
+      if skip(LPAREN) then
+        if skip(RPAREN) then
           functionRest(Nil)
         else
           val paramStart = in.offset
@@ -1040,7 +1042,7 @@ object Parsers {
           inBraces:
             if isSimpleLiteral then
               SingletonTypeTree(literal(inSingleton = true))
-            else if isBoundName && in.lookahead.token == COLON then
+            else if in.isBoundName && in.lookahead.token == COLON then
               refined()
             else
               SingletonTypeTree(singleton())
@@ -1054,7 +1056,11 @@ object Parsers {
       simpleTypeRest(t)
 
     def simpleTypeRest(t: Tree): Tree =
-      if in.isIdent(nme.?) && canStartTypeTokens.contains(in.lookahead.token) then
+      if in.isIdent(nme.?) && {
+        val next = in.lookahead
+        !canStartTypeTokens.contains(next.token) || next.isOperator || next.isAfterLineEnd
+      }
+      then
         atSpan(startOffset(t)):
           PostfixOp(t, typeIdent())
       else  t
@@ -1220,7 +1226,10 @@ object Parsers {
     def suite(): Tree =
       atSpan(accept(COLON)):
         if in.token == INDENT then indented(block())
-        else inRegion(InSuite)(expr())
+        else
+          val t = inRegion(InSuite)(expr())
+          if in.token == ENDsuite then in.nextToken()
+          t
 
     /** Expr        ::=  ParamPrefix Expr
      *                |  Expr1
@@ -1282,7 +1291,7 @@ object Parsers {
      *              |  ‘while’ SuiteExpr ':' Expr
      *              |  ‘try’ SuiteExpr
      *                  ( Except { Except} [‘finally’ SuiteExpr]
-     *              |  'raise' SuiteExpr ['from' SuiteExpr]
+     *              |  'raise' [SuiteExpr ['from' SuiteExpr]]
      *              |  'return' [SuiteExpr]
      *              |  'for' Pattern1 'in' SuiteExpr ':' Expr
      *              |  'with' Expr2 ['as' id] ':' Expr
@@ -1319,11 +1328,13 @@ object Parsers {
             body
       case RAISE =>
         atSpan(in.skipToken()):
-          val exc = suiteExpr()
-          if in.token == FROM then
-            in.nextToken()
-            Throw(Thicket(List(exc, suiteExpr()))) // TODO: Maybe drop?
-          else Throw(exc)
+          var exc: Tree = EmptyTree
+          if canStartExprTokens.contains(in.token) then
+            exc = suiteExpr()
+            if in.token == FROM then
+              in.nextToken()
+              exc = Thicket(List(exc, suiteExpr())) // TODO: Maybe drop?
+          Throw(exc)
       case RETURN =>
         atSpan(in.skipToken()):
           val result =
@@ -1431,7 +1442,10 @@ object Parsers {
       maybeIndented:
         val buf = new ListBuffer[CaseDef]
         buf += clause()
-        while in.token == CASE do buf += clause()
+        while
+          newLineOptWhenFollowedBy(CASE)
+          in.token == CASE
+        do buf += clause()
         buf.toList
 
     /** CaseClause     ::= ‘case’ Pattern [Guard] (‘:’ Expr | 'if' MatchExpr)
@@ -1447,7 +1461,7 @@ object Parsers {
           in.nextToken()
           if in.token == MATCH
           then CaseDef(pat, EmptyTree, matchExpr(in.offset, SubMatch))
-          else CaseDef(pat, orExpr(), suite())
+          else CaseDef(pat, inRegion(BeforeColon)(orExpr()), suite())
         else CaseDef(pat, EmptyTree, suite())
 
     /** Expr2    ::=  OrExpr ['if' OrExpr 'else' Expr2]
@@ -1914,24 +1928,37 @@ object Parsers {
      *                    |   [‘-’] numericLiteral ‘:’ Type
      */
     val patternInParens: () => Tree = () =>
-      if in.isIdent(nme.witness)
-          && (in.lookahead.isIdent || in.lookahead.token == USCORE)
+      if in.isIdent(nme.witness) && in.lookahead.isBoundName
       then
         atSpan(in.offset):
           val givenMod = atSpan(in.skipToken())(Mod.Given())
-          val name = boundName()
-          accept(COLON)
-          val typed = atSpan(in.offset):
-            Typed(Ident(nme.WILDCARD), typ())
-          Bind(name, typed).withMods(addMod(EmptyModifiers, givenMod))
+          typeTest(addMod(EmptyModifiers, givenMod))
+      else if in.isBoundName && in.lookahead.token == COLON then
+        typeTest(EmptyModifiers)
       else if isNegatedNumber || numericLitTokens.contains(in.token) then
         val pat = literal()
         if in.token == COLON then
           in.nextToken()
           Typed(pat, typ())
         else pat
-      else
-        pattern()
+      else pattern()
+
+    /** TypeTest  ::=  PatVar ‘:’ Type */
+    def typeTest(mods: Modifiers): Tree =
+      val start = in.offset
+      val name =
+        if in.token == USCORE then
+          in.nextToken()
+          if mods.is(Given) then WildcardParamName.fresh() else nme.WILDCARD
+        else
+          val name = ident()
+          if !name.isVarPattern then
+            syntaxError(em"Pattern variable must start with lower-case letter or `_`")
+          name
+      accept(COLON)
+      val typed = atSpan(start):
+        Typed(Ident(nme.WILDCARD), typ())
+      if name == nme.WILDCARD then typed else Bind(name, typed).withMods(mods)
 
     /**  PatternArguments ::=  '(' [SplicePatterns | NamedPatterns] ')'
      */
@@ -2625,7 +2652,7 @@ object Parsers {
         case _ =>
           if isDefIntro then
             stats += defOrDcl(in.offset, defAnnotsMods(allowedMods(local)))
-          else if isBoundName && (in.lookahead.token == EQUALS) then
+          else if in.isBoundName && (in.lookahead.token == EQUALS) then
             val mods = if local then EmptyModifiers else EmptyModifiers | PrivateLocal
             stats += valDefOrDcl(in.offset, mods)
           else

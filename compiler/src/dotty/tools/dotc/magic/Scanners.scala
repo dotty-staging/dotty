@@ -93,6 +93,8 @@ object Scanners {
 
     def isArrow = arrowTokens.contains(token)
     def isFatArrow = token == ARROW || token == CTXARROW
+
+    def isBoundName = token == IDENTIFIER || token == USCORE
   }
 
   class Scanner(source: SourceFile, override val startFrom: Offset = 0, limit: Offset = -1)(using Context) extends StringReader with TokenData:
@@ -253,10 +255,6 @@ object Scanners {
       nextToken()
       off
     }
-
-    def skipToken[T](result: T): T =
-      nextToken()
-      result
 
     private inline def dropUntil(inline matches: Region => Boolean): Unit =
       while !matches(currentRegion) && !currentRegion.isOutermost do

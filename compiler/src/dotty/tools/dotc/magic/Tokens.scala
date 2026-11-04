@@ -161,7 +161,7 @@ object Tokens:
     atomicExprTokens | openParensTokens | BitSet(NEW)
 
   final val canStartExprTokens: TokenSet =
-    canStartInfixExprTokens | BitSet(INDENT, IF, WHILE, FOR, TRY, RAISE, WITH, MATCH)
+    canStartInfixExprTokens | BitSet(INDENT, IF, WHILE, FOR, TRY, RAISE, WITH, MATCH, NOT)
 
   final val canStartTypeTokens: TokenSet =
     identifierTokens | BitSet(SELF, SUPER, LPAREN, LBRACE)
@@ -189,14 +189,14 @@ object Tokens:
   final val varargFollowers = BitSet(RPAREN, COMMA, EOF)
 
   /** Is token only legal as start of statement (eof also included)? */
-  final val mustStartStatTokens: TokenSet = defIntroTokens | modifierTokens | BitSet(IMPORT, EXPORT)
+  final val mustStartStatTokens: TokenSet = defIntroTokens | modifierTokens | BitSet(IMPORT, EXPORT, FROM)
 
   final val canEndStatSeqTokens =
     BitSet(DEDENT, EOF, RPAREN, RBRACE, RBRACKET, ELIF, ELSE, EXCEPT, FINALLY)
 
   final val canStartStatTokens: TokenSet =
     canStartExprTokens | defIntroTokens | modifierTokens
-    | BitSet(AT, CASE, IMPORT, EXPORT, BREAK, CONTINUE, EXTENSION)
+    | BitSet(AT, CASE, IMPORT, EXPORT, FROM, BREAK, CONTINUE, EXTENSION)
 
   final val canEndStatTokens: TokenSet =
       atomicExprTokens | BitSet(TYPE, RPAREN, RBRACE, RBRACKET, DEDENT, ENDsuite)
@@ -222,9 +222,9 @@ object Tokens:
   final val closingParens = BitSet(RPAREN, RBRACKET, RBRACE)
 
   final val softModifierNames = Set(
-    nme.consume, nme.CASEkw, nme.erased, nme.infix,
-    nme.inline, nme.LAZYkw, nme.opaque, nme.open, nme.OVERRIDEkw,
-    nme.SEALEDkw, nme.tracked, nme.transparent, nme.update)
+    nme.consume, nme.CASEkw, nme.erased, nme.infix, nme.inline, nme.into,
+    nme.LAZYkw, nme.opaque, nme.open, nme.OVERRIDEkw, nme.SEALEDkw,
+    nme.tracked, nme.transparent, nme.update, nme.witness)
 
   final val symbolicCompareOperatorNames = Set(
     nme.LT, nme.LE, nme.EQ, nme.NE, nme.GT, nme.GE)

@@ -283,7 +283,8 @@ Modifier          ::=  AccessModifier
                     |  ‘opaque’
                     |  ‘override’
 AccessModifier    ::=  'private' [ClassQualifier]
-LocalModifier     ::=  ‘sealed’
+LocalModifier     ::=  ‘case’
+                    |  ‘sealed’
                     |  ‘open’
                     |  ‘witness’
                     |  ‘inline’
@@ -296,6 +297,7 @@ DefParamModifier  ::=  'inline'
                     |  'erased'
                     |  'consume'
 ClsParamModifier  ::=  AccessModifier
+                    |  ‘override’
                     |  DefParamModifier
 
 Annotation        ::=  ‘@’ PathRef [TypeArgs] {Arguments}
