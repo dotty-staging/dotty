@@ -45,3 +45,17 @@ class D(override val owner: Symbol):
 def k() =
     witness val vs = VarState()
     vs
+
+# Witness patterns
+def w(x: Any) =
+    match x:
+    case (witness c: Ctx): c
+    case (witness _: Ctx): 1
+    case _: 2
+
+# Bare raise and raise with a suite
+def r() =
+    raise
+def r2() =
+    raise:
+        e

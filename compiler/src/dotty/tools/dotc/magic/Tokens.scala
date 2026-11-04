@@ -222,9 +222,9 @@ object Tokens:
   final val closingParens = BitSet(RPAREN, RBRACKET, RBRACE)
 
   final val softModifierNames = Set(
-    nme.consume, nme.CASEkw, nme.erased, nme.infix, nme.inline, nme.into,
+    nme.consume, nme.CASEkw, nme.erased, nme.inline, nme.into,
     nme.LAZYkw, nme.opaque, nme.open, nme.OVERRIDEkw, nme.SEALEDkw,
-    nme.tracked, nme.transparent, nme.update, nme.witness)
+    nme.transparent, nme.update, nme.witness)
 
   final val symbolicCompareOperatorNames = Set(
     nme.LT, nme.LE, nme.EQ, nme.NE, nme.GT, nme.GE)
