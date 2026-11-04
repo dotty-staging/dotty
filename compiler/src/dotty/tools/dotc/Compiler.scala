@@ -32,6 +32,7 @@ class Compiler {
   /** Phases dealing with the frontend up to trees ready for TASTY pickling */
   protected def frontendPhases: List[List[Phase]] =
     List(new Parser) ::             // Compiler frontend: scanner, parser
+    List(new Scala2SpecializationForStdLib) :: // Compile the stdlib with Scala2-style specializations for binary compatibility
     List(new TyperPhase) ::         // Compiler frontend: namer, typer
     List(new WInferUnion,           // Check for type arguments inferred as union types
          CheckUnused.PostTyper(),   // Check for unused
