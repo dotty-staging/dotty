@@ -44,10 +44,11 @@ trait SetupAPI:
    *  the bounds of type parameters of polymorphic types, which are kept as they are
    *  pickled. For instance, `^` in the bound `CapSet^` of `[C^]` says that `C` can be
    *  instantiated with any capture set. Dropping it would make the bound `{}`.
-   *  Parts of `tp` that are declared, see `PostTyper.makeFormalsDeclared`, are also
-   *  pickled as they are, and are transformed as explicitly given types, as it is
-   *  done by `transformSym` for symbols from other compilation units. So are
-   *  capturing types written `T^`, which are also pickled as they are.
+   *  Capturing types written `T^` are also pickled as they are, and are transformed
+   *  as explicitly given types, as it is done by `transformSym` for symbols from
+   *  other compilation units. The parameter types of a closure on the right-hand
+   *  side are not part of this type. The checker takes them from the closure, see
+   *  `CheckCaptures.withFormalsOfClosure`.
    */
   def externalType(tp: Type, sym: Symbol)(using Context): Type
 
@@ -435,26 +436,12 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
       override def mapRefinedFunction(tp: Type, rinfo: MethodType): Type =
         addVar(super.mapRefinedFunction(tp, rinfo), tp)
 
-      /** Are we mapping a polymorphic type? Then the declared parts we see are bounds
-       *  of its type parameters, since its result type is a method type, which resets
-       *  this flag.
-       */
-      var inBounds = false
-
-      override protected def mapOverLambda(tp: LambdaType) =
-        val saved = inBounds
-        inBounds = tp.isInstanceOf[PolyType]
-        try super.mapOverLambda(tp) finally inBounds = saved
-
       def innerApply(tp: Type) =
         tp match
           case AnnotatedType(parent, annot)
           if annot.symbol.isRetains =>
             // Drop explicit retains annotations
             addVar(apply(parent), tp)
-          case AnnotatedType(parent, annot)
-          if annot.symbol == defn.DeclaredAnnot =>
-            transformExplicitType(parent, sym, initialVariance = variance, inBounds = inBounds)
           case tp @ RefinedType(parent, rname, rinfo) =>
             val saved = refiningNames
             refiningNames += rname
@@ -479,10 +466,8 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
    *   4. Map `any` in function result types to existentially bound variables.
    *   5. Schedule deferred well-formed tests for types with retains annotations.
    *   6. Perform normalizeCaptures
-   *  If `inBounds` is true, `tp` is a bound of a type parameter, where `any` stays as it is,
-   *  see `GlobalCapToLocal.mapOverLambda`.
    */
-  private def transformExplicitType(tp: Type, sym: Symbol, tptToCheck: Tree = EmptyTree, initialVariance: Int = 1, inBounds: Boolean = false)(using Context): Type =
+  private def transformExplicitType(tp: Type, sym: Symbol, tptToCheck: Tree = EmptyTree, initialVariance: Int = 1)(using Context): Type =
 
     def fail(msg: Message) =
       if !tptToCheck.isEmpty then report.error(msg, tptToCheck.srcPos)
@@ -633,7 +618,7 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             |The `fresh` capability may only be used in the result of a function type,
             |following a function arrow such as `=>` or `->`.""")
 
-    if initialVariance < 0 || inBounds then tp2
+    if initialVariance < 0 then tp2
     else globalCapToLocal(tp2, Origin.InDecl(sym))
   end transformExplicitType
 
@@ -1220,8 +1205,6 @@ class Setup extends PreRecheck, SymTransformer, SetupAPI:
             transformExplicitType(t, sym, initialVariance = variance)
           case AnnotatedType(parent, annot) if annot.symbol.isRetains =>
             apply(parent)
-          case AnnotatedType(parent, annot) if annot.symbol == defn.DeclaredAnnot =>
-            transformExplicitType(parent, sym, initialVariance = variance)
           case _ =>
             mapOver(t)
         override protected def mapOverLambda(tp: LambdaType) = tp match
