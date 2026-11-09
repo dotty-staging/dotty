@@ -39,16 +39,15 @@ trait SetupAPI:
    */
   def isPreCC(sym: Symbol)(using Context): Boolean
 
-  /** The type of a definition `sym` with inferred type `tp` as it is seen in other
-   *  compilation units. That type drops the inferred capture sets of `tp`, except in
-   *  the bounds of type parameters of polymorphic types, which are kept as they are
-   *  pickled. For instance, `^` in the bound `CapSet^` of `[C^]` says that `C` can be
-   *  instantiated with any capture set. Dropping it would make the bound `{}`.
-   *  Capturing types written `T^` are also pickled as they are, and are transformed
-   *  as explicitly given types, as it is done by `transformSym` for symbols from
-   *  other compilation units. The parameter types of a closure on the right-hand
-   *  side are not part of this type. The checker takes them from the closure, see
-   *  `CheckCaptures.withFormalsOfClosure`.
+  /** The type `tp` that the typer inferred for definition `sym`, without the capture
+   *  sets that were inferred with it. Capture sets are kept in the bounds of type
+   *  parameters of polymorphic types. For instance, `^` in the bound `CapSet^` of
+   *  `[C^]` says that `C` can be instantiated with any capture set. Dropping it
+   *  would make the bound `{}`. Capturing types written `T^` are kept as well, and
+   *  are transformed as explicitly given types, as it is done by `transformSym` for
+   *  symbols from other compilation units. The parameter types of a closure on the
+   *  right-hand side are not part of this type. The checker takes them from the
+   *  closure, see `CheckCaptures.withFormalsOfClosure`.
    */
   def externalType(tp: Type, sym: Symbol)(using Context): Type
 
