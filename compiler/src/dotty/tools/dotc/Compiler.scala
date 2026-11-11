@@ -86,7 +86,7 @@ class Compiler {
          new ElimByName,             // Map by-name parameters to functions
          new HoistSuperArgs,         // Hoist complex arguments of supercalls to enclosing scope
          new ForwardDepChecks,       // Check that there are no forward references to local vals
-         new SpecializeApplyMethods, // Adds specialized methods to FunctionN
+//         new SpecializeApplyMethods, // Adds specialized methods to FunctionN
          new TryCatchPatterns,       // Compile cases in try/catch
          new PatternMatcher,         // Compile pattern matches
          new PruneInlineTraits) ::   // Remove right-hand side of definitions in inline traits
