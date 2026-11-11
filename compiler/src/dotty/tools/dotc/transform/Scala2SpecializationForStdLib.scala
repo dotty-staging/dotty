@@ -146,14 +146,17 @@ object Scala2SpecializationForStdLib:
             .withFlags(td.mods.flags &~ Flags.Final)
           // Finally, turn each of the specialization maps into a TypeDef
           val specializedSubclasses = specializations.map(spec =>
-            val specializedBody = t.body.flatMap {
-              case dd: DefDef if membersNeedingSpecialization.contains(dd) => specializedForSubclass(dd, spec)
-              case m: ValOrDefDef if !m.rhs.isEmpty && !m.mods.is(Flags.Final) =>
-                val specialized = specialize(m, spec)
-                if specialized.eq(m) then Nil
-                else List(specialized.asInstanceOf[ValOrDefDef].withAddedFlags(Flags.Override))
-              case other =>
-                Nil
+            val specializedBody = {
+              if td.mods.is(Flags.Trait) then Nil // presumably because Scala2 targeted pre-default-interfaces JDK?
+              else t.body.flatMap {
+                case dd: DefDef if membersNeedingSpecialization.contains(dd) => specializedForSubclass(dd, spec)
+                case m: ValOrDefDef if !m.rhs.isEmpty && !m.mods.is(Flags.Final) =>
+                  val specialized = specialize(m, spec)
+                  if specialized.eq(m) then Nil
+                  else List(specialized.asInstanceOf[ValOrDefDef].withAddedFlags(Flags.Override))
+                case other =>
+                  Nil
+              }
             }
             //val specInstanceMethod = if hasSpecializedVals then List(DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(true))).withAddedFlags(Flags.Override)) else Nil
             val specializedConstr = cpy.DefDef(t.constr)(paramss = t.constr.paramss.map(_.flatMap {
