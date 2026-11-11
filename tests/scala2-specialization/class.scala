@@ -1,3 +1,3 @@
-class SpecializableClass[@specialized(Specializable.Return) T](x: T):
+class SpecializableClass[@specialized(Specializable.Return) T](x: T, arr: Array[T]):
   def getX: T = x
-  println("hello from constructor")
+  val len = arr.length

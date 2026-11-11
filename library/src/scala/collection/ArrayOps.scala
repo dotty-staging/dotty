@@ -54,6 +54,9 @@ import scala.math.Ordering
 import scala.reflect.ClassTag
 import scala.util.Sorting
 
+// TODO:
+// - specialize the parents!
+
 object ArrayOps {
 
   @SerialVersionUID(3L)

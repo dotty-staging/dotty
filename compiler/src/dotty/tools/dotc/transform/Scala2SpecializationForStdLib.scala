@@ -2,7 +2,6 @@ package dotty.tools.dotc.transform
 
 import dotty.tools.dotc.ast.{tpd, untpd}
 import dotty.tools.dotc.ast.Trees.Backquoted
-import dotty.tools.dotc.core.Constants.Constant
 import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Decorators.{toTermName, toTypeName}
 import dotty.tools.dotc.core.Flags
@@ -41,15 +40,17 @@ object Scala2SpecializationForStdLib:
    *    (These last two must come after the typer, since we may have methods like `def x: T` that would be overloaded only on the return type,
    *     which isn't permitted, so we can't simply use `@targetName`)
    *
-   * Because this is only for the standard library, steps 5 and 6 are not implemented here.
+   * Because this is only for the standard library, steps 2, 3, 5 and 6 are not needed.
    * The compiler already has SpecializeFunctions and SpecializeTuples for programs that use the stdlib.
    */
 
   // Avoid polluting nme.*
   private object ourNames:
+    val annotation: TermName = "annotation".toTermName
+    val unspecialized: TypeName = "unspecialized".toTypeName
     val specialized: TypeName = "specialized".toTypeName
     val specializable: TermName = "Specializable".toTermName
-    val specInstance: TermName = "specInstance$".toTermName
+//    val specInstance: TermName = "specInstance$".toTermName
 
   /** Name + specialized types -> specialized name */
   private def specializedName[T <: Name](name: T, specialization: Iterable[Name]): name.ThisName =
@@ -129,19 +130,20 @@ object Scala2SpecializationForStdLib:
       if td.mods.is(Flags.Final) then _typesDeclaredFinal.add(td.name)
       td.rhs match {
         case t: Template =>
-          val methodsNeedingSpecialization = t.body.collect { case dd: DefDef if needsSpecializing(dd, specializations.head) => dd }
-          // Use these specialization maps to specialize the original typedef by adding new methods
-          val specializedMethods = methodsNeedingSpecialization.flatMap(dd => specializations.map(sp => specializedForSuperclass(dd, sp)))
-          val specInstanceMethod = DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(false)))
-          val specializedTd = cpy.TypeDef(td)(rhs = cpy.Template(t)(body = t.body ++ specializedMethods :+ specInstanceMethod))
+          val membersNeedingSpecialization = t.body.collect { case m: ValOrDefDef if needsSpecializing(m, specializations.head) => m }
+          val hasSpecializedVals = membersNeedingSpecialization.exists(_.isInstanceOf[ValDef])
+          // Use these specialization maps to specialize the original typedef by adding new members
+          val specializedMethods = membersNeedingSpecialization.collect{ case dd: DefDef => dd }.flatMap(dd => specializations.map(sp => specializedForSuperclass(dd, sp)))
+          //val specInstanceMethod = if hasSpecializedVals then List(DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(false)))) else Nil
+          val specializedTd = cpy.TypeDef(td)(rhs = cpy.Template(t)(body = t.body ++ specializedMethods /*++ specInstanceMethod*/))
             .withFlags(td.mods.flags &~ Flags.Final)
           // Finally, turn each of the specialization maps into a TypeDef
           val specializedSubclasses = specializations.map(spec =>
             val specializedBody = t.body.flatMap {
-              case dd: DefDef if methodsNeedingSpecialization.contains(dd) => specializedForSubclass(dd, spec)
+              case m: ValOrDefDef if membersNeedingSpecialization.contains(m) => specializedForSubclass(m, spec)
               case other => List(specialize(other, spec))
             }
-            val specInstanceMethod = DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(true))).withAddedFlags(Flags.Override)
+            //val specInstanceMethod = if hasSpecializedVals then List(DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(true))).withAddedFlags(Flags.Override)) else Nil
             val specializedConstr = cpy.DefDef(t.constr)(paramss = t.constr.paramss.map(_.flatMap {
               case td: TypeDef if spec.contains(td.name) => Nil
               case td: TypeDef => List(specialize(td, spec))
@@ -150,10 +152,10 @@ object Scala2SpecializationForStdLib:
               case vd: ValDef => List(specialize(vd, spec))
             }.asInstanceOf[ParamClause]).filter(_.nonEmpty))
             val parent = AppliedTypeTree(Ident(td.name), t.constr.leadingTypeParams.map(tp => spec.get(tp.name).map(Ident.apply).getOrElse(tp)))
-            val parentTermParams = t.constr.termParamss.flatten // multi-param-list constructors are not needed for stdlib
-            val parentCall = Apply(Select(New(parent), nme.CONSTRUCTOR), parentTermParams.map(p => Ident(p.name)))
+            val parentTermArgs = t.constr.termParamss.map(_.map(p => Ident(p.name)))
+            val parentCall = parentTermArgs.foldLeft[Tree](Select(New(parent), nme.CONSTRUCTOR))((m, as) => Apply(m, as))
             val subclassName = specializedName(td.name, spec.values)
-            cpy.TypeDef(td)(name = subclassName, rhs = cpy.Template(t)(constr = specializedConstr, parents = List(parentCall), body = specializedBody :+ specInstanceMethod))
+            cpy.TypeDef(td)(name = subclassName, rhs = cpy.Template(t)(constr = specializedConstr, parents = List(parentCall), body = specializedBody /*++ specInstanceMethod*/))
               .withFlags(td.mods.flags &~ Flags.CaseClass) // case-to-case inheritance is prohibited
               .withAttachment(Backquoted, ()) // avoid warnings about the use of $
           )
@@ -190,9 +192,15 @@ object Scala2SpecializationForStdLib:
       // not needed: case AppliedTypeTree(Ident(fst), Ident(snd: TypeName) :: Nil) if fst == tpnme.Array => specialization.get(snd)
       case _ => None
 
-    private def needsSpecializing(dd: DefDef, specialization: Map[TypeName, TypeName])(using Context): Boolean =
+    private def needsSpecializing(m: ValOrDefDef, specialization: Map[TypeName, TypeName])(using Context): Boolean =
       def containsAny(t: Tree): Boolean = getSpecializableTypeName(t, specialization).nonEmpty
-      containsAny(dd.tpt) || dd.termParamss.exists(ps => ps.exists(v => containsAny(v.tpt)))
+      val optOut = m.mods.annotations.exists {
+        case Apply(Select(New(Select(Ident(ourNames.annotation), ourNames.unspecialized)), nme.CONSTRUCTOR), Nil) => true
+        case _ => false
+      }
+      !optOut && (m match
+        case vd: ValDef => containsAny(vd.tpt)
+        case dd: DefDef => containsAny(dd.tpt) || dd.termParamss.exists(ps => ps.exists(v => containsAny(v.tpt))))
 
     private def specialize(t: Tree, specialization: Map[TypeName, TypeName])(using Context): Tree =
       val map = new UntypedTreeMap() {
@@ -217,15 +225,13 @@ object Scala2SpecializationForStdLib:
 
     private def specializedForSuperclass(dd: DefDef, specialization: Map[TypeName, TypeName])(using Context): DefDef =
       val forwarderBody = {
-        val argsForCall = dd.termParamss.flatten.map(v =>
+        val argsForCall = dd.termParamss.map(_.map(v =>
           val original = Ident(v.name)
           getSpecializableTypeName(v.tpt, specialization) match
             case Some(tn) => boxCall(original, tn)
             case None => original
-        )
-        val call =
-          if argsForCall.isEmpty then Ident(dd.name)
-          else Apply(Ident(dd.name), argsForCall)
+        ))
+        val call = argsForCall.foldLeft[Tree](Ident(dd.name))((m, as) => Apply(m, as))
         getSpecializableTypeName(dd.tpt, specialization) match
           case Some(tn) => unboxCall(call, tn)
           case None => call
@@ -233,18 +239,27 @@ object Scala2SpecializationForStdLib:
       specializedDefDef(dd, specialization, specializedName(dd.name, specialization.values), forwarderBody)
         .withAttachment(Backquoted, ()) // avoid warnings about the use of $
 
+    private def specializedForSubclass(m: ValOrDefDef, specialization: Map[TypeName, TypeName])(using Context): List[ValOrDefDef] = m match
+      case vd: ValDef => specializedForSubclass(vd, specialization)
+      case dd: DefDef => specializedForSubclass(dd, specialization)
+
+    private def specializedForSubclass(vd: ValDef, specialization: Map[TypeName, TypeName])(using Context): List[ValDef] =
+      val tpt = getSpecializableTypeName(vd.tpt, specialization) match
+        case Some(tn) => Ident(tn)
+        case None => vd.tpt // shouldn't happen, why else would we be specializing a valdef?
+      val body = specialize(vd.rhs, specialization)
+      List(cpy.ValDef(vd)(name = specializedName(vd.name, specialization.values), tpt = tpt, rhs = body))
+
     private def specializedForSubclass(dd: DefDef, specialization: Map[TypeName, TypeName])(using Context): List[DefDef] =
       val specName = specializedName(dd.name, specialization.values)
       val forwarderBody = {
-        val argsForCall = dd.termParamss.flatten.map(v =>
+        val argsForCall = dd.termParamss.map(_.map(v =>
           val original = Ident(v.name)
           getSpecializableTypeName(v.tpt, specialization) match
             case Some(tn) => unboxCall(original, tn)
             case None => original
-        )
-        val call =
-          if argsForCall.isEmpty then Ident(specName)
-          else Apply(Ident(specName), argsForCall)
+        ))
+        val call = argsForCall.foldLeft[Tree](Ident(specName))((m, as) => Apply(m, as))
         getSpecializableTypeName(dd.tpt, specialization) match
           case Some(tn) => boxCall(call, tn)
           case None => call
@@ -314,15 +329,15 @@ object Scala2SpecializationForStdLib:
       val preTyperPhase = ctx.base.phases.collectFirst{ case p: PreTyper => p }.get
       ctx.compilationUnit.tpdTree match
         case p @ PackageDef(pid, stats) =>
-          ctx.compilationUnit.tpdTree = cpy.PackageDef(p)(pid, stats.map {
+          //ctx.compilationUnit.tpdTree = cpy.PackageDef(p)(pid, stats.map {
+          stats.foreach {
             case td: TypeDef if preTyperPhase.specializedTypes.contains(td.name) =>
               td.symbol.resetFlag(Flags.Final)
-              cpy.TypeDef(td)(rhs = encapsulateConstructor(td))
             case s => s
-          })
+          }
         case _ => ()
 
-    private def encapsulateConstructor(td: TypeDef)(using Context): Tree = td.rhs match
+    /*private def encapsulateConstructor(td: TypeDef)(using Context): Tree = td.rhs match
       case t: Template =>
         val originalConstrBody = t.constr.rhs
         val newConstrBody = If(
@@ -330,4 +345,4 @@ object Scala2SpecializationForStdLib:
           unitLiteral,
           originalConstrBody
         )
-        cpy.Template(t)(constr = cpy.DefDef(t.constr)(rhs = newConstrBody))
+        cpy.Template(t)(constr = cpy.DefDef(t.constr)(rhs = newConstrBody))*/
