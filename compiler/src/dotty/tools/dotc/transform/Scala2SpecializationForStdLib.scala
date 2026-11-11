@@ -50,6 +50,8 @@ object Scala2SpecializationForStdLib:
     val unspecialized: TypeName = "unspecialized".toTypeName
     val specialized: TypeName = "specialized".toTypeName
     val specializable: TermName = "Specializable".toTermName
+    val specializationPrefix = "$mc"
+    val specializationSuffix = "$sp"
 //    val specInstance: TermName = "specInstance$".toTermName
 
   /** Name + specialized types -> specialized name */
@@ -64,14 +66,16 @@ object Scala2SpecializationForStdLib:
       case tpnme.Double => "D"
       case tpnme.Boolean => "Z"
       case tpnme.Unit => "V"
-    name ++ ("$mc" + specialization.map(shortName).mkString("") + "$sp")
+    name ++ (ourNames.specializationPrefix + specialization.map(shortName).mkString("") + ourNames.specializationSuffix)
+
+  private type TypeNameToSpecializationsByIndex = collection.Map[TypeName, collection.Map[Int, collection.Set[TypeName]]]
 
   /** Generates specialized subclasses (steps 1, 2, 4.a.i, 4.b, 4.c, 4.d) */
   final class PreTyper extends Phase:
     import untpd.*
 
-    private val _specializedTypes: mutable.Set[TypeName] = mutable.Set.empty
-    def specializedTypes: collection.Set[TypeName] = _specializedTypes
+    private val _specializedTypes: mutable.Map[TypeName, collection.Map[Int, collection.Set[TypeName]]] = mutable.Map.empty
+    def specializedTypes: TypeNameToSpecializationsByIndex = _specializedTypes
 
     private val _typesDeclaredFinal: mutable.Set[TypeName] = mutable.Set.empty
     def typesDeclaredFinal: collection.Set[TypeName] = _typesDeclaredFinal
@@ -126,7 +130,10 @@ object Scala2SpecializationForStdLib:
             rest <- acc
           yield rest.updated(tp, typ)
       }
-      _specializedTypes.add(td.name)
+      _specializedTypes(td.name) = typeParams.zipWithIndex.flatMap((tp, n) => specializedTypeParams.find(_._1 == tp.name) match
+        case Some((_, specs)) => Some((n, specs.toSet))
+        case None => None
+      ).toMap
       if td.mods.is(Flags.Final) then _typesDeclaredFinal.add(td.name)
       td.rhs match {
         case t: Template =>
@@ -140,21 +147,23 @@ object Scala2SpecializationForStdLib:
           // Finally, turn each of the specialization maps into a TypeDef
           val specializedSubclasses = specializations.map(spec =>
             val specializedBody = t.body.flatMap {
-              case dd: DefDef =>
-                if membersNeedingSpecialization.contains(dd) then specializedForSubclass(dd, spec)
-                else List(specialize(dd, spec).asInstanceOf[DefDef].withAddedFlags(Flags.Override))
-              case vd: ValDef if membersNeedingSpecialization.contains(vd) => specializedForSubclass(vd, spec)
-              case other => List(specialize(other, spec))
+              case dd: DefDef if membersNeedingSpecialization.contains(dd) => specializedForSubclass(dd, spec)
+              case m: ValOrDefDef if !m.rhs.isEmpty && !m.mods.is(Flags.Final) =>
+                val specialized = specialize(m, spec)
+                if specialized.eq(m) then Nil
+                else List(specialized.asInstanceOf[ValOrDefDef].withAddedFlags(Flags.Override))
+              case other =>
+                Nil
             }
             //val specInstanceMethod = if hasSpecializedVals then List(DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(true))).withAddedFlags(Flags.Override)) else Nil
             val specializedConstr = cpy.DefDef(t.constr)(paramss = t.constr.paramss.map(_.flatMap {
               case td: TypeDef if spec.contains(td.name) => Nil
               case td: TypeDef => List(specialize(td, spec))
-              // for case classes, we can't extend with a case class, but we must mark the vals as `override`
-              case vd: ValDef if td.mods.is(Flags.CaseClass) => List(specialize(vd, spec).asInstanceOf[ValDef].withAddedFlags(Flags.Override))
+              // we must mark case class parameters, and explicit 'val' parameters, as `override`
+              case vd: ValDef if td.mods.is(Flags.CaseClass) || !vd.mods.is(Flags.Local) => List(specialize(vd, spec).asInstanceOf[ValDef].withAddedFlags(Flags.Override))
               case vd: ValDef => List(specialize(vd, spec))
             }.asInstanceOf[ParamClause]).filter(_.nonEmpty))
-            val parent = AppliedTypeTree(Ident(td.name), t.constr.leadingTypeParams.map(tp => spec.get(tp.name).map(Ident.apply).getOrElse(tp)))
+            val parent = AppliedTypeTree(Ident(td.name), t.constr.leadingTypeParams.map(tp => Ident(spec.getOrElse(tp.name, tp.name))))
             val parentTermArgs = t.constr.termParamss.map(_.map(p => Ident(p.name)))
             val parentCall = if parentTermArgs.flatten.isEmpty then parent else parentTermArgs.foldLeft[Tree](Select(New(parent), nme.CONSTRUCTOR))((m, as) => Apply(m, as))
             val subclassName = specializedName(td.name, spec.values)
@@ -199,7 +208,8 @@ object Scala2SpecializationForStdLib:
 
     private def needsSpecializing(m: ValOrDefDef, specialization: Map[TypeName, TypeName])(using Context): Boolean =
       def containsAny(t: Tree): Boolean = getSpecializableTypeName(t, specialization).nonEmpty
-      val optOut = m.mods.annotations.exists {
+      // unlike final classes which can be specialized, final members cannot
+      val optOut = m.mods.is(Flags.Final) || m.mods.annotations.exists {
         case Apply(Select(New(Select(Ident(ourNames.annotation), ourNames.unspecialized)), nme.CONSTRUCTOR), Nil) => true
         case _ => false
       }
@@ -290,13 +300,39 @@ object Scala2SpecializationForStdLib:
       val preTyperPhase = ctx.base.phases.collectFirst{ case p: PreTyper => p }.get
       ctx.compilationUnit.tpdTree match
         case p @ PackageDef(pid, stats) =>
-          stats.foreach {
+          ctx.compilationUnit.tpdTree = cpy.PackageDef(p)(pid, stats.map {
             case td: TypeDef if preTyperPhase.specializedTypes.contains(td.name) =>
               if preTyperPhase.typesDeclaredFinal(td.name) then
                 td.symbol.setFlag(Flags.Final)
+              td
+            //case td: TypeDef if td.name.endsWith(ourNames.specializationSuffix) =>
+            //  adaptParents(td, preTyperPhase.specializedTypes)
             case s => s
-          }
+          })
         case _ => ()
+
+    private def adaptParents(td: TypeDef, specializedTypes: TypeNameToSpecializationsByIndex)(using Context): TypeDef = td.rhs match
+      case t: Template =>
+        val extraParents = t.parents.flatMap {
+          case p @ AppliedTypeTree(id @ Ident(n: TypeName), args) =>
+            specializedTypes.get(n) match
+              case Some(specsByIdx) =>
+                def getSpecialization(a: Tree, n: Int): Option[TypeName] = specsByIdx.get(n) match
+                  case Some(specs) => a match
+                    case Ident(nm: TypeName) => Option.when(specs(nm))(nm)
+                    case _ => None
+                  case None => None
+                val specialization = args.zipWithIndex.flatMap(getSpecialization)
+                if specialization.size == specsByIdx.size then
+                  val unspecialized = args.zipWithIndex.flatMap((a, n) => if specsByIdx.contains(n) then None else Some(a))
+                  val newParentName = specializedName(n, specialization)
+                  ??? //Some(cpy.AppliedTypeTree(p)(cpy.Ident(id)(newParentName), unspecialized))
+                else None
+              case None => None
+          case p => None
+        }
+        cpy.TypeDef(td)(rhs = cpy.Template(t)(parents = extraParents ++ t.parents))
+      case _ => td
 
   /** Removes 'final' from specializable classes (step 4.a.iii) */
   final class PostPickler extends Phase:
@@ -320,7 +356,7 @@ object Scala2SpecializationForStdLib:
           }
         case _ => ()
 
-  /** Encapsulates constructors (step 3) */
+  /* Encapsulates constructors (step 3)
   final class PostConstructors extends Phase:
     import tpd.*
 
@@ -334,15 +370,14 @@ object Scala2SpecializationForStdLib:
       val preTyperPhase = ctx.base.phases.collectFirst{ case p: PreTyper => p }.get
       ctx.compilationUnit.tpdTree match
         case p @ PackageDef(pid, stats) =>
-          //ctx.compilationUnit.tpdTree = cpy.PackageDef(p)(pid, stats.map {
-          stats.foreach {
+          ctx.compilationUnit.tpdTree = cpy.PackageDef(p)(pid, stats.map {
             case td: TypeDef if preTyperPhase.specializedTypes.contains(td.name) =>
-              td.symbol.resetFlag(Flags.Final)
+              cpy.TypeDef(td)(rhs = encapsulateConstructor(td))
             case s => s
-          }
+          })
         case _ => ()
 
-    /*private def encapsulateConstructor(td: TypeDef)(using Context): Tree = td.rhs match
+    private def encapsulateConstructor(td: TypeDef)(using Context): Tree = td.rhs match
       case t: Template =>
         val originalConstrBody = t.constr.rhs
         val newConstrBody = If(
