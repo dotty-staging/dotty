@@ -60,7 +60,7 @@ object Scala2SpecializationForStdLib:
       case tpnme.Byte => "B"
       case tpnme.Short => "S"
       case tpnme.Int => "I"
-      case tpnme.Long => "L"
+      case tpnme.Long => "J"
       case tpnme.Char => "C"
       case tpnme.Float => "F"
       case tpnme.Double => "D"
