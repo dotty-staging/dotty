@@ -12,6 +12,9 @@ import dotty.tools.dotc.core.StdNames.{nme, tpnme}
 import scala.collection
 import scala.collection.mutable
 
+// TODO:
+// - make sure extending Function0/1/2 works
+
 /**
  * Implements just enough Scala2-style specialization for the standard library and only the standard library
  *
