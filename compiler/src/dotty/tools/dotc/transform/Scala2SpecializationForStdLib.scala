@@ -140,7 +140,10 @@ object Scala2SpecializationForStdLib:
           // Finally, turn each of the specialization maps into a TypeDef
           val specializedSubclasses = specializations.map(spec =>
             val specializedBody = t.body.flatMap {
-              case m: ValOrDefDef if membersNeedingSpecialization.contains(m) => specializedForSubclass(m, spec)
+              case dd: DefDef =>
+                if membersNeedingSpecialization.contains(dd) then specializedForSubclass(dd, spec)
+                else List(specialize(dd, spec).asInstanceOf[DefDef].withAddedFlags(Flags.Override))
+              case vd: ValDef if membersNeedingSpecialization.contains(vd) => specializedForSubclass(vd, spec)
               case other => List(specialize(other, spec))
             }
             //val specInstanceMethod = if hasSpecializedVals then List(DefDef(ourNames.specInstance, Nil, TypeTree(), Literal(Constant(true))).withAddedFlags(Flags.Override)) else Nil
@@ -153,7 +156,7 @@ object Scala2SpecializationForStdLib:
             }.asInstanceOf[ParamClause]).filter(_.nonEmpty))
             val parent = AppliedTypeTree(Ident(td.name), t.constr.leadingTypeParams.map(tp => spec.get(tp.name).map(Ident.apply).getOrElse(tp)))
             val parentTermArgs = t.constr.termParamss.map(_.map(p => Ident(p.name)))
-            val parentCall = parentTermArgs.foldLeft[Tree](Select(New(parent), nme.CONSTRUCTOR))((m, as) => Apply(m, as))
+            val parentCall = if parentTermArgs.flatten.isEmpty then parent else parentTermArgs.foldLeft[Tree](Select(New(parent), nme.CONSTRUCTOR))((m, as) => Apply(m, as))
             val subclassName = specializedName(td.name, spec.values)
             cpy.TypeDef(td)(name = subclassName, rhs = cpy.Template(t)(constr = specializedConstr, parents = List(parentCall), body = specializedBody /*++ specInstanceMethod*/))
               .withFlags(td.mods.flags &~ Flags.CaseClass) // case-to-case inheritance is prohibited
@@ -183,6 +186,8 @@ object Scala2SpecializationForStdLib:
     // not handling arrays here, not needed for the stdlib
     private def boxCall(arg: Tree, specializableName: TypeName)(using Context): Tree =
       arg // we're before the typer so boxing will be done for us later
+    private def boxToGenericParamCall(arg: Tree, specializableName: TypeName)(using Context): Tree =
+      TypeApply(Select(arg, nme.asInstanceOf_), List(Ident(specializableName)))
     private def unboxCall(arg: Tree, specializableName: TypeName)(using Context): Tree =
       if specializableName == tpnme.Unit then arg
       else TypeApply(Select(arg, nme.asInstanceOf_), List(Ident(specializableName)))
@@ -227,9 +232,9 @@ object Scala2SpecializationForStdLib:
       val forwarderBody = {
         val argsForCall = dd.termParamss.map(_.map(v =>
           val original = Ident(v.name)
-          getSpecializableTypeName(v.tpt, specialization) match
-            case Some(tn) => boxCall(original, tn)
-            case None => original
+          v.tpt match
+            case Ident(n: TypeName) if specialization.contains(n) => boxToGenericParamCall(original, n)
+            case _ => original
         ))
         val call = argsForCall.foldLeft[Tree](Ident(dd.name))((m, as) => Apply(m, as))
         getSpecializableTypeName(dd.tpt, specialization) match
