@@ -32,9 +32,7 @@ class Compiler {
   /** Phases dealing with the frontend up to trees ready for TASTY pickling */
   protected def frontendPhases: List[List[Phase]] =
     List(new Parser) ::             // Compiler frontend: scanner, parser
-    List(new Scala2SpecializationForStdLib.PreTyper()) :: // Scala2 specialization for the stdlib, part 1
     List(new TyperPhase) ::         // Compiler frontend: namer, typer
-    List(new Scala2SpecializationForStdLib.PostTyper()) :: // Scala2 specialization for the stdlib, part 2
     List(new WInferUnion,           // Check for type arguments inferred as union types
          CheckUnused.PostTyper(),   // Check for unused
          CheckShadowing()) ::       // Check for shadowed elements
@@ -49,6 +47,7 @@ class Compiler {
          new DesugarSpecializedTraits,      // Process Specialized traits
          new SpecializeInlineTraits) ::     // Inline the code of inline traits into their children
     List(new PostSpecializeInlineTraits) :: // Rewrite references to specialized trees
+    List(new Scala2SpecializationForStdLib.PrePickler()) :: // Scala2 specialization for the stdlib, part 1
     Nil
 
   /** Phases dealing with TASTY tree pickling and unpickling */
@@ -64,7 +63,7 @@ class Compiler {
 
   /** Phases dealing with the transformation from pickled trees to backend trees */
   protected def transformPhases: List[List[Phase]] =
-    List(new Scala2SpecializationForStdLib.PostPickler()) :: // Scala2 specialization for the stdlib, part 3
+    //List(new Scala2SpecializationForStdLib.PostPickler()) :: // Scala2 specialization for the stdlib, part 3
     List(new InstrumentCoverage) ::  // Perform instrumentation for code coverage (if -coverage-out is set)
     List(new CrossVersionChecks,     // Check issues related to deprecated and experimental
          new FirstTransform,         // Some transformations to put trees into a canonical form
@@ -138,7 +137,6 @@ class Compiler {
     List(new Constructors,           // Collect initialization code in primary constructors
                                         // Note: constructors changes decls in transformTemplate, no InfoTransformers should be added after it
          new Instrumentation) ::     // Count calls and allocations under -Yinstrument
-    //List(new Scala2SpecializationForStdLib.PostConstructors()) :: // Scala2 specialization for the stdlib, part 4 of 4
     List(new LambdaLift,             // Lifts out nested functions to class scope, storing free variables in environments
                                      // Note: in this mini-phase block scopes are incorrect. No phases that rely on scopes should be here
          new ElimStaticThis,         // Replace `this` references to static objects by global identifiers
