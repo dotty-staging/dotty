@@ -16,7 +16,6 @@ import scala.collection
 import scala.collection.mutable
 
 // TODO:
-// - parents should be themselves specialized
 // - make sure extending Function0/1/2 works
 
 /**
@@ -138,36 +137,21 @@ object Scala2SpecializationForStdLib:
           // Then use the specialization maps to create specialized subtypes,
           val superTypeSymbol = td.symbol
           val superTypeConstrSymbol = t.constr.symbol
-          var typeArgs: List[Type] = Nil
           val specializedSubTypes = specializations.map(spec =>
             val subTypeDecls = newScope(ctx.owner.nestingLevel + 1)
             val subTypeName = specializedName(td.name, spec)
+            val superTypeParents = superTypeSymbol.typeRef.parents.map(t => specialize(t, spec, superTypeSymbol.typeRef))
+            val directParent = superTypeSymbol.typeRef.appliedTo(typeParams.map(tp => specialize(tp.tpe, spec, superTypeSymbol.typeRef)))
             val subTypeSymbol = newClassSymbol(
               superTypeSymbol.owner,
               subTypeName,
               superTypeSymbol.flags | Synthetic,
-              cls => {
-                typeArgs = typeParams.map(tp =>
-                  spec.get(tp.tpe) match
-                    case Some(t) =>
-                      t
-                    case None =>
-                      val s = newSymbol(
-                        cls,
-                        tp.name,
-                        TypeParam | Param,
-                        TypeBounds.empty
-                      )
-                      subTypeDecls.enter(s)
-                      s.typeRef
-                )
-                ClassInfo(
-                  ctx.owner.thisType,
-                  cls,
-                  superTypeSymbol.typeRef.parents :+ superTypeSymbol.typeRef.appliedTo(typeArgs),
-                  subTypeDecls
-                )
-              }
+              cls => ClassInfo(
+                ctx.owner.thisType,
+                cls,
+                superTypeParents :+ directParent,
+                subTypeDecls
+              )
             ).entered
             // Create members with the opposite forwarding direction as the supertype,
             val members =
@@ -184,9 +168,10 @@ object Scala2SpecializationForStdLib:
                 specializedMemberVals ++ specializedMemberDefs
             val constrInfo = specialize(superTypeConstrSymbol.info, spec, superTypeSymbol.typeRef, topLevelPolyType = true)
             val constrSymbol = newSymbol(subTypeSymbol, nme.CONSTRUCTOR, superTypeConstrSymbol.flags | Synthetic, constrInfo).entered
+            val parentCall = New(directParent, constrSymbol.paramSymss.flatten.filterNot(_.isType).map(ref))
+            val superTypeParentsTrees = superTypeParents.map(t => TypeTree(t))
             val constrDef = DefDef(constrSymbol)
-            val parent = New(superTypeSymbol.typeRef.appliedTo(typeArgs), constrSymbol.paramSymss.flatten.map(ref))
-            ClassDefWithParents(subTypeSymbol, constrDef, t.parents :+ parent, members)
+            ClassDefWithParents(subTypeSymbol, constrDef, superTypeParentsTrees :+ parentCall, members)
           )
           specializedSuperType :: specializedSubTypes
       }
@@ -243,25 +228,35 @@ object Scala2SpecializationForStdLib:
       val map = new TypeMap:
         override def apply(tp: Type): Type =
           tp match
+            // Basic case: specialized type
             case tr: TypeRef =>
               specialization.get(tr) match
                 case Some(replacement) => replacement
                 case None => mapOver(tp)
+            // Specialized type parameter if we are specializing a top-level polytype
             case tpr: TypeParamRef =>
               paramRefsSpecialization.get(tpr) match
                 case Some(replacement) => replacement
                 case None => mapOver(tpr)
+            // Method type, whose parameter names must be mangled for specialization if their types are specialized
             case meth: MethodType =>
               val resultParamTypes = meth.paramInfos.map(apply)
               val resultParamNames = meth.paramNames.zip(meth.paramInfos).zip(resultParamTypes).map { case ((n, i), i2) =>
                 if i =:= i2 then n else specializedName(n, specialization)
               }
               meth.companion(resultParamNames, resultParamTypes, apply(meth.resType))
+            // Type being specialized
             case AppliedType(tycon: NamedType, args)
               if tycon == typeBeingSpecialized && args.collect{ case tpr: TypeParamRef if paramRefsSpecialization.contains(tpr) => tpr }.size == paramRefsSpecialization.size =>
               val specialized = tycon.typeSymbol.owner.info.decls.lookup(specializedName(tycon.name, specialization))
               // may not exist if we haven't created it yet
               if specialized.exists then specialized.typeRef else mapOver(tp)
+            // Other types that have already been specialized
+            case AppliedType(tycon: NamedType, args) if tycon != typeBeingSpecialized && _specializedTypes(tycon.name.toTypeName) =>
+              val unspecializedArgs = args.filterNot(specialization.contains)
+              val specialized = tycon.typeSymbol.owner.info.decls.lookup(specializedName(tycon.name, specialization)).typeRef
+              if unspecializedArgs.isEmpty then specialized
+              else specialized.appliedTo(unspecializedArgs)
             case _ =>
               mapOver(tp)
       tp match
