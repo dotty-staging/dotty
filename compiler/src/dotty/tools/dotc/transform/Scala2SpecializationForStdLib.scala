@@ -142,16 +142,12 @@ object Scala2SpecializationForStdLib:
             val subTypeName = specializedName(td.name, spec)
             val superTypeParents = superTypeSymbol.typeRef.parents.map(t => specialize(t, spec, superTypeSymbol.typeRef))
             val directParent = superTypeSymbol.typeRef.appliedTo(typeParams.map(tp => specialize(tp.tpe, spec, superTypeSymbol.typeRef)))
-            val subTypeSymbol = newClassSymbol(
+            val subTypeSymbol = newCompleteClassSymbol(
               superTypeSymbol.owner,
               subTypeName,
               superTypeSymbol.flags | Synthetic,
-              cls => ClassInfo(
-                ctx.owner.thisType,
-                cls,
-                superTypeParents :+ directParent,
-                subTypeDecls
-              )
+              directParent :: superTypeParents,
+              subTypeDecls
             ).entered
             // Create members with the opposite forwarding direction as the supertype,
             val members =
@@ -168,10 +164,9 @@ object Scala2SpecializationForStdLib:
                 specializedMemberVals ++ specializedMemberDefs
             val constrInfo = specialize(superTypeConstrSymbol.info, spec, superTypeSymbol.typeRef, topLevelPolyType = true)
             val constrSymbol = newSymbol(subTypeSymbol, nme.CONSTRUCTOR, superTypeConstrSymbol.flags | Synthetic, constrInfo).entered
-            val parentCall = New(directParent, constrSymbol.paramSymss.flatten.filterNot(_.isType).map(ref))
-            val superTypeParentsTrees = superTypeParents.map(t => TypeTree(t))
+            val parentArgs = constrSymbol.paramSymss.flatten.filterNot(_.isType).map(ref)
             val constrDef = DefDef(constrSymbol)
-            ClassDefWithParents(subTypeSymbol, constrDef, superTypeParentsTrees :+ parentCall, members)
+            ClassDef(subTypeSymbol, constrDef, members, parentArgs)
           )
           specializedSuperType :: specializedSubTypes
       }
