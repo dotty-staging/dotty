@@ -164,14 +164,15 @@ object Scala2SpecializationForStdLib:
                 specializedMemberVals ++ specializedMemberDefs
             val constrInfo = specialize(superTypeConstrSymbol.info, spec, superTypeSymbol.typeRef, topLevelPolyType = true)
             val constrSymbol = newSymbol(subTypeSymbol, nme.CONSTRUCTOR, superTypeConstrSymbol.flags | Synthetic, constrInfo).entered
-            val parentArgs = constrSymbol.paramSymss.flatten.filterNot(_.isType).map(ref)
+            val constructorTermArgs = constrSymbol.paramSymss.flatten.filterNot(_.isType)
+            val parentArgs = members.take(constructorTermArgs.size).map(m => ref(m.symbol))
             val constrDef = DefDef(constrSymbol)
             ClassDef(subTypeSymbol, constrDef, members, parentArgs)
           )
           specializedSuperType :: specializedSubTypes
       }
 
-    private def specializedTypes(args: List[untpd.Tree])(using Context): List[NamedType] = args match {
+    private def specializedTypes(args: List[untpd.Tree])(using Context): List[NamedType] = args match
       case untpd.Select(untpd.Ident(ourNames.specializable), name) :: Nil =>
         name.toString match
           case "Primitives" =>  List(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType, defn.CharType, defn.FloatType, defn.DoubleType, defn.BooleanType, defn.UnitType)
@@ -196,7 +197,6 @@ object Scala2SpecializationForStdLib:
           case nme.Boolean => defn.BooleanType
           case nme.Unit => defn.UnitType
         }
-    }
 
     // not handling arrays here, not needed for the stdlib
     private def castTo(arg: Tree, specializedType: Type)(using Context): Tree =
