@@ -63,7 +63,7 @@ class Compiler {
 
   /** Phases dealing with the transformation from pickled trees to backend trees */
   protected def transformPhases: List[List[Phase]] =
-    //List(new Scala2SpecializationForStdLib.PostPickler()) :: // Scala2 specialization for the stdlib, part 3
+    List(new Scala2SpecializationForStdLib.PostPickler()) :: // Scala2 specialization for the stdlib, part 2
     List(new InstrumentCoverage) ::  // Perform instrumentation for code coverage (if -coverage-out is set)
     List(new CrossVersionChecks,     // Check issues related to deprecated and experimental
          new FirstTransform,         // Some transformations to put trees into a canonical form

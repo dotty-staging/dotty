@@ -12,9 +12,11 @@ import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
 
+import scala.collection
 import scala.collection.mutable
 
 // TODO:
+// - parents should be themselves specialized
 // - make sure extending Function0/1/2 works
 
 /**
@@ -70,6 +72,8 @@ object Scala2SpecializationForStdLib:
   /** Generates specialized subclasses (steps 1, 2, 4.a.i, 4.b, 4.c, 4.d) */
   final class PrePickler extends Phase:
 
+    private val _specializedTypes: mutable.Set[TypeName] = mutable.Set.empty
+    def specializedTypes: collection.Set[TypeName] = _specializedTypes
 //    private val _specializedTypes: mutable.Map[TypeName, collection.Map[Int, collection.Set[TypeName]]] = mutable.Map.empty
 //    def specializedTypes: TypeNameToSpecializationsByIndex = _specializedTypes
 
@@ -130,6 +134,7 @@ object Scala2SpecializationForStdLib:
             rest <- acc
           yield rest.updated(tp, typ)
       }
+      _specializedTypes.add(td.name)
       /*_specializedTypes(td.name) = typeParams.zipWithIndex.flatMap((tp, n) => specializedTypeParams.find(_._1 == tp.name) match
         case Some((_, specs)) => Some((n, specs.toSet))
         case None => None
@@ -175,10 +180,7 @@ object Scala2SpecializationForStdLib:
                 ClassInfo(
                   ctx.owner.thisType,
                   cls,
-                  List(
-                    superTypeSymbol.typeRef.appliedTo(typeArgs)
-                    // TODO other parents
-                  ),
+                  superTypeSymbol.typeRef.parents :+ superTypeSymbol.typeRef.appliedTo(typeArgs),
                   subTypeDecls
                 )
               }
@@ -200,7 +202,7 @@ object Scala2SpecializationForStdLib:
             val constrSymbol = newSymbol(subTypeSymbol, nme.CONSTRUCTOR, superTypeConstrSymbol.flags | Synthetic, constrInfo).entered
             val constrDef = DefDef(constrSymbol)
             val parent = New(superTypeSymbol.typeRef.appliedTo(typeArgs), constrSymbol.paramSymss.flatten.map(ref))
-            ClassDefWithParents(subTypeSymbol, constrDef, List(parent), members)
+            ClassDefWithParents(subTypeSymbol, constrDef, t.parents :+ parent, members)
           )
           specializedSuperType :: specializedSubTypes
       }
@@ -235,7 +237,8 @@ object Scala2SpecializationForStdLib:
     // not handling arrays here, not needed for the stdlib
     private def castTo(arg: Tree, specializedType: Type)(using Context): Tree =
       if specializedType == defn.UnitType then Block(List(arg), unitLiteral)
-      else TypeApply(Select(arg, nme.asInstanceOf_), List(TypeTree(specializedType)))
+      else
+        TypeApply(Select(arg, nme.asInstanceOf_), List(TypeTree(specializedType)))
 
     private def needsSpecializing(m: ValOrDefDef, specialization: Specialization)(using Context): Boolean =
       // unlike final classes which can be specialized, final members cannot
@@ -267,7 +270,9 @@ object Scala2SpecializationForStdLib:
                 case None => mapOver(tpr)
             case AppliedType(tycon: NamedType, args)
               if tycon == typeBeingSpecialized && args.collect{ case tpr: TypeParamRef if paramRefsSpecialization.contains(tpr) => tpr }.size == paramRefsSpecialization.size =>
-              tycon.typeSymbol.owner.info.decls.lookup(specializedName(tycon.name, specialization)).typeRef
+              val specialized = tycon.typeSymbol.owner.info.decls.lookup(specializedName(tycon.name, specialization))
+              // may not exist if we haven't created it yet
+              if specialized.exists then specialized.typeRef else mapOver(tp)
             case _ =>
               mapOver(tp)
       tp match
@@ -322,7 +327,12 @@ object Scala2SpecializationForStdLib:
       val sym = newSymbol(originalSym.owner, name, originalSym.flags | Synthetic, info).entered
       // Some of the casts may not be necessary, but they won't hurt either
       DefDef(sym, paramss =>
-        val call = paramss.zip(originalSym.info.paramInfoss).foldLeft(ref(originalSym)) {
+        var base = ref(originalSym)
+        var remainingParamss = paramss
+        if paramss.headOption.exists(_.headOption.exists(_.isInstanceOf[TypeTree])) then
+          base = base.appliedToTypeTrees(paramss.head)
+          remainingParamss = paramss.tail
+        val call = remainingParamss.zip(originalSym.info.paramInfoss).foldLeft(base) {
           case (fn, (args, infos)) =>
             // box to the generic parameter which is the argument type of the callee
             fn.appliedToArgs(args.zip(infos).map((a, i) => castTo(a, i)))
@@ -408,7 +418,7 @@ object Scala2SpecializationForStdLib:
         cpy.TypeDef(td)(rhs = cpy.Template(t)(parents = extraParents ++ t.parents))
       case _ => td*/
 
-  /* Removes 'final' from specializable classes (step 4.a.iii)
+  /** Removes 'final' from specializable classes (step 4.a.iii) */
   final class PostPickler extends Phase:
     import tpd.*
 
@@ -419,16 +429,16 @@ object Scala2SpecializationForStdLib:
       ctx.settings.YcompilingStdLib.value
 
     override protected def run(using Context): Unit =
-      val preTyperPhase = ctx.base.phases.collectFirst{ case p: PreTyper => p }.get
+      val ogPhase = ctx.base.phases.collectFirst{ case p: PrePickler => p }.get
       ctx.compilationUnit.tpdTree match
         case p @ PackageDef(pid, stats) =>
           stats.foreach {
-            case td: TypeDef if preTyperPhase.specializedTypes.contains(td.name) =>
-              td.symbol.resetFlag(Flags.Final)
+            case td: TypeDef if ogPhase.specializedTypes.contains(td.name) =>
+              td.symbol.resetFlag(Final)
             case _ =>
               ()
           }
-        case _ => ()*/
+        case _ => ()
 
   /* Encapsulates constructors (step 3)
   final class PostConstructors extends Phase:
