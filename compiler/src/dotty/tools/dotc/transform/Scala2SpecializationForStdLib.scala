@@ -12,6 +12,8 @@ import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
 
+import scala.collection.mutable
+
 // TODO:
 // - make sure extending Function0/1/2 works
 
@@ -61,7 +63,7 @@ object Scala2SpecializationForStdLib:
   private def specializedName[T <: Name](name: T, specialization: Specialization)(using Context): name.ThisName =
     name ++ (ourNames.specializationPrefix + specialization.map(e => ctx.definitions.typeTag(e._2)).mkString("") + ourNames.specializationSuffix)
 
-  private type Specialization = Map[TypeName, NamedType]
+  private type Specialization = Map[Type, NamedType]
   private val emptySpecialization: Specialization = Map.empty
   //private type TypeNameToSpecializationsByIndex = collection.Map[TypeName, collection.Map[Int, collection.Set[TypeName]]]
 
@@ -115,7 +117,7 @@ object Scala2SpecializationForStdLib:
             case _ => Nil
           }
           if types.isEmpty then None
-          else Some((tp.name, types))
+          else Some((tp.tpe, types))
         ).toMap
       // Most types aren't specialized, so let's not do extra work for nothing
       if specializedTypeParams.isEmpty then return List(td)
@@ -157,7 +159,7 @@ object Scala2SpecializationForStdLib:
               superTypeSymbol.flags | Synthetic,
               cls => {
                 typeArgs = typeParams.map(tp =>
-                  spec.get(tp.name) match
+                  spec.get(tp.tpe) match
                     case Some(t) =>
                       t
                     case None =>
@@ -194,7 +196,7 @@ object Scala2SpecializationForStdLib:
                   case _ => Nil
                 }
                 specializedMemberVals ++ specializedMemberDefs
-            val constrInfo = specialize(superTypeConstrSymbol.info, spec, superTypeSymbol.typeRef)
+            val constrInfo = specialize(superTypeConstrSymbol.info, spec, superTypeSymbol.typeRef, topLevelPolyType = true)
             val constrSymbol = newSymbol(subTypeSymbol, nme.CONSTRUCTOR, superTypeConstrSymbol.flags | Synthetic, constrInfo).entered
             val constrDef = DefDef(constrSymbol)
             val parent = New(superTypeSymbol.typeRef.appliedTo(typeArgs), constrSymbol.paramSymss.flatten.map(ref))
@@ -246,36 +248,49 @@ object Scala2SpecializationForStdLib:
       }
       !optOut && {
         val tp = mSym.info
-        val specTp = specialize(tp, specialization)
+        val specTp = specialize(tp, specialization, mSym.owner.typeRef)
         !(tp =:= specTp)
       }
 
-    private def specialize(tp: Type, specialization: Specialization, typeBeingSpecialized: Type = NoType)(using Context): Type =
+    private def specialize(tp: Type, specialization: Specialization, typeBeingSpecialized: Type, topLevelPolyType: Boolean = false)(using Context): Type =
+      val paramRefsSpecialization = mutable.Map.empty[TypeParamRef, Type]
       val map = new TypeMap:
         override def apply(tp: Type): Type =
           tp match
             case tr: TypeRef =>
-              specialization.get(tr.name) match
+              specialization.get(tr) match
                 case Some(replacement) => replacement
                 case None => mapOver(tp)
             case tpr: TypeParamRef =>
-              specialization.get(tpr.paramName) match
+              paramRefsSpecialization.get(tpr) match
                 case Some(replacement) => replacement
                 case None => mapOver(tpr)
-            case poly: PolyType =>
-              val removedIndices = poly.paramNames.zipWithIndex.collect{ case (pn, idx) if specialization.contains(pn) => idx }
-              if removedIndices.length == poly.paramNames.length then
-                mapOver(poly.resType)
-              else
-                PolyType(poly.paramNames.zipWithIndex.collect{ case (pn, idx) if !removedIndices.contains(idx) => pn })(
-                  _ => poly.paramInfos.zipWithIndex.collect{case (pi, idx) if !removedIndices.contains(idx) => RealTypeBounds(mapOver(pi.lo), mapOver(pi.hi)) },
-                  _ => mapOver(poly.resType)
-                )
-            case AppliedType(tycon: NamedType, args) if tycon == typeBeingSpecialized =>
+            case AppliedType(tycon: NamedType, args)
+              if tycon == typeBeingSpecialized && args.collect{ case tpr: TypeParamRef if paramRefsSpecialization.contains(tpr) => tpr }.size == paramRefsSpecialization.size =>
               tycon.typeSymbol.owner.info.decls.lookup(specializedName(tycon.name, specialization)).typeRef
             case _ =>
               mapOver(tp)
-      map.apply(tp)
+      tp match
+        case poly: PolyType if topLevelPolyType =>
+          def matchesByName(tp: Type, name: TypeName): Boolean = tp match
+            case nt: NamedType => nt.name == name
+            case _ => false
+          val removedIndices = poly.paramRefs.zipWithIndex.flatMap((pr, idx) =>
+              specialization.find((k, _) => matchesByName(k, pr.paramName)) match
+                case Some((k, v)) =>
+                  paramRefsSpecialization(pr) = v
+                  Some(idx)
+                case None =>
+                  None
+          )
+          if removedIndices.length == poly.paramNames.length then
+            map.apply(poly.resType)
+          else
+            PolyType(poly.paramNames.zipWithIndex.collect{ case (pn, idx) if !removedIndices.contains(idx) => pn })(
+              _ => poly.paramInfos.zipWithIndex.collect{case (pi, idx) if !removedIndices.contains(idx) => RealTypeBounds(map.apply(pi.lo), map.apply(pi.hi)) },
+              _ => map.apply(poly.resType)
+            )
+        case _ => map.apply(tp)
 
     private def specialize(tree: Tree,
                            specialization: Specialization,
@@ -303,7 +318,7 @@ object Scala2SpecializationForStdLib:
     private def specializedForSuperType(dd: DefDef, specialization: Specialization)(using Context): DefDef =
       val originalSym = dd.symbol
       val name = specializedName(dd.name, specialization)
-      val info = specialize(originalSym.info, specialization)
+      val info = specialize(originalSym.info, specialization, originalSym.owner.typeRef)
       val sym = newSymbol(originalSym.owner, name, originalSym.flags | Synthetic, info).entered
       // Some of the casts may not be necessary, but they won't hurt either
       DefDef(sym, paramss =>
@@ -321,7 +336,7 @@ object Scala2SpecializationForStdLib:
                                       superTypeName: Name)(using Context): ValDef =
       val originalSym = vd.symbol
       val name = specializedName(vd.name, specialization)
-      val info = specialize(originalSym.info, specialization)
+      val info = specialize(originalSym.info, specialization, owner.typeRef)
       val sym = newSymbol(owner, name, originalSym.flags | Synthetic, info).entered
       // vals only have a specialized form in the subtype
       ValDef(sym, specialize(vd.rhs, specialization, Nil, superTypeName, owner))
@@ -333,7 +348,7 @@ object Scala2SpecializationForStdLib:
       val originalSym = dd.symbol
       // the specialized one, which has a copy of the body but specialized,
       val specName = specializedName(dd.name, specialization)
-      val specInfo = specialize(originalSym.info, specialization)
+      val specInfo = specialize(originalSym.info, specialization, owner.typeRef)
       val specSym = newSymbol(owner, specName, originalSym.flags | Synthetic | Override, specInfo).entered
       val specDef = DefDef(specSym, paramss =>
         val withSubstParams = dd.rhs.subst(dd.paramss.flatten.map(_.symbol), paramss.flatten.map(_.symbol))
