@@ -251,6 +251,12 @@ object Scala2SpecializationForStdLib:
               paramRefsSpecialization.get(tpr) match
                 case Some(replacement) => replacement
                 case None => mapOver(tpr)
+            case meth: MethodType =>
+              val resultParamTypes = meth.paramInfos.map(apply)
+              val resultParamNames = meth.paramNames.zip(meth.paramInfos).zip(resultParamTypes).map { case ((n, i), i2) =>
+                if i =:= i2 then n else specializedName(n, specialization)
+              }
+              meth.companion(resultParamNames, resultParamTypes, apply(meth.resType))
             case AppliedType(tycon: NamedType, args)
               if tycon == typeBeingSpecialized && args.collect{ case tpr: TypeParamRef if paramRefsSpecialization.contains(tpr) => tpr }.size == paramRefsSpecialization.size =>
               val specialized = tycon.typeSymbol.owner.info.decls.lookup(specializedName(tycon.name, specialization))
@@ -328,11 +334,11 @@ object Scala2SpecializationForStdLib:
                                       specialization: Specialization,
                                       superTypeName: Name)(using Context): ValDef =
       val originalSym = vd.symbol
-      val name = specializedName(vd.name, specialization)
-      val info = specialize(originalSym.info, specialization, owner.typeRef)
-      val sym = newSymbol(owner, name, originalSym.flags | Synthetic, info).entered
-      // vals only have a specialized form in the subtype
-      ValDef(sym, specialize(vd.rhs, specialization, Nil, superTypeName, owner))
+      val specName = specializedName(vd.name, specialization)
+      val specInfo = specialize(originalSym.info, specialization, owner.typeRef)
+      val specSym = newSymbol(owner, specName, originalSym.flags | Synthetic, specInfo).entered
+      // vals only have a specialized form in the subtype,
+      ValDef(specSym, specialize(vd.rhs, specialization, Nil, superTypeName, owner))
 
     private def specializedForSubType(dd: DefDef, owner: Symbol,
                                       specialization: Specialization, specializedMembers: List[ValOrDefDef],
