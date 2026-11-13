@@ -67,18 +67,12 @@ object Scala2SpecializationForStdLib:
 
   private type Specialization = Map[Type, NamedType]
   private val emptySpecialization: Specialization = Map.empty
-  //private type TypeNameToSpecializationsByIndex = collection.Map[TypeName, collection.Map[Int, collection.Set[TypeName]]]
 
   /** Generates specialized subclasses (steps 1, 2, 4.a.i, 4.b, 4.c, 4.d) */
   final class PrePickler extends Phase:
 
     private val _specializedTypes: mutable.Set[TypeName] = mutable.Set.empty
     def specializedTypes: collection.Set[TypeName] = _specializedTypes
-//    private val _specializedTypes: mutable.Map[TypeName, collection.Map[Int, collection.Set[TypeName]]] = mutable.Map.empty
-//    def specializedTypes: TypeNameToSpecializationsByIndex = _specializedTypes
-
-//    private val _typesDeclaredFinal: mutable.Set[TypeName] = mutable.Set.empty
-//    def typesDeclaredFinal: collection.Set[TypeName] = _typesDeclaredFinal
 
     override def phaseName: String =
       "scala2SpecializationForStdLib.PrePickler"
@@ -87,10 +81,6 @@ object Scala2SpecializationForStdLib:
       ctx.settings.YcompilingStdLib.value
 
     override def changesMembers: Boolean = true
-    // TODO we create new classes but that should be okay? override def changesParents: Boolean = true
-
-    //    override def isCheckable: Boolean =
-//      false // we are before the typer
 
     override protected def run(using Context): Unit =
       ctx.compilationUnit.tpdTree match
@@ -135,11 +125,6 @@ object Scala2SpecializationForStdLib:
           yield rest.updated(tp, typ)
       }
       _specializedTypes.add(td.name)
-      /*_specializedTypes(td.name) = typeParams.zipWithIndex.flatMap((tp, n) => specializedTypeParams.find(_._1 == tp.name) match
-        case Some((_, specs)) => Some((n, specs.toSet))
-        case None => None
-      ).toMap
-      if td.mods.is(Flags.Final) then _typesDeclaredFinal.add(td.name)*/
       td.rhs match {
         case t: Template =>
           // Collect the members that need a specialized version, which will exist in both the supertype and the specialized subtypes, but with different bodies.
@@ -237,8 +222,7 @@ object Scala2SpecializationForStdLib:
     // not handling arrays here, not needed for the stdlib
     private def castTo(arg: Tree, specializedType: Type)(using Context): Tree =
       if specializedType == defn.UnitType then Block(List(arg), unitLiteral)
-      else
-        TypeApply(Select(arg, nme.asInstanceOf_), List(TypeTree(specializedType)))
+      else TypeApply(Select(arg, nme.asInstanceOf_), List(TypeTree(specializedType)))
 
     private def needsSpecializing(m: ValOrDefDef, specialization: Specialization)(using Context): Boolean =
       // unlike final classes which can be specialized, final members cannot
@@ -368,55 +352,6 @@ object Scala2SpecializationForStdLib:
       val newSym = newSymbol(owner, dd.name, originalSym.flags | Synthetic | Override, specInfo).entered
       val newDef = DefDef(newSym, paramss => paramss.foldLeft(ref(specSym)) { case (fn, args) => fn.appliedToArgs(args) })
       List(specDef, newDef)
-
-
-  /* Adds back the 'final' flag (step 4.a.ii)
-  final class PostTyper extends Phase:
-    import tpd.*
-
-    override def phaseName: String =
-      "scala2SpecializationForStdLib.PostTyper"
-
-    override def isEnabled(using Context): Boolean =
-      ctx.settings.YcompilingStdLib.value
-
-    override protected def run(using Context): Unit =
-      val preTyperPhase = ctx.base.phases.collectFirst{ case p: PreTyper => p }.get
-      ctx.compilationUnit.tpdTree match
-        case p @ PackageDef(pid, stats) =>
-          ctx.compilationUnit.tpdTree = cpy.PackageDef(p)(pid, stats.map {
-            case td: TypeDef if preTyperPhase.specializedTypes.contains(td.name) =>
-              if preTyperPhase.typesDeclaredFinal(td.name) then
-                td.symbol.setFlag(Flags.Final)
-              td
-            //case td: TypeDef if td.name.endsWith(ourNames.specializationSuffix) =>
-            //  adaptParents(td, preTyperPhase.specializedTypes)
-            case s => s
-          })
-        case _ => ()
-
-    private def adaptParents(td: TypeDef, specializedTypes: TypeNameToSpecializationsByIndex)(using Context): TypeDef = td.rhs match
-      case t: Template =>
-        val extraParents = t.parents.flatMap {
-          case p @ AppliedTypeTree(id @ Ident(n: TypeName), args) =>
-            specializedTypes.get(n) match
-              case Some(specsByIdx) =>
-                def getSpecialization(a: Tree, n: Int): Option[TypeName] = specsByIdx.get(n) match
-                  case Some(specs) => a match
-                    case Ident(nm: TypeName) => Option.when(specs(nm))(nm)
-                    case _ => None
-                  case None => None
-                val specialization = args.zipWithIndex.flatMap(getSpecialization)
-                if specialization.size == specsByIdx.size then
-                  val unspecialized = args.zipWithIndex.flatMap((a, n) => if specsByIdx.contains(n) then None else Some(a))
-                  val newParentName = specializedName(n, specialization)
-                  ??? //Some(cpy.AppliedTypeTree(p)(cpy.Ident(id)(newParentName), unspecialized))
-                else None
-              case None => None
-          case p => None
-        }
-        cpy.TypeDef(td)(rhs = cpy.Template(t)(parents = extraParents ++ t.parents))
-      case _ => td*/
 
   /** Removes 'final' from specializable classes (step 4.a.iii) */
   final class PostPickler extends Phase:
