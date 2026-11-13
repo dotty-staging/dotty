@@ -8,7 +8,7 @@ import dotty.tools.dotc.core.Flags.*
 import dotty.tools.dotc.core.Names.*
 import dotty.tools.dotc.core.Phases.*
 import dotty.tools.dotc.core.Scopes.newScope
-import dotty.tools.dotc.core.StdNames.{nme, tpnme}
+import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
 
@@ -207,26 +207,26 @@ object Scala2SpecializationForStdLib:
       case untpd.Select(untpd.Ident(ourNames.specializable), name) :: Nil =>
         name.toString match
           case "Primitives" =>  List(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType, defn.CharType, defn.FloatType, defn.DoubleType, defn.BooleanType, defn.UnitType)
-          case "Everything" =>  List(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType, defn.CharType, defn.FloatType, defn.DoubleType, defn.BooleanType, defn.UnitType /* not actually used: tpnme.AnyRef */)
+          case "Everything" =>  List(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType, defn.CharType, defn.FloatType, defn.DoubleType, defn.BooleanType, defn.UnitType /* not actually used: defn.AnyRefType */)
           // unused: case "Bits32AndUp" => List(defn.IntType, defn.LongType, defn.FloatType, defn.DoubleType)
           // unused: case "Integral" =>    List(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType, defn.CharType)
           // unused: case "AllNumeric" =>  List(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType, defn.CharType, defn.FloatType, defn.DoubleType)
-          // unused: case "BestOfBreed" => List(defn.IntType, defn.DoubleType, defn.BooleanType, defn.UnitType, tpnme.AnyRef)
+          // unused: case "BestOfBreed" => List(defn.IntType, defn.DoubleType, defn.BooleanType, defn.UnitType, defn.AnyRefType)
           // unused: case "Unit" =>        List(defn.UnitType)
           case "Arg" =>         List(defn.IntType, defn.LongType, defn.FloatType, defn.DoubleType)
           case "Args" =>        List(defn.IntType, defn.LongType, defn.DoubleType)
           case "Return" =>      List(defn.IntType, defn.LongType, defn.FloatType, defn.DoubleType, defn.BooleanType, defn.UnitType)
       case idents =>
         idents.map { case untpd.Ident(n) => n match
-          case tpnme.Byte => defn.ByteType
-          case tpnme.Short => defn.ShortType
-          case tpnme.Int => defn.IntType
-          case tpnme.Long => defn.LongType
-          case tpnme.Char => defn.CharType
-          case tpnme.Float => defn.FloatType
-          case tpnme.Double => defn.DoubleType
-          case tpnme.Boolean => defn.BooleanType
-          case tpnme.Unit => defn.UnitType
+          case nme.Byte => defn.ByteType
+          case nme.Short => defn.ShortType
+          case nme.Int => defn.IntType
+          case nme.Long => defn.LongType
+          case nme.Char => defn.CharType
+          case nme.Float => defn.FloatType
+          case nme.Double => defn.DoubleType
+          case nme.Boolean => defn.BooleanType
+          case nme.Unit => defn.UnitType
         }
     }
 
