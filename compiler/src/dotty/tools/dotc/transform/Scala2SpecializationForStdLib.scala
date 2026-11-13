@@ -209,19 +209,22 @@ object Scala2SpecializationForStdLib:
       else TypeApply(Select(arg, nme.asInstanceOf_), List(TypeTree(specializedType)))
 
     private def needsSpecializing(m: ValOrDefDef, specialization: Specialization)(using Context): Boolean =
+      val mSym = m.symbol
       // unlike final classes which can be specialized, final members cannot
       // also we don't need any specialized `var`s for the stdlib so let's not do vars/setters
       // (which cause problems later due to specialization name mangling making them not look like setters)
-      val mSym = m.symbol
       val optOut = mSym.isOneOf(Final | Mutable) || mSym.isSetter || m.mods.annotations.exists {
         case Apply(Select(New(Select(Ident(ourNames.annotation), ourNames.unspecialized)), nme.CONSTRUCTOR), Nil) => true
         case _ => false
       }
-      !optOut && {
+      // however, we must replicate param accessors in the subclass, even if they're not specialized
+      val optIn = mSym.is(ParamAccessor)
+      // to check if a member needs specializing, we check if its type under specialization would change
+      optIn || (!optOut && {
         val tp = mSym.info
         val specTp = specialize(tp, specialization, mSym.owner.typeRef)
         !(tp =:= specTp)
-      }
+      })
 
     private def specialize(tp: Type, specialization: Specialization, typeBeingSpecialized: Type, topLevelPolyType: Boolean = false)(using Context): Type =
       val paramRefsSpecialization = mutable.Map.empty[TypeParamRef, Type]
@@ -329,11 +332,18 @@ object Scala2SpecializationForStdLib:
                                       specialization: Specialization,
                                       superTypeName: Name)(using Context): ValDef =
       val originalSym = vd.symbol
-      val specName = specializedName(vd.name, specialization)
       val specInfo = specialize(originalSym.info, specialization, owner.typeRef)
-      val specSym = newSymbol(owner, specName, originalSym.flags | Synthetic, specInfo).entered
-      // vals only have a specialized form in the subtype,
-      ValDef(specSym, specialize(vd.rhs, specialization, Nil, superTypeName, owner))
+      // we can be in one of three cases:
+      // - param accessor that needs specialization => generate just the specialized form
+      // - param accessor that doesn't need specialization => generate just the override form
+      // - non-param accessor that needs specialization => generate just the specialized form
+      if specInfo =:= originalSym.info then
+        // must be a param accessor, or we wouldn't even be looking at this
+        ValDef(newSymbol(owner, vd.name, originalSym.flags | Synthetic | Override, specInfo).entered)
+      else
+        val specName = specializedName(vd.name, specialization)
+        val specSym = newSymbol(owner, specName, originalSym.flags | Synthetic, specInfo).entered
+        ValDef(specSym, specialize(vd.rhs, specialization, Nil, superTypeName, owner))
 
     private def specializedForSubType(dd: DefDef, owner: Symbol,
                                       specialization: Specialization, specializedMembers: List[ValOrDefDef],
