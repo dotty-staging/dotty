@@ -145,10 +145,14 @@ object Scala2SpecializationForStdLib:
             val subTypeSymbol = newCompleteClassSymbol(
               superTypeSymbol.owner,
               subTypeName,
-              superTypeSymbol.flags | Synthetic,
+              // case-to-case inheritance is prohibited so never create a case class
+              (superTypeSymbol.flags &~ CaseClass) | Synthetic,
               // for traits, Object must be their first supertype;
-              // for classes, the supertype we're specializing must be first so that constructor arguments are forwarded properly.
-              if superTypeSymbol.is(Trait) then superTypeParents :+ directParent else directParent :: superTypeParents,
+              // for classes, the supertype we're specializing must be first so that constructor arguments are forwarded properly,
+              // and we don't want to inherit from their own class supertype
+              if superTypeSymbol.is(Trait)
+              then superTypeParents :+ directParent
+              else directParent :: superTypeParents.tail,
               subTypeDecls
             ).entered
             // Create members with the opposite forwarding direction as the supertype,
@@ -283,7 +287,7 @@ object Scala2SpecializationForStdLib:
                            superTypeName: Name, subTypeSymbol: Symbol)(using Context): Tree =
       val map = new TreeMap:
         override def transform(tree: tpd.Tree)(using Context): tpd.Tree = tree match
-          case s @ Select(This(Ident(t)), name) if t == superTypeName =>
+          case s @ Select(This(Ident(t)), name) if t == superTypeName || t.isEmpty =>
             val replacementName =
               specializedMembers.collectFirst { case m if m.name == name => specializedName(name, specialization) } match
                 case Some(n) => n
