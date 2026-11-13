@@ -34,9 +34,8 @@ object Scala2SpecializationForStdLib:
    *    (This must come after the Constructors phase, which creates primary constructors)
    * 4. Generate specialized subclasses:
    *    a. handle 'final' classes:
-   *      i. the original class must not be `final` when typed
-   *      ii. the original class must be 'final' when pickled if it was declared as such
-   *      iii. the original class must not be 'final' when emitted
+   *      i. the original class must be 'final' when pickled if it was declared as such
+   *      ii. the original class must not be 'final' when emitted
    *    b. subclass methods work in the opposite way: the unspecialized versions delegates via boxing/unboxing to their specialized form
    *    c. subclass `specInstance$` methods return `true`
    *    d. subclass constructors are a specialized form of the super one (it calls the super one, which will have no effect due to the `specInstance$` check)
@@ -353,7 +352,7 @@ object Scala2SpecializationForStdLib:
       val newDef = DefDef(newSym, paramss => paramss.foldLeft(ref(specSym)) { case (fn, args) => fn.appliedToArgs(args) })
       List(specDef, newDef)
 
-  /** Removes 'final' from specializable classes (step 4.a.iii) */
+  /** Removes 'final' from specializable classes (step 4.a.ii) */
   final class PostPickler extends Phase:
     import tpd.*
 
