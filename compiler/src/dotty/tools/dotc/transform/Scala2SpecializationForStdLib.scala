@@ -146,7 +146,9 @@ object Scala2SpecializationForStdLib:
               superTypeSymbol.owner,
               subTypeName,
               superTypeSymbol.flags | Synthetic,
-              directParent :: superTypeParents,
+              // for traits, Object must be their first supertype;
+              // for classes, the supertype we're specializing must be first so that constructor arguments are forwarded properly.
+              if superTypeSymbol.is(Trait) then superTypeParents :+ directParent else directParent :: superTypeParents,
               subTypeDecls
             ).entered
             // Create members with the opposite forwarding direction as the supertype,
@@ -164,8 +166,7 @@ object Scala2SpecializationForStdLib:
                 specializedMemberVals ++ specializedMemberDefs
             val constrInfo = specialize(superTypeConstrSymbol.info, spec, superTypeSymbol.typeRef, topLevelPolyType = true)
             val constrSymbol = newSymbol(subTypeSymbol, nme.CONSTRUCTOR, superTypeConstrSymbol.flags | Synthetic, constrInfo).entered
-            val constructorTermArgs = constrSymbol.paramSymss.flatten.filterNot(_.isType)
-            val parentArgs = members.take(constructorTermArgs.size).map(m => ref(m.symbol))
+            val parentArgs = members.map(_.symbol).filter(_.is(ParamAccessor)).map(ref)
             val constrDef = DefDef(constrSymbol)
             ClassDef(subTypeSymbol, constrDef, members, parentArgs)
           )

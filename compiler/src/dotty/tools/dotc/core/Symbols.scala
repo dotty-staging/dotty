@@ -52,7 +52,7 @@ object Symbols extends SymUtils {
 
     type ThisName <: Name
 
-    //assert(id != 9655)
+    //assert(id != 723)
 
     def coord: Coord = myCoord
 
