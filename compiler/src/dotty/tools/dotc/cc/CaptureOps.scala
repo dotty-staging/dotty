@@ -936,6 +936,12 @@ class CapturingToRetains(using Context) extends TypeMap:
   def apply(tp: Type): Type = tp match
     case AnnotatedType(parent, annot: CaptureAnnotation) =>
       AnnotatedType(apply(parent), annot.toRetaining)
+    case defn.RefinedFunctionOf(rinfo: MethodType) =>
+      // The parent of a dependent function type can share capture set variables
+      // with its method type, so it can refer to the parameters of that type.
+      // It is computed anew from the mapped method type.
+      val rinfo1 = apply(rinfo)
+      if rinfo1 eq rinfo then tp else rinfo1.toFunctionType(alwaysDependent = true)
     case _ =>
       mapOver(tp)
 
