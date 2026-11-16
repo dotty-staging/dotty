@@ -1746,10 +1746,114 @@ class CheckCaptures extends Recheck, SymTransformer:
           true
         case _ =>
           false
+      val (resultPattern, typeArgs) = closureTypeArgs(tree)
+      for case (_, _, closureDef(mdef)) <- typeArgs do
+        curriedClosures += mdef.symbol // before `op`, which rechecks the closure
       val tp = op
       if fromClosure then
         tree.tpt.updNuType(withFormalsOf(tree.tpt.nuType, tree.rhs.nuType))
+      if typeArgs.nonEmpty then
+        for (_, targ, closure) <- typeArgs do
+          // The closure conforms to the type argument, so its parameter types are upper
+          // bounds of those of the type argument. Make them lower bounds as well.
+          val targType = targ.nuType
+          isCompatible(targType, withFormalsOf(targType, closure.nuType))
+
+        /** `declared` with the parameter types of the closures in `typeArgs` where
+         *  `pattern`, the result type of the applied method, has their type parameters.
+         */
+        def withFormalsOfTypeArgs(declared: Type, pattern: Type): Type = pattern match
+          case pattern: TypeParamRef =>
+            typeArgs.find(_._1 eq pattern) match
+              case Some((_, _, closure)) => withFormalsOf(declared, closure.nuType)
+              case None => declared
+          case AppliedType(ptycon, pargs) =>
+            declared match
+              case declared @ CapturingType(parent, refs) =>
+                declared.derivedCapturingType(withFormalsOfTypeArgs(parent, pattern), refs)
+              case declared @ AppliedType(tycon, args)
+              if tycon.typeSymbol == ptycon.typeSymbol && args.hasSameLengthAs(pargs) =>
+                declared.derivedAppliedType(tycon, args.zipWithConserve(pargs)(withFormalsOfTypeArgs))
+              case _ => declared
+          case _ => declared
+
+        tree.tpt.updNuType(withFormalsOfTypeArgs(tree.tpt.nuType, resultPattern))
       tp
+
+    /** If the right-hand side of definition `tree` is an application `m[Ts](args)`,
+     *  the result type of `m` and, for each inferred type argument in `Ts` that is
+     *  the type of a closure in `args`, the type parameter, the type argument
+     *  and the closure. An example is
+     *
+     *      val b = Box([C^] => (f: File^{C}) => f)
+     *
+     *  Such a type argument takes its parameter types from the closure, and so does
+     *  the type of the definition where it contains the type argument. This is as for
+     *  a definition with a closure as right-hand side, see `withFormalsOfClosure`.
+     *  As parts of inferred types, these parameter types would be capture set variables,
+     *  which have the parameter types of the closure as upper bounds only. So they would
+     *  stay empty where the type argument is used invariantly.
+     *
+     *  This is done only if the type argument comes from the closure alone, and only
+     *  for definitions with inferred types that are not visible in other compilation units.
+     */
+    private def closureTypeArgs(tree: ValOrDefDef)(using Context): (Type, List[(TypeParamRef, Tree, Tree)]) =
+      val sym = tree.symbol
+      // Is the right hand side typed against an expected type, so that a type argument
+      // could come from it instead of from a closure? See `Namer.inferredType`.
+      def rhsHasExpectedType =
+        sym.is(Synthetic)                   // anonymous functions, lifted arguments
+        || sym.allOverriddenSymbols.hasNext // the type of the overridden member
+        || sym.name.is(DefaultGetterName)   // the type of the parameter
+      def sameInTyper(tp1: Type, tp2: Type) =
+        (tp1 =:= tp2)(using ctx.withPhase(Phases.typerPhase))
+      tree.rhs match
+        case app @ Apply(TypeApply(fn0, targs), args)
+        if tree.tpt.isInstanceOf[InferredTypeTree]
+            && sym.isExemptFromExplicitChecks
+            && !rhsHasExpectedType
+            && sameInTyper(app.tpe.widen, tree.tpt.tpe) =>
+          fn0.tpe.widen match
+            case poly @ PolyType(_, mt: MethodType) if args.hasSameLengthAs(mt.paramInfos) =>
+              def mentions(tp: Type, prefs: List[TypeParamRef]) = tp.existsPart(prefs.contains)
+
+              def hasExplicitParams(tree: Tree): Boolean = tree match
+                case closureDef(mdef) =>
+                  mdef.termParamss.forall(_.forall(!_.tpt.isInstanceOf[InferredTypeTree]))
+                  && hasExplicitParams(mdef.rhs)
+                case _ => true
+
+              /** The closure argument whose formal parameter type is `pref`, `pref | Null` or
+               *  `pref*` with a single argument, provided that no other formal parameter type
+               *  mentions `pref`, that the result type mentions `pref`, and that no bound relates
+               *  `pref` to a type parameter. EmptyTree otherwise. If the result type does not
+               *  mention `pref`, as in `def indexOf[B >: A](elem: B): Int`, the type of the
+               *  definition does not keep the type argument.
+               */
+              def closureArgFor(pref: TypeParamRef): Tree =
+                val i = mt.paramInfos.indexWhere(mentions(_, pref :: Nil))
+                if i < 0
+                    || mt.paramInfos.drop(i + 1).exists(mentions(_, pref :: Nil))
+                    || !mentions(mt.resultType, pref :: Nil)
+                    || poly.paramInfos.exists(mentions(_, pref :: Nil))
+                    || mentions(poly.paramInfos(pref.paramNum), poly.paramRefs)
+                then EmptyTree
+                else (mt.paramInfos(i), args(i)) match
+                  case (`pref` | SimpleOrNull(`pref`), arg @ closureDef(_)) => arg
+                  case (formal, Typed(SeqLiteral((arg @ closureDef(_)) :: Nil, _), _))
+                  if formal.isRepeatedParam && formal.argTypes == pref :: Nil => arg
+                  case _ => EmptyTree
+
+              val typeArgs =
+                for
+                  (targ, pref) <- targs.zip(poly.paramRefs)
+                  closure = closureArgFor(pref)
+                  if targ.isInstanceOf[InferredTypeTree] && !closure.isEmpty
+                      && sameInTyper(closure.tpe.widen, targ.tpe) && hasExplicitParams(closure)
+                yield (pref, targ, closure)
+              (mt.resultType, typeArgs)
+            case _ => (NoType, Nil)
+        case _ => (NoType, Nil)
 
     /** The function type `declared` with its parameter types, and the bounds of its
      *  type parameters, replaced by those of the function type `closure`. If the

@@ -22,7 +22,7 @@
    |          Found:    (y : p.File^)
    |          Required: p.File^{x}
    |
-   |          Note that capability `y` cannot flow into capture set {x} of value b.
+   |          Note that capability `y` cannot flow into capture set {x}.
    |
    |          where:    ^ refers to a root capability in the type of parameter y
    |
