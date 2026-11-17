@@ -1828,16 +1828,14 @@ class CheckCaptures extends Recheck, SymTransformer:
      *   1. If val or def definition with inferred (result) type is visible
      *      in other compilation units, check that the actual inferred type
      *      conforms to the type seen in other compilation units, see `Setup.externalType`.
-     *      This ensures that if files compile separately, they will also compile
-     *      in a joint compilation. Conversely, check that the type seen in other
-     *      compilation units conforms to the inferred type. This catches inferred
-     *      capture sets in contravariant positions, as in `Some((f: File^{io}) => ())`,
-     *      which are dropped from the pickled type. Otherwise a client that compiles
-     *      together with the definition could fail to compile separately. Capturing
-     *      types written `T^` are pickled as they are, so `List((f: File^) => ())` and
-     *      `Ref(): Object^` are accepted. So are the parameter types of a closure on
-     *      the right-hand side, which the inferred type takes from the closure, see
-     *      `withFormalsOfClosure`.
+     *      This is needed since a unit that is checked before this one in the same
+     *      run sees the type that the typer inferred for the definition. Capturing
+     *      types written `T^` are part of that type, so `Ref(): Object^` is accepted.
+     *      So are the parameter types of a closure on the right-hand side, which the
+     *      inferred type takes from the closure, see `withFormalsOfClosure`.
+     *      The converse is not checked: inferred capture sets in contravariant
+     *      positions, as in `Some((f: File^{io}) => ())`, are in the type that the
+     *      typer inferred, and in the pickled type, see `setPickledTypes`.
      *   2. If a val has an inferred type with a terminal capability in its capture set,
      *      check that this capability is subsumed by the capset that was inferred
      *      for the class from its other fields via `captureSetImpliedByFields`.
@@ -1860,16 +1858,6 @@ class CheckCaptures extends Recheck, SymTransformer:
               | Inferred type          : ${tree.tpe}
               | Externally visible type: $expected""",
           tree.srcPos)
-
-      def failConverse(expected: Type): Unit =
-        def maybeResult = if sym.is(Method) then " result" else ""
-        report.error(
-          em"""$sym needs an explicit$maybeResult type because the type that is externally visible
-              |in other compilation units does not conform to the inferred type.
-              |
-              | Inferred type          : ${tree.tpt.nuType}
-              | Externally visible type: $expected""",
-          tree.rhs.srcPos)
 
       def addendum(expected: Type) = Note:
         def result = if tree.isInstanceOf[ValDef] then"" else " result"
@@ -1895,23 +1883,16 @@ class CheckCaptures extends Recheck, SymTransformer:
           then // Symbols that can't be seen outside the compilation unit can have inferred types
             // The externally visible type, with the parameter types of a closure on the
             // right-hand side, which the inferred type has as well
-            def externalType =
+            val expected =
               val tp = setup.externalType(tpt.tpe, sym)
               tree.rhs match
                 case closureDef(_) => withFormalsOf(tp, tree.rhs.nuType)
                 case _ => tp
-            val expected = externalType
             todoAtPostCheck += { () =>
               withGlobalCapAsRoot:
-                var conforms = true
-                testAdapted(tp, expected, tree.rhs, addendum(expected) :: Nil): (tree, expected, notes) =>
-                  conforms = false
-                  fail(tree, expected, notes)
+                testAdapted(tp, expected, tree.rhs, addendum(expected) :: Nil)(fail)
                 // The check that inferred <: expected is done after recheck so that it
                 // does not interfere with normal rechecking by constraining capture set variables.
-                if conforms then
-                  val visible = externalType
-                  if !(visible frozen_<:< tpt.nuType) then failConverse(visible)
             }
           // Test point (2) of doc comment above
           def isToplevelDefsInEmptyPackage(cls: Symbol) =

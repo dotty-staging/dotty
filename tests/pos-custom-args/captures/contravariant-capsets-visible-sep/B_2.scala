@@ -8,3 +8,6 @@ def use(io: File^) =
   O.hs.head(io)
   O.mkAny().get(io)
   val f: File^ = O.mkCov()
+  O.mk1(io).get(io)
+  O.mk2(io).get(io)
+  O.mk3(io).get(io)
